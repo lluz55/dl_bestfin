@@ -1,0 +1,147 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bestfin/features/reports/domain/models/report_models.dart';
+import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
+import 'package:bestfin/features/reports/presentation/widgets/line_chart_widget.dart';
+import 'package:bestfin/features/reports/presentation/widgets/comparison_indicator.dart';
+
+class NetWorthScreen extends ConsumerWidget {
+  const NetWorthScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reportAsync = ref.watch(netWorthProvider);
+
+    return reportAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Erro: $e')),
+      data: (report) => _NetWorthContent(report: report),
+    );
+  }
+}
+
+class _NetWorthContent extends StatelessWidget {
+  final NetWorthReport report;
+
+  const _NetWorthContent({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Current net worth hero
+        Card(
+          color: cs.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Patrimônio Líquido',
+                  style: tt.labelLarge?.copyWith(color: cs.onPrimaryContainer),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'R\$ ${(report.currentNetWorth / 100).toStringAsFixed(2)}',
+                  style: tt.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ComparisonIndicator(changePercent: report.changePercent),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Line chart
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Evolução do patrimônio', style: tt.titleMedium),
+                const SizedBox(height: 16),
+                NetWorthLineChartWidget(points: report.points),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Monthly breakdown
+        if (report.points.length >= 2)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Histórico mensal', style: tt.titleMedium),
+                  const SizedBox(height: 12),
+                  for (final item in List.generate(report.points.length, (i) {
+                    final p = report.points[i];
+                    final prev = i > 0 ? report.points[i - 1] : null;
+                    final change = prev != null && prev.netWorth != 0
+                        ? ((p.netWorth - prev.netWorth) / prev.netWorth.abs()) *
+                              100
+                        : 0.0;
+                    const months = [
+                      'Jan',
+                      'Fev',
+                      'Mar',
+                      'Abr',
+                      'Mai',
+                      'Jun',
+                      'Jul',
+                      'Ago',
+                      'Set',
+                      'Out',
+                      'Nov',
+                      'Dez',
+                    ];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 50,
+                            child: Text(
+                              '${months[p.date.month - 1]} ${p.date.year}',
+                              style: tt.labelSmall,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'R\$ ${(p.netWorth / 100).toStringAsFixed(2)}',
+                              style: tt.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (prev != null)
+                            ComparisonIndicator(
+                              changePercent: change,
+                              compact: true,
+                            ),
+                        ],
+                      ),
+                    );
+                  }).reversed)
+                    item,
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
