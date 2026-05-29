@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+
+import 'color_schemes.dart';
+import 'motion.dart';
+import 'shapes.dart';
+import 'typography.dart';
+
+class AppTheme {
+  static ThemeData build(ColorScheme scheme) {
+    final isLight = scheme.brightness == Brightness.light;
+    final baseCustom = isLight ? CustomColors.light : CustomColors.dark;
+    final custom = CustomColors.harmonized(baseCustom, scheme);
+
+    final tt = AppTypography.textTheme;
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      textTheme: tt,
+      appBarTheme: AppBarTheme(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: tt.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: scheme.onSurface,
+        ),
+        iconTheme: IconThemeData(color: scheme.onSurface),
+        actionsIconTheme: IconThemeData(color: scheme.onSurface),
+      ),
+      extensions: [
+        custom,
+        ExpressiveShapes.defaultShapes,
+        ExpressiveMotion.defaultMotion,
+      ],
+      cardTheme: CardThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.card,
+        ),
+        elevation: 0,
+        color: scheme.surfaceContainer,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: ExpressiveShapes.defaultShapes.button,
+          ),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: ExpressiveShapes.defaultShapes.button,
+          ),
+          elevation: 0,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: ExpressiveShapes.defaultShapes.button,
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.dialog,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.bottomSheet,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.chip,
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.chip,
+        ),
+        elevation: 0,
+        backgroundColor: scheme.surfaceContainer,
+      ),
+    );
+  }
+
+  static ThemeData get light => build(fallbackLight);
+  static ThemeData get dark => build(fallbackDark);
+}

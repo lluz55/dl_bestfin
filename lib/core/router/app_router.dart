@@ -1,0 +1,345 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/core/shell/app_shell.dart';
+import 'package:bestfin/features/accounts/presentation/screens/account_form_screen.dart';
+import 'package:bestfin/features/accounts/presentation/screens/accounts_list_screen.dart';
+import 'package:bestfin/features/dashboard/dashboard_screen.dart';
+import 'package:bestfin/features/gamification/presentation/screens/gamification_hub_screen.dart';
+import 'package:bestfin/features/more/presentation/screens/more_screen.dart';
+import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'package:bestfin/features/onboarding/presentation/screens/onboarding_screen.dart';
+import 'package:bestfin/features/installments/presentation/screens/installments_list_screen.dart';
+import 'package:bestfin/features/settings/presentation/screens/settings_screen.dart';
+import 'package:bestfin/features/transactions/presentation/screens/transaction_form_screen.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction.dart';
+import 'package:bestfin/features/transactions/presentation/screens/transactions_list_screen.dart';
+import 'package:bestfin/features/recurring/presentation/screens/recurring_list_screen.dart';
+import 'package:bestfin/features/recurring/presentation/screens/recurring_form_screen.dart';
+import 'package:bestfin/features/recurring/presentation/screens/subscriptions_hub_screen.dart';
+import 'package:bestfin/features/goals/domain/models/goal.dart';
+import 'package:bestfin/features/goals/presentation/screens/goals_list_screen.dart';
+import 'package:bestfin/features/goals/presentation/screens/goal_form_screen.dart';
+import 'package:bestfin/features/goals/presentation/screens/goal_detail_screen.dart';
+import 'package:bestfin/features/backup/presentation/screens/backup_screen.dart';
+import 'package:bestfin/features/reports/presentation/screens/reports_hub_screen.dart';
+import 'package:bestfin/features/investments/presentation/screens/portfolio_screen.dart';
+import 'package:bestfin/features/investments/presentation/screens/investment_form_screen.dart';
+import 'package:bestfin/features/investments/presentation/screens/investment_detail_screen.dart';
+import 'package:bestfin/features/financing/presentation/screens/financing_list_screen.dart';
+import 'package:bestfin/features/financing/presentation/screens/financing_form_screen.dart';
+import 'package:bestfin/features/financing/presentation/screens/financing_detail_screen.dart';
+import 'package:bestfin/features/notifications/presentation/screens/review_queue_screen.dart';
+import 'package:bestfin/features/notifications/presentation/screens/notification_settings_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/login_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/register_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/sync_settings_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/household_screen.dart';
+import 'package:bestfin/features/ai/presentation/screens/ai_dashboard_screen.dart';
+import 'package:bestfin/features/ai/presentation/widgets/ocr_scanner_widget.dart';
+import 'package:bestfin/features/categories/presentation/screens/categories_screen.dart';
+import 'package:bestfin/features/credit_cards/presentation/screens/credit_cards_list_screen.dart';
+import 'package:bestfin/features/credit_cards/presentation/screens/credit_card_form_screen.dart';
+import 'package:bestfin/features/credit_cards/presentation/screens/credit_card_detail_screen.dart';
+import 'package:bestfin/features/credit_cards/presentation/screens/invoice_detail_screen.dart';
+import 'package:bestfin/features/credit_cards/domain/models/credit_card.dart';
+import 'package:bestfin/features/security/presentation/screens/pin_setup_screen.dart';
+import 'package:bestfin/features/pdf_import/domain/models/pdf_parsed_transaction.dart';
+import 'package:bestfin/features/pdf_import/presentation/screens/pdf_import_screen.dart';
+import 'package:bestfin/features/pdf_import/presentation/screens/pdf_review_screen.dart';
+
+class _RouterNotifier extends ChangeNotifier {
+  bool _onboardingCompleted;
+
+  _RouterNotifier(this._onboardingCompleted);
+
+  void update(bool value) {
+    _onboardingCompleted = value;
+    notifyListeners();
+  }
+
+  bool get onboardingCompleted => _onboardingCompleted;
+}
+
+final _routerNotifierProvider = Provider<_RouterNotifier>((ref) {
+  final isCompleted = ref.read(onboardingCompletedProvider);
+  final notifier = _RouterNotifier(isCompleted);
+
+  ref.listen<bool>(
+    onboardingCompletedProvider,
+    (_, next) => notifier.update(next),
+  );
+  ref.onDispose(notifier.dispose);
+
+  return notifier;
+});
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final notifier = ref.watch(_routerNotifierProvider);
+
+  final router = GoRouter(
+    initialLocation: '/home',
+    refreshListenable: notifier,
+    redirect: (BuildContext context, GoRouterState state) {
+      final isOnboarding = state.matchedLocation.startsWith('/onboarding');
+      if (!notifier.onboardingCompleted) {
+        return isOnboarding ? null : '/onboarding';
+      }
+      return isOnboarding ? '/home' : null;
+    },
+    routes: [
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const DashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/transactions',
+                builder: (context, state) => const TransactionsListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/reports',
+                builder: (context, state) => const ReportsHubScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/more',
+                builder: (context, state) => const MoreScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/transaction/new',
+        builder: (context, state) {
+          final typeStr = state.uri.queryParameters['type'];
+          final isCloning = state.uri.queryParameters['isCloning'] == 'true';
+          final type = typeStr != null
+              ? TransactionType.fromString(typeStr)
+              : TransactionType.expense;
+          final prefilled = state.extra as TransactionModel?;
+          return TransactionFormScreen(
+            initialType: type,
+            transaction: prefilled,
+            isCloning: isCloning,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/transaction/edit',
+        builder: (context, state) {
+          final tx = state.extra as TransactionModel;
+          return TransactionFormScreen(transaction: tx);
+        },
+      ),
+      GoRoute(
+        path: '/accounts',
+        builder: (context, state) => const AccountsListScreen(),
+      ),
+      GoRoute(
+        path: '/accounts/new',
+        builder: (context, state) => const AccountFormScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/ai',
+        builder: (context, state) => const AiDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/ai/scan',
+        builder: (context, state) => const OcrScannerWidget(),
+      ),
+      GoRoute(
+        path: '/backup',
+        builder: (context, state) => const BackupScreen(),
+      ),
+      GoRoute(
+        path: '/installments',
+        builder: (context, state) => const InstallmentsListScreen(),
+      ),
+      GoRoute(
+        path: '/recurring',
+        builder: (context, state) => const RecurringListScreen(),
+      ),
+      GoRoute(
+        path: '/recurring/new',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return RecurringFormScreen(
+            prefillTransactionId: extra?['transactionId'] as String?,
+            prefillAmountInCents: extra?['amountInCents'] as int?,
+            prefillDescription: extra?['description'] as String?,
+            prefillType: extra?['type'] as TransactionType?,
+            prefillAccountId: extra?['accountId'] as String?,
+            prefillCategoryId: extra?['categoryId'] as String?,
+            prefillCategoryName: extra?['categoryName'] as String?,
+            prefillCategoryColor: extra?['categoryColor'] as String?,
+            prefillCategoryIcon: extra?['categoryIcon'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/recurring/subscriptions',
+        builder: (context, state) => const SubscriptionsHubScreen(),
+      ),
+      GoRoute(
+        path: '/goals',
+        builder: (context, state) => const GoalsListScreen(),
+      ),
+      GoRoute(
+        path: '/goals/new',
+        builder: (context, state) => const GoalFormScreen(),
+      ),
+      GoRoute(
+        path: '/goals/edit',
+        builder: (context, state) {
+          final goal = state.extra as GoalModel;
+          return GoalFormScreen(existingGoal: goal);
+        },
+      ),
+      GoRoute(
+        path: '/goals/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return GoalDetailScreen(goalId: id);
+        },
+      ),
+      GoRoute(
+        path: '/investments',
+        builder: (context, state) => const PortfolioScreen(),
+      ),
+      GoRoute(
+        path: '/investments/new',
+        builder: (context, state) => const InvestmentFormScreen(),
+      ),
+      GoRoute(
+        path: '/investments/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return InvestmentDetailScreen(investmentId: id);
+        },
+      ),
+      GoRoute(
+        path: '/financing',
+        builder: (context, state) => const FinancingListScreen(),
+      ),
+      GoRoute(
+        path: '/financing/new',
+        builder: (context, state) => const FinancingFormScreen(),
+      ),
+      GoRoute(
+        path: '/financing/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return FinancingDetailScreen(financingId: id);
+        },
+      ),
+      GoRoute(
+        path: '/notifications/review',
+        builder: (context, state) => const ReviewQueueScreen(),
+      ),
+      GoRoute(
+        path: '/notifications/settings',
+        builder: (context, state) => const NotificationSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/sync',
+        builder: (context, state) => const SyncSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/sync/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/sync/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/sync/household',
+        builder: (context, state) => const HouseholdScreen(),
+      ),
+      GoRoute(
+        path: '/gamification',
+        builder: (context, state) => const GamificationHubScreen(),
+      ),
+      GoRoute(
+        path: '/categories',
+        builder: (context, state) => const CategoriesScreen(),
+      ),
+      GoRoute(
+        path: '/credit-cards',
+        builder: (context, state) => const CreditCardsListScreen(),
+      ),
+      GoRoute(
+        path: '/credit-cards/new',
+        builder: (context, state) => const CreditCardFormScreen(),
+      ),
+      GoRoute(
+        path: '/credit-cards/edit',
+        builder: (context, state) {
+          final card = state.extra as CreditCardModel;
+          return CreditCardFormScreen(card: card);
+        },
+      ),
+      GoRoute(
+        path: '/credit-cards/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return CreditCardDetailScreen(cardId: id);
+        },
+      ),
+      GoRoute(
+        path: '/credit-cards/:cardId/invoices/:invoiceId',
+        builder: (context, state) {
+          final cardId = state.pathParameters['cardId']!;
+          final invoiceId = state.pathParameters['invoiceId']!;
+          return InvoiceDetailScreen(cardId: cardId, invoiceId: invoiceId);
+        },
+      ),
+      GoRoute(
+        path: '/security/pin-setup',
+        builder: (context, state) => const PinSetupScreen(),
+      ),
+      GoRoute(
+        path: '/pdf-import',
+        builder: (context, state) => const PdfImportScreen(),
+      ),
+      GoRoute(
+        path: '/pdf-import/review',
+        builder: (context, state) {
+          final transactions =
+              state.extra as List<PdfParsedTransaction>;
+          return PdfReviewScreen(transactions: transactions);
+        },
+      ),
+    ],
+  );
+
+  ref.onDispose(router.dispose);
+  return router;
+});
