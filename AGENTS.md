@@ -1,0 +1,143 @@
+# 🏦 BestFin — Diretrizes de Desenvolvimento (AGENTS.md)
+
+Este documento estabelece as diretrizes arquiteturais, de segurança, de estilo e de fluxo de trabalho que **todos os agentes de IA** e desenvolvedores devem seguir estritamente ao trabalhar no projeto **BestFin**.
+
+---
+
+## 🚀 1. Ambiente de Desenvolvimento (Nix Environment)
+
+O projeto utiliza **Nix Flakes** para garantir um ambiente consistente e reprodutível contendo as ferramentas exatas (Flutter, Android SDK, JDK e dependências de compilação Linux).
+
+> [!IMPORTANT]
+> **REGRA DE OURO PARA AGENTES:** Todos os comandos de terminal/shell **DEVEM** ser executados dentro do shell do Nix. Você deve prefixar todos os comandos com `nix develop -c`. **NÃO** execute comandos diretamente sem o prefixo.
+
+### Comandos Frequentes:
+*   **Obter dependências do Flutter:**
+    ```bash
+    nix develop -c flutter pub get
+    ```
+*   **Executar geração de código (Drift/Riverpod):**
+    ```bash
+    nix develop -c dart run build_runner build --delete-conflicting-outputs
+    ```
+*   **Executar geração de código em modo contínuo (Watch):**
+    ```bash
+    nix develop -c dart run build_runner watch --delete-conflicting-outputs
+    ```
+*   **Rodar os testes unitários/instrumentados:**
+    ```bash
+    nix develop -c flutter test
+    ```
+*   **Análise estática de código (Linter):**
+    ```bash
+    nix develop -c flutter analyze
+    ```
+*   **Formatação automática do código:**
+    ```bash
+    nix develop -c dart format .
+    ```
+*   **Limpar cache e build artifacts:**
+    ```bash
+    nix develop -c flutter clean
+    ```
+
+---
+
+## 🔒 2. Segurança e Privacidade
+
+Sendo o BestFin um aplicativo de finanças pessoais multiplataforma, a segurança dos dados financeiros e pessoais do usuário é a prioridade número um.
+
+### 2.1 Armazenamento de Dados Sensíveis
+*   **Dados Comuns (Não-sensíveis):** Utilize `shared_preferences` apenas para preferências de interface básicas (ex: escolha do tema escuro/claro, status do onboarding).
+*   **Dados Sensíveis (Credenciais, Chaves de API, PINs, Tokens):** Use obrigatoriamente `flutter_secure_storage`. Nunca salve essas informações no SQLite em formato aberto ou em preferências globais normais.
+*   **Banco de Dados Local (SQLite/Drift):** O banco de dados local deve ser mantido de forma segura na sandbox do aplicativo. Certifique-se de que caminhos sensíveis do banco de dados não sejam impressos em logs de produção.
+
+### 2.2 Autenticação Biométrica e PIN
+*   Telas confidenciais (ex: abertura do app, configurações de segurança) devem suportar autenticação biométrica via `local_auth` com fallback seguro para PIN local de 4 dígitos.
+*   A verificação de segurança deve ser reavaliada se o app for para segundo plano (background) por mais de **1 minuto**.
+
+### 2.3 Proteção Contra Injeção e Integridade do Banco
+*   Use a API do **Drift ORM** para consultas seguras e tipadas. Evite, a todo custo, escrever consultas SQL puras com concatenação manual de strings contendo input do usuário.
+*   Valide rigorosamente qualquer arquivo externo de importação (CSV/JSON) antes de inseri-lo no banco local para evitar injeções ou corrupção de tabelas.
+
+### 2.4 Vazamento de Credenciais
+*   **NUNCA** adicione chaves de API, senhas, tokens de build ou credenciais no repositório Git. Use arquivos `.env` ignorados no `.gitignore` ou injete-os na compilação usando `--dart-define`.
+
+---
+
+## 🧼 3. Código Limpo e Compartilhável (Clean & Shareable)
+
+Para garantir que o código seja legível, modular e fácil de manter por humanos e por outros agentes, siga as convenções abaixo.
+
+### 3.1 Geração de Código (`build_runner`)
+*   O projeto usa geradores de código extensivamente para Drift e Riverpod.
+*   **NUNCA** edite arquivos gerados (`*.g.dart`, `*.freezed.dart`) diretamente. Suas alterações serão perdidas na próxima execução do `build_runner`.
+*   Sempre configure o analisador estático para excluir esses arquivos (`analysis_options.yaml` já está configurado para isso).
+
+### 3.2 Padrões de Estilo do Código (Dart & Flutter)
+*   **Strings:** Use aspas simples preferencialmente (`prefer_single_quotes`).
+*   **Imports:** Use caminhos de pacote absolutos (`always_use_package_imports`), ex: `import 'package:bestfin/core/theme/app_theme.dart';`. Evite caminhos relativos como `import '../../core/theme/...`.
+*   **Constantes:** Use o construtor `const` onde for possível para otimizar a renderização de widgets (`prefer_const_constructors`).
+*   **Operações Assíncronas:** Se chamar uma função assíncrona cujo resultado não precisa ser aguardado diretamente, anote a chamada explicitamente com `unawaited(...)` da biblioteca `dart:async` para sinalizar a intenção (`unawaited_futures`).
+*   **Prints:** Nunca use `print()` no código de produção. Para logs rápidos de depuração, use `debugPrint()` ou uma ferramenta apropriada de logs do projeto, eliminando-os antes de commitar.
+
+### 3.3 Preservação de Comentários
+*   **Mantenha a integridade da documentação existente.** Nunca remova docstrings ou comentários explicativos a menos que a lógica subjacente seja alterada ou explicitamente pedido.
+
+---
+
+## 🏛️ 4. Diretrizes Arquiteturais do Projeto (BestFin Specific)
+
+O BestFin utiliza uma arquitetura **Feature-First** integrada a uma estrutura de **Clean Architecture Leve**.
+
+```
+lib/
+├── core/                   # Recursos globais e compartilhados
+│   ├── database/           # Drift schema principal, tabelas e DAOs globais
+│   ├── theme/              # Design System M3 Expressive
+│   ├── widgets/            # UI Elements reusáveis globais (ex: amount_display.dart)
+│   └── utils/              # Formatadores de moeda, validadores, etc.
+└── features/               # Módulos funcionais e independentes (Ex: accounts)
+    ├── <feature_name>/
+        ├── presentation/   # Widgets, Views, Screens e Riverpod Providers
+        ├── domain/         # Entidades, Models puros e Regras de Negócio
+        └── data/           # DAOs específicos de features e implementações de repositório
+```
+
+### 4.1 Separação Rígida de Camadas
+1.  **Camada de Apresentação (Presentation):**
+    *   Widgets devem ser `StatelessWidget` ou `ConsumerWidget`/`ConsumerStatefulWidget` do Riverpod.
+    *   **Proibido:** Colocar lógica de cálculo financeiro ou chamadas de banco de dados diretamente dentro do método `build` de widgets. A UI deve apenas ler o estado e disparar eventos para os Providers.
+2.  **Camada de Estado (Riverpod Providers):**
+    *   Use a sintaxe moderna do **Riverpod Generator** com a anotação `@riverpod`. Evite os métodos legados `ChangeNotifier` ou `StateNotifier`.
+    *   Sempre verifique se o widget ainda está montado (`ref.mounted`) antes de aplicar o resultado de chamadas assíncronas no Notifier.
+3.  **Camada de Dados (Data & Drift):**
+    *   Interações de leitura e escrita no SQLite devem ocorrer apenas por meio de DAOs (`lib/core/database/daos/`) e expostas via Repositórios estruturados.
+
+### 4.2 Partida Dobrada (Double-Entry Bookkeeping)
+*   Como o aplicativo opera com contabilidade de partida dobrada, transações financeiras devem manter o equilíbrio contábil.
+*   Uma transação é composta de pelo menos duas entradas (`Entry`): um débito e um crédito.
+*   A soma dos valores de débito deve ser estritamente igual à soma dos valores de crédito. Valide essa equivalência no domínio antes de persistir no Drift.
+
+### 4.3 Design System (Material Design 3 Expressive)
+*   Siga fielmente as definições visuais especificadas em `lib/core/theme/`. Use cores dinâmicas adaptativas (`dynamic_color`), tipografia expressiva e curvas de animação harmônicas definidas no projeto.
+*   Não aplique estilos Inline de forma ad-hoc. Sempre consuma tokens do `Theme.of(context)`.
+*   **Padrões de Design:** Siga estritamente os padrões de design já estabelecidos neste arquivo (AGENTS.md) e no Design System do projeto para assegurar consistência visual e de experiência de usuário em todas as telas e componentes.
+
+---
+
+## 🛠️ 5. Fluxo de Trabalho Recomendado para Agentes
+
+Ao receber uma tarefa de codificação no BestFin, siga este fluxo passo a passo para minimizar erros de geração e dependências cruzadas:
+
+1.  **Planejar a Estrutura de Dados:**
+    *   Defina as novas tabelas Drift ou campos necessários em `lib/core/database/tables/`.
+    *   Execute o `build_runner` via `nix develop -c dart run build_runner build --delete-conflicting-outputs` para atualizar o banco de dados.
+2.  **Desenvolver a Lógica de Acesso aos Dados:**
+    *   Crie ou modifique o DAO correspondente e exponha os métodos necessários para a persistência.
+3.  **Criar a Camada de Estado (Riverpod Notifiers):**
+    *   Crie os providers necessários para gerenciar o estado da tela/regra de negócio. Use `@riverpod` e rode o build_runner novamente.
+4.  **Implementar a Interface de Usuário (UI):**
+    *   Crie os componentes visuais utilizando os tokens do `Theme` e consuma os providers Riverpod, seguindo os padrões de design estabelecidos.
+5.  **Verificar e Validar:**
+    *   Rode os linters (`nix develop -c flutter analyze`) e os testes (`nix develop -c flutter test`) para validar se tudo está funcionando como esperado e sem violações de estilo.

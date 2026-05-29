@@ -1,0 +1,9 @@
+targets:
+  $default:
+    builders:
+      riverpod_generator:
+        options:
+          # provider_name_prefix: "app"
+      drift_dev:
+        options:
+          # store_class_name: "AppDatabase"
