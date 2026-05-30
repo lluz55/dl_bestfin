@@ -25,6 +25,17 @@ class Goals extends Table {
   TextColumn get status => text().withDefault(
     const Constant('active'),
   )(); // active | completed | archived
+
+  /// Se true, a meta reseta automaticamente ao final de cada período.
+  BoolColumn get isRecurring =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Frequência de recorrência: monthly | quarterly | yearly
+  TextColumn get recurrenceFrequency => text().nullable()();
+
+  /// Início do período atual (usado para calcular quando resetar).
+  DateTimeColumn get periodStartDate => dateTime().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

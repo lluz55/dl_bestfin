@@ -30,6 +30,8 @@ import 'tables/sync_queue.dart';
 import 'tables/households.dart';
 import 'tables/streaks.dart';
 import 'tables/badges.dart';
+import 'tables/category_parents.dart';
+import 'tables/goal_categories.dart';
 
 // DAOs (To be added later)
 import 'daos/accounts_dao.dart';
@@ -74,6 +76,8 @@ part 'app_database.g.dart';
     HouseholdMembers,
     Streaks,
     Badges,
+    CategoryParents,
+    GoalCategories,
   ],
   daos: [
     AccountsDao,
@@ -99,7 +103,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -119,14 +123,26 @@ class AppDatabase extends _$AppDatabase {
                 color: c.color,
                 type: c.type.name,
                 isSystem: const Value(true),
-                parentId: c.parentId != null
-                    ? Value(c.parentId)
-                    : const Value.absent(),
                 description: c.description != null
                     ? Value(c.description)
                     : const Value.absent(),
               );
             }).toList(),
+          );
+        });
+
+        // Seed default category parent-child relationships
+        await batch((batch) {
+          batch.insertAll(
+            categoryParents,
+            SeedDataConstants.defaultCategoryRelationships
+                .map(
+                  (r) => CategoryParentsCompanion.insert(
+                    parentCategoryId: r.$1,
+                    childCategoryId: r.$2,
+                  ),
+                )
+                .toList(),
           );
         });
 
@@ -255,6 +271,20 @@ class AppDatabase extends _$AppDatabase {
             await (update(categories)..where((t) => t.id.equals(entry.key)))
                 .write(CategoriesCompanion(description: Value(entry.value)));
           }
+        }
+        if (from < 15) {
+          await m.createTable(categoryParents);
+          // Migrate existing parentId relationships to the junction table
+          await customStatement(
+            'INSERT OR IGNORE INTO category_parents (parent_category_id, child_category_id) '
+            'SELECT parent_id, id FROM categories WHERE parent_id IS NOT NULL',
+          );
+        }
+        if (from < 16) {
+          await m.createTable(goalCategories);
+          await m.addColumn(goals, goals.isRecurring);
+          await m.addColumn(goals, goals.recurrenceFrequency);
+          await m.addColumn(goals, goals.periodStartDate);
         }
       },
       beforeOpen: (details) async {
