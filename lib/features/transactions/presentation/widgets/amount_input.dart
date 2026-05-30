@@ -3,11 +3,14 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/numeric_keypad.dart';
 
-class AmountInput extends StatelessWidget {
+class AmountInput extends StatefulWidget {
   final int amountInCents;
   final ValueChanged<int> onChanged;
   final String label;
   final Color? color;
+  final bool autoOpen;
+  final VoidCallback? onConfirmed;
+  final FocusNode? focusNode;
 
   const AmountInput({
     super.key,
@@ -15,7 +18,49 @@ class AmountInput extends StatelessWidget {
     required this.onChanged,
     this.label = 'Valor',
     this.color,
+    this.autoOpen = false,
+    this.onConfirmed,
+    this.focusNode,
   });
+
+  @override
+  State<AmountInput> createState() => _AmountInputState();
+}
+
+class _AmountInputState extends State<AmountInput> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
+    _focusNode.addListener(_onFocusChange);
+    if (widget.autoOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showKeypad(context);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _focusNode.hasFocus) {
+          _showKeypad(context);
+          _focusNode.unfocus();
+        }
+      });
+    }
+  }
 
   void _showKeypad(BuildContext context) {
     showModalBottomSheet(
@@ -23,8 +68,9 @@ class AmountInput extends StatelessWidget {
       isScrollControlled: true,
       builder: (context) {
         return _KeypadSheet(
-          initialAmountInCents: amountInCents,
-          onChanged: onChanged,
+          initialAmountInCents: widget.amountInCents,
+          onChanged: widget.onChanged,
+          onConfirmed: widget.onConfirmed,
         );
       },
     );
@@ -35,7 +81,7 @@ class AmountInput extends StatelessWidget {
     final cs = context.colorScheme;
     final tt = context.textTheme;
 
-    final displayColor = color ?? cs.primary;
+    final displayColor = widget.color ?? cs.primary;
 
     return GestureDetector(
       onTap: () => _showKeypad(context),
@@ -53,7 +99,7 @@ class AmountInput extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              label,
+              widget.label,
               style: tt.labelLarge?.copyWith(
                 color: displayColor.withValues(alpha: 0.7),
                 fontWeight: FontWeight.bold,
@@ -61,11 +107,11 @@ class AmountInput extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              CurrencyFormatter.formatCents(amountInCents),
+              CurrencyFormatter.formatCents(widget.amountInCents),
               style: tt.displayLarge?.copyWith(
                 color: displayColor,
                 fontWeight: FontWeight.w900,
-                fontSize: amountInCents.toString().length > 7 ? 36 : 44,
+                fontSize: widget.amountInCents.toString().length > 7 ? 36 : 44,
               ),
             ),
             const SizedBox(height: 4),
@@ -97,10 +143,12 @@ class AmountInput extends StatelessWidget {
 class _KeypadSheet extends StatefulWidget {
   final int initialAmountInCents;
   final ValueChanged<int> onChanged;
+  final VoidCallback? onConfirmed;
 
   const _KeypadSheet({
     required this.initialAmountInCents,
     required this.onChanged,
+    this.onConfirmed,
   });
 
   @override
@@ -113,17 +161,17 @@ class _KeypadSheetState extends State<_KeypadSheet> {
   @override
   void initState() {
     super.initState();
-    // Inicia com os dígitos atuais (em centavos)
     _digits = widget.initialAmountInCents == 0
         ? ''
         : widget.initialAmountInCents.toString();
   }
 
   void _handleKeyPress(String key) {
-    if (key == ',')
-      return; // Teclado opera de forma automática de centavos para reais
+    if (key == ',') return;
 
-    if (_digits == '0' && key == '0') return;
+    // Evita zeros à esquerda redundantes ou iniciais
+    if ((_digits.isEmpty || _digits == '0') && (key == '0' || key == '00'))
+      return;
 
     setState(() {
       _digits += key;
@@ -145,6 +193,11 @@ class _KeypadSheetState extends State<_KeypadSheet> {
   void _notifyChange() {
     final cents = int.tryParse(_digits) ?? 0;
     widget.onChanged(cents);
+  }
+
+  void _handleConfirm() {
+    widget.onConfirmed?.call();
+    Navigator.of(context).pop();
   }
 
   @override
@@ -189,7 +242,7 @@ class _KeypadSheetState extends State<_KeypadSheet> {
               NumericKeypad(
                 onKeyPressed: _handleKeyPress,
                 onDeletePressed: _handleDelete,
-                onConfirmPressed: () => Navigator.of(context).pop(),
+                onConfirmPressed: _handleConfirm,
               ),
             ],
           ),

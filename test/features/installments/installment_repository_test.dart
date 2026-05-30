@@ -140,4 +140,35 @@ void main() {
     expect(plans.first.paidInstallments, 1);
     expect(plans.first.isCompleted, false);
   });
+
+  test(
+    'createInstallmentPlan cleans duplicate suffixes and adds correct format',
+    () async {
+      final accountId = const Uuid().v4();
+      await db.accountsDao.insertAccount(
+        AccountsCompanion.insert(
+          id: accountId,
+          name: 'Test Account',
+          type: 'checking',
+        ),
+      );
+
+      // Pass description with pre-existing suffix
+      await repository.createInstallmentPlan(
+        baseDate: DateTime(2024, 1, 15),
+        description: 'Supermercado (1/10)',
+        totalAmount: 10000,
+        totalInstallments: 5,
+        accountId: accountId,
+      );
+
+      final plans = await repository.watchInstallmentPlans().first;
+      final plan = plans.first;
+
+      // Verify first transaction description is Supermercado (1/5)
+      expect(plan.transactions[0].description, 'Supermercado (1/5)');
+      // Verify future transaction description is Supermercado (2/5)
+      expect(plan.transactions[1].description, 'Supermercado (2/5)');
+    },
+  );
 }

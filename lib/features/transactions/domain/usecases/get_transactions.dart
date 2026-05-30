@@ -8,13 +8,15 @@ class GetTransactions {
 
   Stream<List<TransactionModel>> call({
     String? type,
-    String? accountId,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
     String? categoryId,
     DateTime? startDate,
     DateTime? endDate,
   }) {
     if (type == null &&
-        accountId == null &&
+        (accountIds == null || accountIds.isEmpty) &&
+        (creditCardIds == null || creditCardIds.isEmpty) &&
         categoryId == null &&
         startDate == null &&
         endDate == null) {
@@ -22,7 +24,8 @@ class GetTransactions {
     }
     return repository.watchTransactionsWithFilters(
       type: type,
-      accountId: accountId,
+      accountIds: accountIds,
+      creditCardIds: creditCardIds,
       categoryId: categoryId,
       startDate: startDate,
       endDate: endDate,

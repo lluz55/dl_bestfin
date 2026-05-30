@@ -18,6 +18,7 @@ abstract class InstallmentRepository {
     String? entityId,
     String? sentiment,
     String? notes,
+    String type = 'expense',
   });
 
   Stream<List<InstallmentPlanModel>> watchInstallmentPlans();
@@ -41,6 +42,7 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
     String? entityId,
     String? sentiment,
     String? notes,
+    String type = 'expense',
   }) async {
     if (totalInstallments < 2) {
       throw ArgumentError('Parcelamento requer pelo menos 2 parcelas');
@@ -51,6 +53,10 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
 
     final baseValue = totalAmount ~/ totalInstallments;
     final remainder = totalAmount % totalInstallments;
+    final entryType = type == 'income' ? 'debit' : 'credit';
+    final cleanDesc = description
+        .replaceAll(RegExp(r'\s*\(\d+/\d+\)$'), '')
+        .trim();
 
     await _database.transaction(() async {
       // Create the first transaction (origin)
@@ -62,8 +68,8 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
             db.TransactionsCompanion.insert(
               id: originTxId,
               date: baseDate,
-              description: '$description (1/$totalInstallments)',
-              type: 'expense',
+              description: '$cleanDesc (1/$totalInstallments)',
+              type: type,
               sentiment: Value(sentiment),
               notes: Value(notes),
               categoryId: Value(categoryId),
@@ -81,7 +87,7 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
               transactionId: originTxId,
               accountId: accountId,
               amount: baseValue,
-              type: 'credit',
+              type: entryType,
             ),
           );
 
@@ -125,8 +131,8 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
               db.TransactionsCompanion.insert(
                 id: txId,
                 date: installmentDate,
-                description: '$description ($i/$totalInstallments)',
-                type: 'expense',
+                description: '$cleanDesc ($i/$totalInstallments)',
+                type: type,
                 sentiment: Value(sentiment),
                 notes: Value(notes),
                 categoryId: Value(categoryId),
@@ -145,7 +151,7 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
                 transactionId: txId,
                 accountId: accountId,
                 amount: value,
-                type: 'credit',
+                type: entryType,
               ),
             );
       }

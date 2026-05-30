@@ -18,6 +18,7 @@ class UpdateTransaction {
     String? sentiment,
     String? notes,
     String? goalId,
+    String? creditCardId,
   }) {
     return repository.updateTransaction(
       id: id,
@@ -32,6 +33,7 @@ class UpdateTransaction {
       sentiment: sentiment,
       notes: notes,
       goalId: goalId,
+      creditCardId: creditCardId,
     );
   }
 }

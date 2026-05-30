@@ -61,13 +61,6 @@ class TransactionTypeTabs extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: selectedTabColor,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: selectedTabColor.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
                 ),
               ),

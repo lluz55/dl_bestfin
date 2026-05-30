@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/transactions/data/repositories/transaction_repository.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
 import 'package:bestfin/features/transactions/domain/usecases/create_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/update_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/delete_transaction.dart';
@@ -33,14 +34,16 @@ final getTransactionsProvider = Provider<GetTransactions>((ref) {
 // Filtros de busca
 class TransactionFilters {
   final String? type;
-  final String? accountId;
+  final List<String> accountIds;
+  final List<String> creditCardIds;
   final String? categoryId;
   final DateTime? startDate;
   final DateTime? endDate;
 
   const TransactionFilters({
     this.type,
-    this.accountId,
+    this.accountIds = const [],
+    this.creditCardIds = const [],
     this.categoryId,
     this.startDate,
     this.endDate,
@@ -48,18 +51,21 @@ class TransactionFilters {
 
   TransactionFilters copyWith({
     String? type,
-    String? accountId,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
     String? categoryId,
     DateTime? startDate,
     DateTime? endDate,
     bool clearType = false,
-    bool clearAccount = false,
+    bool clearAccounts = false,
+    bool clearCreditCards = false,
     bool clearCategory = false,
     bool clearDate = false,
   }) {
     return TransactionFilters(
       type: clearType ? null : (type ?? this.type),
-      accountId: clearAccount ? null : (accountId ?? this.accountId),
+      accountIds: clearAccounts ? const [] : (accountIds ?? this.accountIds),
+      creditCardIds: clearCreditCards ? const [] : (creditCardIds ?? this.creditCardIds),
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       startDate: clearDate ? null : (startDate ?? this.startDate),
       endDate: clearDate ? null : (endDate ?? this.endDate),
@@ -68,7 +74,8 @@ class TransactionFilters {
 
   bool get isEmpty =>
       type == null &&
-      accountId == null &&
+      accountIds.isEmpty &&
+      creditCardIds.isEmpty &&
       categoryId == null &&
       startDate == null &&
       endDate == null;
@@ -84,6 +91,7 @@ class TransactionFiltersNotifier extends Notifier<TransactionFilters> {
     state = cb(state);
   }
 
+  @override
   set state(TransactionFilters value) {
     super.state = value;
   }
@@ -103,12 +111,54 @@ final filteredTransactionsProvider = StreamProvider<List<TransactionModel>>((
 
   return getTransactions(
     type: filters.type,
-    accountId: filters.accountId,
+    accountIds: filters.accountIds,
+    creditCardIds: filters.creditCardIds,
     categoryId: filters.categoryId,
     startDate: filters.startDate,
     endDate: filters.endDate,
   );
 });
+
+final transactionDeleteContextProvider =
+    FutureProvider.family<TransactionDeleteContext, String>((ref, txId) {
+      return ref.watch(transactionRepositoryProvider).getDeleteContext(txId);
+    });
+
+final deleteInstallmentSingleProvider = Provider<Future<void> Function(String)>(
+  (ref) {
+    return ref.watch(transactionRepositoryProvider).deleteInstallmentSingle;
+  },
+);
+
+final deleteInstallmentFromHereProvider =
+    Provider<Future<void> Function(String, String)>((ref) {
+      return ref.watch(transactionRepositoryProvider).deleteInstallmentFromHere;
+    });
+
+final deleteInstallmentAllProvider = Provider<Future<void> Function(String)>((
+  ref,
+) {
+  return ref.watch(transactionRepositoryProvider).deleteInstallmentAll;
+});
+
+final deleteRecurringBaseAndFutureProvider =
+    Provider<Future<void> Function(String, String)>((ref) {
+      return ref
+          .watch(transactionRepositoryProvider)
+          .deleteRecurringBaseAndFuture;
+    });
+
+final deleteRecurringBaseAndAllProvider =
+    Provider<Future<void> Function(String, String)>((ref) {
+      return ref.watch(transactionRepositoryProvider).deleteRecurringBaseAndAll;
+    });
+
+final deleteRecurringCloneAndFutureProvider =
+    Provider<Future<void> Function(String, String, DateTime)>((ref) {
+      return ref
+          .watch(transactionRepositoryProvider)
+          .deleteRecurringCloneAndFuture;
+    });
 
 final recentDescriptionsProvider =
     FutureProvider.family<List<String>, ({String query, String? type})>((

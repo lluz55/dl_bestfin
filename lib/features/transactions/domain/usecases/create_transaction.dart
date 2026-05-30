@@ -17,6 +17,7 @@ class CreateTransaction {
     String? sentiment,
     String? notes,
     String? goalId,
+    String? creditCardId,
     bool isCompleted = true,
   }) {
     return repository.createTransaction(
@@ -31,6 +32,7 @@ class CreateTransaction {
       sentiment: sentiment,
       notes: notes,
       goalId: goalId,
+      creditCardId: creditCardId,
     );
   }
 }

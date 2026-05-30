@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_tile.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_filters.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
 
 class TransactionsListScreen extends ConsumerWidget {
   const TransactionsListScreen({super.key});
@@ -42,17 +45,22 @@ class TransactionsListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = context.theme;
     final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final shapes = context.shapes;
+    final colors = context.customColors;
+    ref.watch(valuesHiddenProvider);
     final transactionsAsync = ref.watch(filteredTransactionsProvider);
     final filters = ref.watch(transactionFiltersProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Transações'),
+      appBar: const AppPageAppBar(
+        title: 'Transações',
+        showVisibilityToggle: true,
+      ),
       body: Column(
         children: [
-          // Row de filtros deslizantes
           const TransactionFiltersWidget(),
           const Divider(height: 1, thickness: 0.5),
           Expanded(
@@ -89,11 +97,14 @@ class TransactionsListScreen extends ConsumerWidget {
                     );
                   }
 
-                  // Agrupa e renderiza
                   final grouped = _groupTransactionsByDay(transactions);
                   final sortedDates = grouped.keys.toList();
+                  final List<Object> flatList = [];
+                  for (final dateKey in sortedDates) {
+                    flatList.add(dateKey);
+                    flatList.addAll(grouped[dateKey]!);
+                  }
 
-                  // Calcula receitas e despesas consolidadas do filtro
                   int totalIncomes = 0;
                   int totalExpenses = 0;
                   for (final tx in transactions) {
@@ -106,7 +117,7 @@ class TransactionsListScreen extends ConsumerWidget {
 
                   return CustomScrollView(
                     slivers: [
-                      // Resumo consolidado do período/filtros
+                      // Resumo consolidado do período
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -114,7 +125,7 @@ class TransactionsListScreen extends ConsumerWidget {
                             elevation: 0,
                             color: cs.surfaceContainerHigh,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: shapes.card,
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
@@ -128,24 +139,30 @@ class TransactionsListScreen extends ConsumerWidget {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            'Receitas',
-                                            style: theme.textTheme.labelMedium
-                                                ?.copyWith(
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.arrow_downward_rounded,
+                                                size: 12,
+                                                color: colors.income,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Receitas',
+                                                style: tt.labelMedium?.copyWith(
                                                   color: cs.onSurfaceVariant,
                                                   fontWeight: FontWeight.bold,
                                                 ),
+                                              ),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           AmountDisplay(
                                             amountInCents: totalIncomes,
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                  color: context
-                                                      .customColors
-                                                      .income,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
+                                            color: colors.income,
+                                            style: tt.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                             showSign: false,
                                           ),
                                         ],
@@ -159,50 +176,65 @@ class TransactionsListScreen extends ConsumerWidget {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.end,
                                         children: [
-                                          Text(
-                                            'Despesas',
-                                            style: theme.textTheme.labelMedium
-                                                ?.copyWith(
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.arrow_upward_rounded,
+                                                size: 12,
+                                                color: colors.expense,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Despesas',
+                                                style: tt.labelMedium?.copyWith(
                                                   color: cs.onSurfaceVariant,
                                                   fontWeight: FontWeight.bold,
                                                 ),
+                                              ),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           AmountDisplay(
                                             amountInCents: totalExpenses,
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                  color: context
-                                                      .customColors
-                                                      .expense,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
+                                            color: colors.expense,
+                                            style: tt.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                             showSign: false,
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                  const Divider(height: 24, thickness: 0.5),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: Divider(
+                                      height: 24,
+                                      thickness: 1,
+                                      color: cs.outlineVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
+                                  ),
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         'Saldo do Período',
-                                        style: theme.textTheme.labelMedium
-                                            ?.copyWith(
-                                              color: cs.onSurface,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                        style: tt.labelSmall?.copyWith(
+                                          color: cs.onSurfaceVariant,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                       AmountDisplay(
                                         amountInCents:
                                             totalIncomes - totalExpenses,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                            ),
+                                        style: tt.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -212,70 +244,37 @@ class TransactionsListScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
+
                       // Listagem agrupada
-                      for (final dateKey in sortedDates) ...[
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  DateFormatter.formatRelativeDate(
-                                    grouped[dateKey]!.first.date,
-                                  ),
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                                Text(
-                                  CurrencyFormatter.formatCents(
-                                    _calculateDayNet(grouped[dateKey]!),
-                                  ),
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        _calculateDayNet(grouped[dateKey]!) >= 0
-                                        ? context.customColors.income
-                                        : context.customColors.expense,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final tx = grouped[dateKey]![index];
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final item = flatList[index];
+                          if (item is String) {
+                            final dateKey = item;
+                            final txs = grouped[dateKey]!;
+                            return _DayGroupHeader(
+                              dateKey: dateKey,
+                              transactions: txs,
+                              dayNet: _calculateDayNet(txs),
+                              cs: cs,
+                              colors: colors,
+                            );
+                          } else {
+                            final tx = item as TransactionModel;
                             return TransactionTile(
                               transaction: tx,
-                              onTap: () => context.push('/transaction/edit', extra: tx),
+                              onTap: () =>
+                                  context.push('/transaction/edit', extra: tx),
                               onClone: () => context.push(
                                 '/transaction/new?isCloning=true',
                                 extra: tx,
                               ),
-                              onDelete: () async {
-                                await ref.read(deleteTransactionProvider)(
-                                  tx.id,
-                                );
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Transação excluída com sucesso.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
+                              onDelete: () =>
+                                  showDeleteTransactionSheet(context, ref, tx),
                             );
-                          }, childCount: grouped[dateKey]!.length),
-                        ),
-                      ],
+                          }
+                        }, childCount: flatList.length),
+                      ),
                       const SliverToBoxAdapter(child: SizedBox(height: 100)),
                     ],
                   );
@@ -288,6 +287,88 @@ class TransactionsListScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DayGroupHeader extends StatelessWidget {
+  const _DayGroupHeader({
+    required this.dateKey,
+    required this.transactions,
+    required this.dayNet,
+    required this.cs,
+    required this.colors,
+  });
+
+  final String dateKey;
+  final List<TransactionModel> transactions;
+  final int dayNet;
+  final ColorScheme cs;
+  final dynamic colors;
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isToday = _isToday(transactions.first.date);
+    final label = DateFormatter.formatRelativeDate(transactions.first.date);
+    final isPositive = dayNet >= 0;
+    final netColor = isPositive ? colors.income : colors.expense;
+    final prefix = isPositive ? '+' : '−';
+    final absNet = dayNet.abs();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? cs.primaryContainer
+                      : cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isToday ? cs.onPrimaryContainer : cs.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                '$prefix${CurrencyFormatter.formatCents(absNet)}',
+                style: AppTypography.monospace.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: netColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ],
     );
   }
 }

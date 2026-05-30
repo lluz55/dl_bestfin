@@ -14,6 +14,12 @@ class TransactionModel {
   final String? categoryId;
   final String? entityId;
   final String? goalId;
+  final String? installmentPlanId;
+  final int? installmentNumber;
+  final String? recurringRuleId;
+  final String? creditCardId;
+  final int? rawAmount;
+  final String? invoiceId;
   final bool isCompleted;
   final bool isConfirmed;
   final String? source;
@@ -35,6 +41,12 @@ class TransactionModel {
     this.categoryId,
     this.entityId,
     this.goalId,
+    this.installmentPlanId,
+    this.installmentNumber,
+    this.recurringRuleId,
+    this.creditCardId,
+    this.rawAmount,
+    this.invoiceId,
     required this.isCompleted,
     this.isConfirmed = true,
     this.source,
@@ -61,6 +73,12 @@ class TransactionModel {
       categoryId: tx.categoryId,
       entityId: tx.entityId,
       goalId: tx.goalId,
+      installmentPlanId: tx.installmentPlanId,
+      installmentNumber: tx.installmentNumber,
+      recurringRuleId: tx.recurringRuleId,
+      creditCardId: tx.creditCardId,
+      rawAmount: tx.rawAmount,
+      invoiceId: tx.invoiceId,
       isCompleted: tx.isCompleted,
       isConfirmed: tx.isConfirmed,
       source: tx.source,
@@ -74,9 +92,8 @@ class TransactionModel {
 
   /// Retorna o valor monetário da transação
   int get amount {
-    if (entries.isEmpty) return 0;
-    // O valor em partida dobrada é o valor de qualquer um dos lançamentos atrelados (ex: débito ou crédito)
-    return entries.first.amount;
+    if (entries.isNotEmpty) return entries.first.amount;
+    return rawAmount ?? 0;
   }
 
   /// Retorna o ID da conta principal envolvida

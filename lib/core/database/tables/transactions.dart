@@ -1,8 +1,17 @@
 import 'package:drift/drift.dart';
 import 'categories.dart';
+import 'credit_cards.dart';
 import 'entities.dart';
 import 'goals.dart';
+import 'invoices.dart';
 
+@TableIndex(
+  name: 'transactions_confirmed_date_idx',
+  columns: {#isConfirmed, #date},
+)
+@TableIndex(name: 'transactions_category_idx', columns: {#categoryId})
+@TableIndex(name: 'transactions_entity_idx', columns: {#entityId})
+@TableIndex(name: 'transactions_goal_idx', columns: {#goalId})
 @DataClassName('Transaction')
 class Transactions extends Table {
   TextColumn get id => text()();
@@ -22,13 +31,22 @@ class Transactions extends Table {
     #id,
     onDelete: KeyAction.setNull,
   )();
-  TextColumn get goalId => text().nullable().references(
-    Goals,
+  TextColumn get goalId =>
+      text().nullable().references(Goals, #id, onDelete: KeyAction.setNull)();
+  TextColumn get installmentPlanId => text().nullable()();
+  IntColumn get installmentNumber => integer().nullable()();
+  TextColumn get recurringRuleId => text().nullable()();
+  TextColumn get creditCardId => text().nullable().references(
+    CreditCards,
     #id,
     onDelete: KeyAction.setNull,
   )();
-  TextColumn get installmentPlanId => text().nullable()();
-  IntColumn get installmentNumber => integer().nullable()();
+  IntColumn get rawAmount => integer().nullable()(); // centavos; preenchido quando não há entries (CC)
+  TextColumn get invoiceId => text().nullable().references(
+    Invoices,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
 
   BoolColumn get isCompleted => boolean().withDefault(const Constant(true))();
   BoolColumn get isConfirmed => boolean().withDefault(const Constant(true))();
