@@ -9,7 +9,6 @@ import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
-import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 
 class TransactionTile extends ConsumerWidget {
@@ -77,16 +76,15 @@ class TransactionTile extends ConsumerWidget {
       Widget baseIcon;
       if (transaction.category != null) {
         final cat = transaction.category!;
-        CategoryModel? parent;
-        if (cat.parentId != null) {
-          final allCategories = ref.read(allFlatCategoriesProvider);
-          parent = allCategories.where((c) => c.id == cat.parentId).firstOrNull;
-        }
+        // Look up the enriched category from the tree to get parent info
+        final allCategories = ref.watch(allFlatCategoriesProvider);
+        final enrichedCat =
+            allCategories.where((c) => c.id == cat.id).firstOrNull ?? cat;
         baseIcon = CategoryIcon(
-          icon: cat.icon,
-          color: cat.color,
-          parentIcon: parent?.icon,
-          parentColor: parent?.color,
+          icon: enrichedCat.icon,
+          color: enrichedCat.color,
+          parentIcon: enrichedCat.parentIcon,
+          parentColor: enrichedCat.parentColor,
           size: 44,
         );
       } else {

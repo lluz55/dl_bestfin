@@ -479,9 +479,33 @@ class TransactionRepositoryImpl implements TransactionRepository {
       // 4. Atualiza progresso da meta se vinculada
       if (goalId != null) {
         await _updateGoalProgress(goalId, amount, type);
+      } else if (categoryId != null) {
+        // Auto-absorção: procura goals ativos que absorvem essa categoria
+        await _applyGoalAutoAbsorption(transactionId, categoryId, amount, type);
       }
     });
     return transactionId;
+  }
+
+  /// Aplica auto-absorção: liga a transação ao primeiro goal ativo que
+  /// absorve [categoryId] e atualiza o progresso do goal.
+  Future<void> _applyGoalAutoAbsorption(
+    String transactionId,
+    String categoryId,
+    int amount,
+    String type,
+  ) async {
+    final matchingGoals =
+        await _database.goalsDao.getActiveGoalsForCategory(categoryId);
+    if (matchingGoals.isEmpty) return;
+
+    final goal = matchingGoals.first;
+    // Vincula a transação ao goal
+    await (_database.update(_database.transactions)
+          ..where((t) => t.id.equals(transactionId)))
+        .write(db.TransactionsCompanion(goalId: Value(goal.id)));
+    // Atualiza o progresso
+    await _updateGoalProgress(goal.id, amount, type);
   }
 
   Future<void> _updateGoalProgress(
@@ -635,6 +659,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       // 4. Aplica novo impacto na meta
       if (goalId != null) {
         await _updateGoalProgress(goalId, amount, type);
+      } else if (categoryId != null) {
+        await _applyGoalAutoAbsorption(id, categoryId, amount, type);
       }
     });
   }

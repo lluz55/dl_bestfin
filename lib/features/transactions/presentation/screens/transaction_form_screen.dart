@@ -94,6 +94,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       widget.transaction!.id.isNotEmpty &&
       !_isCloningState;
 
+  bool get _isInstallmentEdit =>
+      _isEditing && widget.transaction?.installmentPlanId != null;
+
   Color get _activeColor {
     final colors = context.customColors;
     return _type == TransactionType.income
@@ -114,7 +117,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _type = tx?.type ?? widget.initialType ?? TransactionType.expense;
     _amountInCents = tx?.amount ?? 0;
     _amountDigits = _amountInCents == 0 ? '' : _amountInCents.toString();
-    _descriptionController = TextEditingController(text: tx?.description ?? '');
+
+    // Strip installment suffix from description when editing a parcelated transaction
+    final rawDesc = tx?.description ?? '';
+    final cleanedDesc = (tx?.installmentPlanId != null && !_isCloningState)
+        ? rawDesc.replaceAll(RegExp(r'\s*\(\d+/\d+\)$'), '').trim()
+        : rawDesc;
+    _descriptionController = TextEditingController(text: cleanedDesc);
     _notesController = TextEditingController(text: tx?.notes ?? '');
 
     _accountId = tx?.accountId;
@@ -139,16 +148,29 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _currentPage = initialPage;
     _maxPageReached = initialPage;
 
-    if (_accountId == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (_accountId == null) {
         if (_selectedCreditCardId != null) {
           _tryRestoreAccountFromCreditCard();
         } else {
           _tryAutoSelectAccount();
         }
-      });
-    }
+      }
+      // Load installment plan to show total amount and count when editing
+      if (tx?.installmentPlanId != null && !_isCloningState) {
+        final plan = await ref
+            .read(installmentRepositoryProvider)
+            .getInstallmentPlanById(tx!.installmentPlanId!);
+        if (plan != null && mounted) {
+          setState(() {
+            _installmentCount = plan.totalInstallments;
+            _amountInCents = plan.installmentValue * plan.totalInstallments;
+            _amountDigits = _amountInCents.toString();
+          });
+        }
+      }
+    });
   }
 
   @override
@@ -514,6 +536,37 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
     }
 
+    if (_isInstallmentEdit) {
+      try {
+        await ref.read(installmentRepositoryProvider).updateInstallmentPlan(
+          planId: widget.transaction!.installmentPlanId!,
+          totalAmount: _amountInCents,
+          description: description,
+          categoryId: _categoryId,
+          entityId: _type == TransactionType.transfer ? null : _entityId,
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          sentiment: _sentiment?.name,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Parcelamento atualizado com sucesso!'),
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao atualizar parcelamento: $e')),
+          );
+        }
+      }
+      return;
+    }
+
     if (_installmentCount != null && _installmentCount! >= 2) {
       try {
         await ref
@@ -737,9 +790,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppPageAppBar(
+    return PopScope(
+      canPop: _currentPage == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        appBar: AppPageAppBar(
         title: _isEditing
             ? 'Editar Transação'
             : (_isCloningState ? 'Duplicar Transação' : 'Nova Transação'),
@@ -802,6 +860,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ],
       ),
       bottomNavigationBar: _buildFooter(cs, tt),
+      ),
     );
   }
 

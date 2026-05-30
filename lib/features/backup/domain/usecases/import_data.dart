@@ -407,21 +407,16 @@ class ImportDataUseCase {
         await _db.into(_db.appSettings).insert(AppSetting.fromJson(item));
       }
 
-      // To handle categories with parentId dependencies properly, we insert parent categories (parentId == null) first, then the rest
-      final parentCategories = categoriesList
-          .where((x) => x['parent_id'] == null || x['parentId'] == null)
-          .map((x) => Category.fromJson(x))
-          .toList();
-      final childCategories = categoriesList
-          .where((x) => x['parent_id'] != null && x['parentId'] != null)
-          .map((x) => Category.fromJson(x))
-          .toList();
-
-      for (final c in parentCategories) {
-        await _db.into(_db.categories).insert(c);
+      for (final x in categoriesList) {
+        await _db.into(_db.categories).insert(Category.fromJson(x));
       }
-      for (final c in childCategories) {
-        await _db.into(_db.categories).insert(c);
+
+      // Restore category parent-child relationships if present in backup
+      final categoryParentsList = decoded['category_parents'] as List? ?? [];
+      for (final item in categoryParentsList) {
+        await _db.into(_db.categoryParents).insert(
+          CategoryParent.fromJson(item),
+        );
       }
 
       for (final item in accountsList) {

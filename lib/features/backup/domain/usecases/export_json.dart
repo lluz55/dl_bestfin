@@ -17,6 +17,7 @@ class ExportJsonUseCase {
     final attachments = await _db.select(_db.attachments).get();
     final badges = await _db.select(_db.badges).get();
     final categories = await _db.select(_db.categories).get();
+    final categoryParentsList = await _db.select(_db.categoryParents).get();
     final creditCards = await _db.select(_db.creditCards).get();
     final entities = await _db.select(_db.entities).get();
     final entries = await _db.select(_db.entries).get();
@@ -46,6 +47,7 @@ class ExportJsonUseCase {
       'attachments': attachments.map((x) => x.toJson()).toList(),
       'badges': badges.map((x) => x.toJson()).toList(),
       'categories': categories.map((x) => x.toJson()).toList(),
+      'category_parents': categoryParentsList.map((x) => x.toJson()).toList(),
       'credit_cards': creditCards.map((x) => x.toJson()).toList(),
       'entities': entities.map((x) => x.toJson()).toList(),
       'entries': entries.map((x) => x.toJson()).toList(),

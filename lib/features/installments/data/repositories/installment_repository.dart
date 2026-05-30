@@ -21,6 +21,18 @@ abstract class InstallmentRepository {
     String type = 'expense',
   });
 
+  Future<InstallmentPlanModel?> getInstallmentPlanById(String planId);
+
+  Future<void> updateInstallmentPlan({
+    required String planId,
+    required int totalAmount,
+    required String description,
+    String? categoryId,
+    String? entityId,
+    String? notes,
+    String? sentiment,
+  });
+
   Stream<List<InstallmentPlanModel>> watchInstallmentPlans();
 
   Future<void> cancelInstallmentPlan(String planId);
@@ -155,6 +167,80 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
               ),
             );
       }
+    });
+  }
+
+  @override
+  Future<InstallmentPlanModel?> getInstallmentPlanById(String planId) async {
+    final plan = await (_database.select(_database.installmentPlans)
+          ..where((p) => p.id.equals(planId)))
+        .getSingleOrNull();
+    if (plan == null) return null;
+    return InstallmentPlanModel(
+      id: plan.id,
+      originTransactionId: plan.originTransactionId,
+      totalInstallments: plan.totalInstallments,
+      installmentValue: plan.installmentValue,
+      createdAt: plan.createdAt,
+    );
+  }
+
+  @override
+  Future<void> updateInstallmentPlan({
+    required String planId,
+    required int totalAmount,
+    required String description,
+    String? categoryId,
+    String? entityId,
+    String? notes,
+    String? sentiment,
+  }) async {
+    final plan = await (_database.select(_database.installmentPlans)
+          ..where((p) => p.id.equals(planId)))
+        .getSingleOrNull();
+    if (plan == null) return;
+
+    final totalInstallments = plan.totalInstallments;
+    final baseValue = totalAmount ~/ totalInstallments;
+    final remainder = totalAmount % totalInstallments;
+    final cleanDesc = description
+        .replaceAll(RegExp(r'\s*\(\d+/\d+\)$'), '')
+        .trim();
+
+    final txs = await (_database.select(_database.transactions)
+          ..where((t) => t.installmentPlanId.equals(planId))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.installmentNumber),
+          ]))
+        .get();
+
+    await _database.transaction(() async {
+      for (final tx in txs) {
+        final isLast = tx.installmentNumber == totalInstallments;
+        final value = isLast ? baseValue + remainder : baseValue;
+
+        await (_database.update(_database.transactions)
+              ..where((t) => t.id.equals(tx.id)))
+            .write(
+              db.TransactionsCompanion(
+                description: Value(
+                  '$cleanDesc (${tx.installmentNumber}/$totalInstallments)',
+                ),
+                categoryId: Value(categoryId),
+                entityId: Value(entityId),
+                notes: Value(notes),
+                sentiment: Value(sentiment),
+              ),
+            );
+
+        await (_database.update(_database.entries)
+              ..where((e) => e.transactionId.equals(tx.id)))
+            .write(db.EntriesCompanion(amount: Value(value)));
+      }
+
+      await (_database.update(_database.installmentPlans)
+            ..where((p) => p.id.equals(planId)))
+          .write(db.InstallmentPlansCompanion(installmentValue: Value(baseValue)));
     });
   }
 

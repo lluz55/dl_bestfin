@@ -137,11 +137,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               color: c.color,
               type: c.type.name,
               isSystem: const Value(true),
-              parentId: c.parentId != null
-                  ? Value(c.parentId)
-                  : const Value.absent(),
             );
           }).toList(),
+        );
+      });
+
+      // Re-seed default category relationships
+      await db.batch((batch) {
+        batch.insertAll(
+          db.categoryParents,
+          SeedDataConstants.defaultCategoryRelationships
+              .map(
+                (r) => CategoryParentsCompanion.insert(
+                  parentCategoryId: r.$1,
+                  childCategoryId: r.$2,
+                ),
+              )
+              .toList(),
         );
       });
     });
