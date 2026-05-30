@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
@@ -202,6 +203,7 @@ class _DescriptionAutocompleteState
             );
           },
           optionsViewBuilder: (context, onSelected, options) {
+            final isLinux = defaultTargetPlatform == TargetPlatform.linux;
             return Align(
               alignment: Alignment.topLeft,
               child: Material(
@@ -224,7 +226,8 @@ class _DescriptionAutocompleteState
                     itemBuilder: (BuildContext context, int index) {
                       final String option = options.elementAt(index);
                       return InkWell(
-                        onTap: () => onSelected(option),
+                        onTap: isLinux ? null : () => onSelected(option),
+                        onTapDown: isLinux ? (_) => onSelected(option) : null,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,

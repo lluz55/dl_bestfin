@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/database_provider.dart';
@@ -629,6 +630,8 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                         );
                       },
                   optionsViewBuilder: (context, onSelected, options) {
+                    final isLinux =
+                        defaultTargetPlatform == TargetPlatform.linux;
                     return Align(
                       alignment: Alignment.topLeft,
                       child: Material(
@@ -676,7 +679,10 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                               }
 
                               return InkWell(
-                                onTap: () => onSelected(option),
+                                onTap: isLinux ? null : () => onSelected(option),
+                                onTapDown: isLinux
+                                    ? (_) => onSelected(option)
+                                    : null,
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
