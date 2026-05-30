@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../extensions/context_extensions.dart';
-import '../theme/typography.dart';
-import 'amount_display.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/typography.dart';
+import 'package:bestfin/core/widgets/amount_display.dart';
 
 class TransactionItem {
   const TransactionItem({
@@ -12,6 +12,7 @@ class TransactionItem {
     required this.amountInCents,
     required this.date,
     required this.icon,
+    this.rawTransaction,
   });
 
   final String title;
@@ -19,6 +20,7 @@ class TransactionItem {
   final int amountInCents;
   final String date;
   final IconData icon;
+  final dynamic rawTransaction;
 }
 
 class StaggeredTransactionList extends StatelessWidget {

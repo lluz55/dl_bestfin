@@ -146,10 +146,10 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                       child: GridView.builder(
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 6,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                        ),
+                              crossAxisCount: 6,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                            ),
                         itemCount: entityIconMap.keys.length,
                         itemBuilder: (context, index) {
                           final key = entityIconMap.keys.elementAt(index);
@@ -255,11 +255,11 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 1,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                      ),
+                            crossAxisCount: 3,
+                            childAspectRatio: 1,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
                       itemCount: categories.length + 1,
                       itemBuilder: (context, index) {
                         if (index == categories.length) {
@@ -420,10 +420,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
           suggestions.addAll(filteredEntities.map((e) => e.name));
         } else {
           final matched = filteredEntities
-              .where(
-                (e) =>
-                    e.name.toLowerCase().contains(search.toLowerCase()),
-              )
+              .where((e) => e.name.toLowerCase().contains(search.toLowerCase()))
               .map((e) => e.name)
               .toList();
           suggestions.addAll(matched);
@@ -448,7 +445,10 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                 height: 40,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   itemCount: suggestions.length,
                   itemBuilder: (BuildContext context, int index) {
                     final String option = suggestions[index];
@@ -551,8 +551,9 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
 
                     final matched = filteredEntities
                         .where(
-                          (e) =>
-                              e.name.toLowerCase().contains(searchVal.toLowerCase()),
+                          (e) => e.name.toLowerCase().contains(
+                            searchVal.toLowerCase(),
+                          ),
                         )
                         .map((e) => e.name)
                         .toList();
@@ -648,7 +649,9 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                             itemCount: options.length,
                             itemBuilder: (BuildContext context, int index) {
                               final String option = options.elementAt(index);
-                              final isCreateOption = option.startsWith('Criar "');
+                              final isCreateOption = option.startsWith(
+                                'Criar "',
+                              );
 
                               IconData iconData = isCreateOption
                                   ? Icons.add_circle_outline

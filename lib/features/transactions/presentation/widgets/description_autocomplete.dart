@@ -10,6 +10,7 @@ class DescriptionAutocomplete extends ConsumerStatefulWidget {
   final VoidCallback? onChanged;
   final FocusNode? focusNode;
   final ValueChanged<String>? onFieldSubmitted;
+  final Widget? aiSuggestionWidget;
 
   const DescriptionAutocomplete({
     super.key,
@@ -19,6 +20,7 @@ class DescriptionAutocomplete extends ConsumerStatefulWidget {
     this.onChanged,
     this.focusNode,
     this.onFieldSubmitted,
+    this.aiSuggestionWidget,
   });
 
   @override
@@ -87,6 +89,25 @@ class _DescriptionAutocompleteState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // AI category suggestion — floats above history chips
+        if (widget.aiSuggestionWidget != null && _showSuggestions) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: widget.aiSuggestionWidget!,
+            ),
+          ),
+        ],
         if (isMobile && _showSuggestions && _suggestions.isNotEmpty) ...[
           SizedBox(
             height: 40,
@@ -111,16 +132,10 @@ class _DescriptionAutocompleteState
                     ),
                     label: Text(
                       option,
-                      style: TextStyle(
-                        color: cs.onSurface,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: cs.onSurface, fontSize: 13),
                     ),
                     backgroundColor: cs.surfaceContainerLow,
-                    side: BorderSide(
-                      color: cs.outlineVariant,
-                      width: 0.5,
-                    ),
+                    side: BorderSide(color: cs.outlineVariant, width: 0.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -168,10 +183,14 @@ class _DescriptionAutocompleteState
               focusNode: focusNode,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
-                labelText: 'Descrição',
+                labelText: widget.transactionType == 'transfer'
+                    ? 'Descrição (opcional)'
+                    : 'Descrição',
                 hintText: 'Ex: Compras no mercado, Freelance...',
                 prefixIcon: const Icon(Icons.description_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               onFieldSubmitted: (value) {
                 onFieldSubmitted();
@@ -188,7 +207,8 @@ class _DescriptionAutocompleteState
                 color: cs.surfaceContainerHigh,
                 child: Container(
                   width:
-                      MediaQuery.of(context).size.width - 40, // Padding do ListView
+                      MediaQuery.of(context).size.width -
+                      40, // Padding do ListView
                   constraints: const BoxConstraints(maxHeight: 250),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),

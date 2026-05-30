@@ -175,6 +175,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           amountInCents: amountInCents,
           date: dateStr,
           icon: Icons.swap_horiz_rounded,
+          rawTransaction: tx,
         );
       }
 
@@ -184,6 +185,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         amountInCents: amountInCents,
         date: dateStr,
         icon: tx.category?.iconData ?? Icons.receipt_long_outlined,
+        rawTransaction: tx,
       );
     }).toList();
   }
@@ -305,7 +307,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _SectionHeader(
               title: 'Últimas transações',
               actionLabel: 'Ver todas',
-              onAction: () => context.push('/transactions'),
+              onAction: () => context.go('/transactions'),
               cs: cs,
               tt: tt,
             ),
@@ -329,7 +331,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   );
                 }
-                return StaggeredTransactionList(items: transactionItems);
+                return StaggeredTransactionList(
+                  items: transactionItems,
+                  onItemTap: (item) {
+                    if (item.rawTransaction != null) {
+                      context.push(
+                        '/transaction/edit',
+                        extra: item.rawTransaction,
+                      );
+                    }
+                  },
+                );
               },
             ),
           ],
