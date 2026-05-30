@@ -21,7 +21,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -14,11 +14,9 @@ Future<CategoryModel?> showCategoryPicker(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => ProviderScope(
-      child: _CategoryPickerSheet(
-        typeFilter: typeFilter,
-        selectedCategoryId: selectedCategoryId,
-      ),
+    builder: (_) => _CategoryPickerSheet(
+      typeFilter: typeFilter,
+      selectedCategoryId: selectedCategoryId,
     ),
   );
 }
@@ -147,9 +145,14 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
 
   List<CategoryModel> _flatten(List<CategoryModel> roots) {
     final result = <CategoryModel>[];
+    void visit(CategoryModel cat) {
+      result.add(cat);
+      for (final child in cat.children) {
+        visit(child);
+      }
+    }
     for (final root in roots) {
-      result.add(root);
-      result.addAll(root.children);
+      visit(root);
     }
     return result;
   }
@@ -173,7 +176,10 @@ class _CategoryPickerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: EdgeInsets.only(left: category.isRoot ? 0 : 32, right: 0),
+      contentPadding: EdgeInsets.only(
+        left: category.parentIds.length * 32.0,
+        right: 0,
+      ),
       leading: CategoryIcon(
         icon: category.icon,
         color: category.color,

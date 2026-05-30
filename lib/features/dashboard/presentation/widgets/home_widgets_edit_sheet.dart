@@ -150,7 +150,7 @@ class _HomeWidgetsEditSheetState extends ConsumerState<HomeWidgetsEditSheet> {
               SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: FilledButton(
                     onPressed: _save,
                     style: FilledButton.styleFrom(
