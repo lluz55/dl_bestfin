@@ -25,8 +25,13 @@
           cmdline-tools-latest
           platform-tools
           build-tools-34-0-0
+          build-tools-35-0-0
           platforms-android-34
+          platforms-android-35
+          platforms-android-36
           emulator
+          ndk-27-0-12077973
+          cmake-3-22-1
         ]);
 
         backend = pkgs.buildGoModule {
@@ -76,6 +81,7 @@
             export GRADLE_USER_HOME="$HOME/.gradle"
             export PATH="$HOME/.pub-cache/bin:$PATH"
             export LD_LIBRARY_PATH="${pkgs.sqlite.out}/lib:$LD_LIBRARY_PATH"
+            export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
             echo "🏦 BestFin dev environment ready"
           '';
         };
