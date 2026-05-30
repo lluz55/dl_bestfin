@@ -71,18 +71,18 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     });
   }
 
-  void _showIconPicker() {
-    showModalBottomSheet(
+  void _showPersonalizarSheet() {
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AppIconPicker(
+      builder: (_) => _PersonalizarSheet(
         selectedIconCodePoint: _iconCodePoint,
-        onIconSelected: (icon) {
-          setState(() {
-            _iconCodePoint = icon.codePoint.toString();
-          });
-        },
+        selectedColorHex: _colorHex,
+        onConfirm: (iconCodePoint, colorHex) => setState(() {
+          _iconCodePoint = iconCodePoint;
+          _colorHex = colorHex;
+        }),
       ),
     );
   }
@@ -230,46 +230,11 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                       onChanged: _onTypeChanged,
                     ),
                     const SizedBox(height: 16),
-                    // Icon Picker Trigger
-                    InkWell(
-                      onTap: _showIconPicker,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Ícone da Conta',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Icon(
-                                  IconMapper.fromCodePoint(
-                                    int.parse(_iconCodePoint),
-                                  ),
-                                  color: theme.colorScheme.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                    // Personalizar (ícone + cor combinados)
+                    _PersonalizarButton(
+                      iconCodePoint: _iconCodePoint,
+                      colorHex: _colorHex,
+                      onTap: _showPersonalizarSheet,
                     ),
                     const SizedBox(height: 16),
                     // Currency input for initial balance (only visible during creation mode!)
@@ -283,19 +248,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                       ),
                       const SizedBox(height: 24),
                     ],
-                    // Color Picker swatch selector
-                    AppColorPicker(
-                      selectedColorHex: _colorHex,
-                      previewIcon: IconMapper.fromCodePoint(
-                        int.parse(_iconCodePoint),
-                      ),
-                      onColorSelected: (color) {
-                        setState(() {
-                          _colorHex = color;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -325,6 +278,301 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Personalizar button ───────────────────────────────────────────────────────
+
+class _PersonalizarButton extends StatelessWidget {
+  final String iconCodePoint;
+  final String colorHex;
+  final VoidCallback onTap;
+
+  const _PersonalizarButton({
+    required this.iconCodePoint,
+    required this.colorHex,
+    required this.onTap,
+  });
+
+  static Color _hex(String hex) {
+    final h = hex.replaceAll('#', '');
+    return Color(int.parse('FF$h', radix: 16));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final color = _hex(colorHex);
+    final iconData = IconMapper.fromCodePoint(int.parse(iconCodePoint));
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(iconData, color: color, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Personalizar',
+                style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Personalizar sheet (ícone + cor) ─────────────────────────────────────────
+
+class _PersonalizarSheet extends StatefulWidget {
+  final String selectedIconCodePoint;
+  final String selectedColorHex;
+  final void Function(String iconCodePoint, String colorHex) onConfirm;
+
+  const _PersonalizarSheet({
+    required this.selectedIconCodePoint,
+    required this.selectedColorHex,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_PersonalizarSheet> createState() => _PersonalizarSheetState();
+}
+
+class _PersonalizarSheetState extends State<_PersonalizarSheet> {
+  late String _iconCodePoint;
+  late String _color;
+
+  @override
+  void initState() {
+    super.initState();
+    _iconCodePoint = widget.selectedIconCodePoint;
+    _color = widget.selectedColorHex;
+  }
+
+  static Color _hex(String hex) {
+    final h = hex.replaceAll('#', '');
+    return Color(int.parse('FF$h', radix: 16));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final selectedColor = _hex(_color);
+    final selectedIcon = IconMapper.fromCodePoint(int.parse(_iconCodePoint));
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.8,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (ctx, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 4),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: selectedColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: selectedColor, width: 2),
+                      ),
+                      child: Icon(selectedIcon, color: selectedColor, size: 26),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Personalizar',
+                        style: tt.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        widget.onConfirm(_iconCodePoint, _color);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Confirmar'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  children: [
+                    Text(
+                      'Ícone',
+                      style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 12),
+                    for (final entry in AppIconPicker.categorizedIcons.entries)
+                      if (entry.value.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 8),
+                          child: Text(
+                            entry.key,
+                            style: tt.labelMedium
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                          ),
+                          itemCount: entry.value.length,
+                          itemBuilder: (ctx, i) {
+                            final item = entry.value[i];
+                            final code = item.$1.codePoint.toString();
+                            final isSelected = code == _iconCodePoint;
+                            return GestureDetector(
+                              onTap: () => setState(() => _iconCodePoint = code),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? selectedColor.withValues(alpha: 0.15)
+                                      : cs.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: selectedColor,
+                                          width: 2,
+                                        )
+                                      : null,
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      item.$1,
+                                      size: 26,
+                                      color: isSelected
+                                          ? selectedColor
+                                          : cs.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item.$2,
+                                      style: tt.labelSmall?.copyWith(
+                                        fontSize: 10,
+                                        color: isSelected
+                                            ? selectedColor
+                                            : cs.onSurfaceVariant,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cor',
+                      style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: AppColorPicker.colors.map((item) {
+                        final isSelected =
+                            item.$1.toLowerCase() == _color.toLowerCase();
+                        final color = AppColorPicker.hexToColor(item.$1);
+                        return Tooltip(
+                          message: item.$2,
+                          child: InkWell(
+                            onTap: () => setState(() => _color = item.$1),
+                            customBorder: const CircleBorder(),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? cs.outline
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: isSelected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 20,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

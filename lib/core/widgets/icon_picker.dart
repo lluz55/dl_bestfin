@@ -11,16 +11,8 @@ class AppIconPicker extends StatefulWidget {
   final String selectedIconCodePoint;
   final ValueChanged<IconData> onIconSelected;
 
-  @override
-  State<AppIconPicker> createState() => _AppIconPickerState();
-}
-
-class _AppIconPickerState extends State<AppIconPicker> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-
   static const Map<String, List<(IconData icon, String name)>>
-  _categorizedIcons = {
+  categorizedIcons = {
     'Finanças': [
       (Icons.account_balance_rounded, 'Banco'),
       (Icons.wallet_rounded, 'Carteira'),
@@ -60,6 +52,14 @@ class _AppIconPickerState extends State<AppIconPicker> {
   };
 
   @override
+  State<AppIconPicker> createState() => _AppIconPickerState();
+}
+
+class _AppIconPickerState extends State<AppIconPicker> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -67,11 +67,11 @@ class _AppIconPickerState extends State<AppIconPicker> {
 
   List<(IconData icon, String name)> get _filteredIcons {
     if (_searchQuery.isEmpty) {
-      return _categorizedIcons.values.expand((list) => list).toList();
+      return AppIconPicker.categorizedIcons.values.expand((list) => list).toList();
     }
 
     final query = _searchQuery.toLowerCase();
-    return _categorizedIcons.values
+    return AppIconPicker.categorizedIcons.values
         .expand((list) => list)
         .where((item) => item.$2.toLowerCase().contains(query))
         .toList();
@@ -149,7 +149,7 @@ class _AppIconPickerState extends State<AppIconPicker> {
                     ? _buildGrid(_filteredIcons, scrollController)
                     : ListView(
                         controller: scrollController,
-                        children: _categorizedIcons.entries.map((entry) {
+                        children: AppIconPicker.categorizedIcons.entries.map((entry) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

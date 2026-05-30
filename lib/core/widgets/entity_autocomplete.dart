@@ -237,11 +237,11 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
         return Consumer(
           builder: (context, ref, child) {
             final categories = ref.watch(entityCategoriesProvider);
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * 0.65,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
+                  const SizedBox(height: 20),
                   Text(
                     'Selecione a Categoria',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -249,9 +249,8 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Flexible(
+                  Expanded(
                     child: GridView.builder(
-                      shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
