@@ -13,6 +13,7 @@ import 'package:bestfin/features/recurring/presentation/widgets/frequency_select
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_type_tabs.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 
 /// Tela de criação de uma nova regra de recorrência.
 /// Quando [prefillTransactionId] é fornecido, usa a transação existente como base.
@@ -23,6 +24,7 @@ class RecurringFormScreen extends ConsumerStatefulWidget {
   final String? prefillDescription;
   final TransactionType? prefillType;
   final String? prefillAccountId;
+  final String? prefillToAccountId;
   final String? prefillCategoryId;
   final String? prefillCategoryName;
   final String? prefillCategoryColor;
@@ -35,6 +37,7 @@ class RecurringFormScreen extends ConsumerStatefulWidget {
     this.prefillDescription,
     this.prefillType,
     this.prefillAccountId,
+    this.prefillToAccountId,
     this.prefillCategoryId,
     this.prefillCategoryName,
     this.prefillCategoryColor,
@@ -51,6 +54,7 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
   late int _amountInCents;
   late TextEditingController _descriptionController;
   String? _accountId;
+  String? _toAccountId;
 
   String? _categoryId;
   String? _categoryName;
@@ -73,6 +77,7 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
       text: widget.prefillDescription ?? '',
     );
     _accountId = widget.prefillAccountId;
+    _toAccountId = widget.prefillToAccountId;
     _categoryId = widget.prefillCategoryId;
     _categoryName = widget.prefillCategoryName;
     _categoryColor = widget.prefillCategoryColor;
@@ -128,7 +133,8 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
       _showError('Insira um valor maior que R\$ 0,00');
       return;
     }
-    if (_descriptionController.text.trim().isEmpty) {
+    if (_type != TransactionType.transfer &&
+        _descriptionController.text.trim().isEmpty) {
       _showError('Informe uma descrição para a recorrência.');
       return;
     }
@@ -136,11 +142,34 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
       _showError('Selecione uma conta.');
       return;
     }
+    if (_type == TransactionType.transfer) {
+      if (_toAccountId == null) {
+        _showError('Selecione a conta de destino.');
+        return;
+      }
+      if (_accountId == _toAccountId) {
+        _showError('As contas de origem e destino devem ser diferentes.');
+        return;
+      }
+    }
 
     setState(() => _isSaving = true);
 
     try {
       String baseTransactionId;
+
+      String description = _descriptionController.text.trim();
+      if (description.isEmpty && _type == TransactionType.transfer) {
+        final accounts = ref.read(activeAccountsProvider);
+        final account = accounts.where((a) => a.id == _accountId).firstOrNull;
+        final toAccount = accounts
+            .where((a) => a.id == _toAccountId)
+            .firstOrNull;
+        description =
+            'Transferência: ${account?.name ?? "Origem"} -> ${toAccount?.name ?? "Destino"}';
+      } else if (description.isEmpty) {
+        description = 'Recorrência';
+      }
 
       if (widget.prefillTransactionId != null) {
         baseTransactionId = widget.prefillTransactionId!;
@@ -148,13 +177,13 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
         // Cria a transação-base primeiro
         baseTransactionId = await ref.read(createTransactionProvider)(
           date: _startDate,
-          description: _descriptionController.text.trim(),
+          description: description,
           type: _type.name,
           amount: _amountInCents,
           categoryId: _categoryId,
           entityId: null,
           accountId: _accountId!,
-          toAccountId: null,
+          toAccountId: _type == TransactionType.transfer ? _toAccountId : null,
           sentiment: null,
           notes: null,
           isCompleted: false,
@@ -167,7 +196,7 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
         interval: 1,
         startDate: _startDate,
         endDate: _endDate,
-        autoConfirm: _autoConfirm,
+        autoConfirm: _type == TransactionType.transfer ? false : _autoConfirm,
       );
 
       if (mounted) {
@@ -235,7 +264,7 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
           const SizedBox(height: 16),
 
           Text(
-            'Conta',
+            _type == TransactionType.transfer ? 'Conta de origem' : 'Conta',
             style: tt.labelLarge?.copyWith(
               color: cs.onSurfaceVariant,
               fontWeight: FontWeight.bold,
@@ -245,8 +274,27 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
           AccountSelector(
             selectedAccountId: _accountId,
             onAccountSelected: (acc) => setState(() => _accountId = acc?.id),
+            hint: _type == TransactionType.transfer ? 'Conta de origem' : 'Selecione uma conta',
           ),
           const SizedBox(height: 16),
+
+          if (_type == TransactionType.transfer) ...[
+            Text(
+              'Conta de destino',
+              style: tt.labelLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            AccountSelector(
+              selectedAccountId: _toAccountId,
+              onAccountSelected: (acc) =>
+                  setState(() => _toAccountId = acc?.id),
+              hint: 'Conta de destino',
+            ),
+            const SizedBox(height: 16),
+          ],
 
           if (_type != TransactionType.transfer) ...[
             Text(
@@ -369,14 +417,20 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
                 style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
-                'Transações geradas já serão marcadas como confirmadas',
+                _type == TransactionType.transfer
+                    ? 'Transferências recorrentes sempre exigem aprovação manual por segurança'
+                    : 'Transações geradas já serão marcadas como confirmadas',
                 style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
-              value: _autoConfirm,
-              onChanged: (val) => setState(() => _autoConfirm = val),
+              value: _type == TransactionType.transfer ? false : _autoConfirm,
+              onChanged: _type == TransactionType.transfer
+                  ? null
+                  : (val) => setState(() => _autoConfirm = val),
               secondary: Icon(
                 Icons.auto_fix_high_rounded,
-                color: _autoConfirm ? cs.primary : cs.onSurfaceVariant,
+                color: _type == TransactionType.transfer
+                    ? cs.onSurfaceVariant.withOpacity(0.5)
+                    : (_autoConfirm ? cs.primary : cs.onSurfaceVariant),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
