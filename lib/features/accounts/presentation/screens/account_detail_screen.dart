@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
@@ -8,8 +9,9 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/presentation/widgets/account_card.dart';
-import 'package:bestfin/features/accounts/presentation/screens/account_form_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class AccountDetailScreen extends ConsumerWidget {
   const AccountDetailScreen({super.key, required this.accountId});
@@ -28,16 +30,16 @@ class AccountDetailScreen extends ConsumerWidget {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return AlertDialog(
           title: const Text('Excluir Conta'),
           content: Text(
             'Deseja realmente excluir "${account.name}"? '
-            'Se a conta possuir transações, ela será apenas inativada para preservar seus dados históricos.',
+            'Todas as transações vinculadas a essa conta também serão excluídas permanentemente.',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Cancelar'),
             ),
             FilledButton(
@@ -46,7 +48,7 @@ class AccountDetailScreen extends ConsumerWidget {
                 foregroundColor: theme.colorScheme.onError,
               ),
               onPressed: () async {
-                Navigator.pop(context); // Close dialog
+                Navigator.pop(dialogCtx);
                 try {
                   final deleteUseCase = ref.read(deleteAccountProvider);
                   await deleteUseCase(account.id);
@@ -59,7 +61,7 @@ class AccountDetailScreen extends ConsumerWidget {
                         content: Text('Operação realizada com sucesso.'),
                       ),
                     );
-                    Navigator.pop(context); // Pop detail screen
+                    context.pop();
                   }
                 } catch (e) {
                   if (context.mounted) {
@@ -80,6 +82,7 @@ class AccountDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
+    ref.watch(valuesHiddenProvider);
     final accountAsync = ref.watch(accountByIdProvider(accountId));
     final transactionsAsync = ref.watch(accountTransactionsProvider(accountId));
     final chartSpotsAsync = ref.watch(
@@ -90,6 +93,7 @@ class AccountDetailScreen extends ConsumerWidget {
       backgroundColor: theme.colorScheme.surface,
       appBar: AppPageAppBar(
         title: 'Detalhes da Conta',
+        showVisibilityToggle: true,
         actions: [
           accountAsync.when(
             data: (account) => MenuAnchor(
@@ -108,15 +112,7 @@ class AccountDetailScreen extends ConsumerWidget {
               menuChildren: [
                 MenuItemButton(
                   leadingIcon: const Icon(Icons.edit_outlined),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AccountFormScreen(accountToEdit: account),
-                      ),
-                    );
-                  },
+                  onPressed: () => context.push('/accounts/edit', extra: account),
                   child: const Text('Editar'),
                 ),
                 MenuItemButton(
@@ -270,7 +266,9 @@ class AccountDetailScreen extends ConsumerWidget {
                                           return touchedSpots.map((spot) {
                                             final val = spot.y;
                                             final formatted =
-                                                'R\$ ${val.abs().toStringAsFixed(2).replaceAll('.', ',')}';
+                                                CurrencyFormatter.valuesHidden
+                                                ? 'R\$ •••••'
+                                                : 'R\$ ${val.abs().toStringAsFixed(2).replaceAll('.', ',')}';
                                             return LineTooltipItem(
                                               formatted,
                                               theme.textTheme.bodySmall!

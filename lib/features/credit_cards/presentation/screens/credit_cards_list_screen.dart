@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/credit_cards/presentation/providers/credit_cards_provider.dart';
@@ -17,11 +18,15 @@ class CreditCardsListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    ref.watch(valuesHiddenProvider);
     final cardsAsync = ref.watch(creditCardsStreamProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Meus Cartões'),
+      appBar: const AppPageAppBar(
+        title: 'Meus Cartões',
+        showVisibilityToggle: true,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/credit-cards/new'),
         icon: const Icon(Icons.add_card_rounded),

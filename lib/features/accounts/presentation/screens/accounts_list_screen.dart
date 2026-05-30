@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/balance_card.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
@@ -8,8 +10,7 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/presentation/widgets/account_card.dart';
-import 'package:bestfin/features/accounts/presentation/screens/account_form_screen.dart';
-import 'package:bestfin/features/accounts/presentation/screens/account_detail_screen.dart';
+import 'package:bestfin/core/utils/icon_mapper.dart';
 
 class AccountsListScreen extends ConsumerWidget {
   const AccountsListScreen({super.key});
@@ -17,19 +18,18 @@ class AccountsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
+    ref.watch(valuesHiddenProvider);
     final accountsAsync = ref.watch(accountsProvider);
     final totalBalanceVal = ref.watch(totalBalanceProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: const AppPageAppBar(title: 'Minhas Contas'),
+      appBar: const AppPageAppBar(
+        title: 'Minhas Contas',
+        showVisibilityToggle: true,
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AccountFormScreen()),
-          );
-        },
+        onPressed: () => context.push('/accounts/new'),
         icon: const Icon(Icons.add),
         label: const Text('Nova Conta'),
       ),
@@ -54,14 +54,7 @@ class AccountsListScreen extends ConsumerWidget {
                       'Comece adicionando uma conta corrente, poupança ou carteira.',
                   icon: Icons.account_balance_wallet_outlined,
                   actionLabel: 'Criar Conta',
-                  onAction: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AccountFormScreen(),
-                      ),
-                    );
-                  },
+                  onAction: () => context.push('/accounts/new'),
                 ),
               );
             }
@@ -99,15 +92,7 @@ class AccountsListScreen extends ConsumerWidget {
                       return AccountCard(
                         account: account,
                         delay: Duration(milliseconds: index * 50),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AccountDetailScreen(accountId: account.id),
-                            ),
-                          );
-                        },
+                        onTap: () => context.push('/accounts/${account.id}'),
                       );
                     }, childCount: activeAccounts.length),
                   ),
@@ -132,16 +117,7 @@ class AccountsListScreen extends ConsumerWidget {
                         childrenPadding: EdgeInsets.zero,
                         children: inactiveAccounts.map((account) {
                           return ListTile(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AccountDetailScreen(
-                                    accountId: account.id,
-                                  ),
-                                ),
-                              );
-                            },
+                            onTap: () => context.push('/accounts/${account.id}'),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 24,
                               vertical: 4,
@@ -156,9 +132,8 @@ class AccountsListScreen extends ConsumerWidget {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                IconData(
+                                IconMapper.fromCodePoint(
                                   int.parse(account.icon),
-                                  fontFamily: 'MaterialIcons',
                                 ),
                                 color: AccountCard.hexToColor(
                                   account.color,

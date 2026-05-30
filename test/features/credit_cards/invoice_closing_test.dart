@@ -73,31 +73,37 @@ void main() {
       expect(result, DateTime(2026, 9, 4));
     });
 
-    test('Dynamic offset 7 days before due date 15th returns 8th of same month', () {
-      // dueDay = 15, closingDay = -7. Base date is 15 - 7 = 8 (May 8, 2026, which is Friday, no adjustments)
-      final result = InvoiceRepositoryImpl.calculateClosingDateStatic(
-        year: 2026,
-        month: 5,
-        closingDay: -7,
-        dueDay: 15,
-        holidays: holidays,
-      );
+    test(
+      'Dynamic offset 7 days before due date 15th returns 8th of same month',
+      () {
+        // dueDay = 15, closingDay = -7. Base date is 15 - 7 = 8 (May 8, 2026, which is Friday, no adjustments)
+        final result = InvoiceRepositoryImpl.calculateClosingDateStatic(
+          year: 2026,
+          month: 5,
+          closingDay: -7,
+          dueDay: 15,
+          holidays: holidays,
+        );
 
-      expect(result, DateTime(2026, 5, 8));
-    });
+        expect(result, DateTime(2026, 5, 8));
+      },
+    );
 
-    test('Dynamic offset 10 days before due date 5th wraps to previous month and anticipates weekend', () {
-      // dueDay = 5, closingDay = -10. Base date is May 5 minus 10 days = April 25 (Saturday).
-      // Saturday anticipates to Friday (April 24).
-      final result = InvoiceRepositoryImpl.calculateClosingDateStatic(
-        year: 2026,
-        month: 5,
-        closingDay: -10,
-        dueDay: 5,
-        holidays: holidays,
-      );
+    test(
+      'Dynamic offset 10 days before due date 5th wraps to previous month and anticipates weekend',
+      () {
+        // dueDay = 5, closingDay = -10. Base date is May 5 minus 10 days = April 25 (Saturday).
+        // Saturday anticipates to Friday (April 24).
+        final result = InvoiceRepositoryImpl.calculateClosingDateStatic(
+          year: 2026,
+          month: 5,
+          closingDay: -10,
+          dueDay: 5,
+          holidays: holidays,
+        );
 
-      expect(result, DateTime(2026, 4, 24));
-    });
+        expect(result, DateTime(2026, 4, 24));
+      },
+    );
   });
 }

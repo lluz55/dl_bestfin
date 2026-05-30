@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/credit_cards/presentation/providers/credit_cards_provider.dart';
 import 'package:bestfin/features/credit_cards/presentation/widgets/credit_card_visual_widget.dart';
@@ -58,6 +59,7 @@ class CreditCardDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    ref.watch(valuesHiddenProvider);
     final cardAsync = ref.watch(creditCardByIdStreamProvider(cardId));
     final invoicesAsync = ref.watch(invoicesStreamProvider(cardId));
 
@@ -66,6 +68,7 @@ class CreditCardDetailScreen extends ConsumerWidget {
         backgroundColor: cs.surface,
         appBar: AppPageAppBar(
           title: card.name,
+          showVisibilityToggle: true,
           actions: [
             IconButton(
               icon: const Icon(Icons.edit_outlined),

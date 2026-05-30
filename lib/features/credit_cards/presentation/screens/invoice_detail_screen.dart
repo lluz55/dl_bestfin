@@ -9,9 +9,13 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
 import 'package:bestfin/core/widgets/staggered_transaction_list.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
+import 'package:bestfin/features/credit_cards/domain/models/credit_card.dart';
 import 'package:bestfin/features/credit_cards/presentation/providers/credit_cards_provider.dart';
 import 'package:bestfin/features/credit_cards/domain/models/invoice.dart';
-import 'package:go_router/go_router.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
+
+enum _PaymentType { full, minimum, custom }
 
 class InvoiceDetailScreen extends ConsumerStatefulWidget {
   final String cardId;
@@ -32,15 +36,27 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   String? _selectedSourceAccountId;
   bool _isProcessingPayment = false;
 
-  Future<void> _showPaymentDialog(InvoiceModel invoice) async {
+  Future<void> _showPaymentDialog(
+    InvoiceModel invoice,
+    CreditCardModel card,
+  ) async {
     final cs = context.colorScheme;
     final tt = context.textTheme;
-    final double defaultAmountDouble = invoice.totalAmount / 100.0;
-    final TextEditingController amountController = TextEditingController(
-      text: defaultAmountDouble.toStringAsFixed(2).replaceAll('.', ','),
-    );
 
-    final paymentSuccess = await showModalBottomSheet<bool>(
+    // Pre-fill with card's linked account if not yet selected
+    _selectedSourceAccountId ??= card.accountId;
+
+    _PaymentType paymentType = _PaymentType.full;
+    int paymentAmountCents = invoice.totalAmount;
+
+    int _calcAmount(_PaymentType type) => switch (type) {
+      _PaymentType.full => invoice.totalAmount,
+      _PaymentType.minimum =>
+        (invoice.totalAmount * card.minPaymentPercent / 100).round(),
+      _PaymentType.custom => paymentAmountCents,
+    };
+
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (context) {
@@ -92,20 +108,57 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'Valor do Pagamento (R\$)',
+                    'Tipo de Pagamento',
                     style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 8),
-                  TextFormField(
-                    controller: amountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  SegmentedButton<_PaymentType>(
+                    segments: [
+                      ButtonSegment(
+                        value: _PaymentType.minimum,
+                        label: Text(
+                          'Mínima\n${card.minPaymentPercent}%',
+                          textAlign: TextAlign.center,
+                          style: tt.labelSmall,
+                        ),
+                      ),
+                      const ButtonSegment(
+                        value: _PaymentType.custom,
+                        label: Text('Específico'),
+                      ),
+                      const ButtonSegment(
+                        value: _PaymentType.full,
+                        label: Text('Completa'),
+                      ),
+                    ],
+                    selected: {paymentType},
+                    onSelectionChanged: (Set<_PaymentType> selection) {
+                      setModalState(() {
+                        paymentType = selection.first;
+                        paymentAmountCents = _calcAmount(paymentType);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Valor do Pagamento',
+                    style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  IgnorePointer(
+                    ignoring: paymentType != _PaymentType.custom,
+                    child: Opacity(
+                      opacity: paymentType == _PaymentType.custom ? 1.0 : 0.6,
+                      child: AmountInput(
+                        amountInCents: _calcAmount(paymentType),
+                        color: cs.primary,
+                        onChanged: (val) {
+                          if (paymentType == _PaymentType.custom) {
+                            setModalState(() {
+                              paymentAmountCents = val;
+                            });
+                          }
+                        },
                       ),
                     ),
                   ),
@@ -115,19 +168,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                     child: ElevatedButton(
                       onPressed: _selectedSourceAccountId == null
                           ? null
-                          : () async {
-                              final amountStr = amountController.text
-                                  .replaceAll('.', '')
-                                  .replaceAll(',', '.')
-                                  .trim();
-                              final double amountDouble =
-                                  double.tryParse(amountStr) ?? 0.0;
-                              final int cents = (amountDouble * 100).round();
-
-                              if (cents <= 0) return;
-
-                              Navigator.pop(context, true);
-                              _executePayment(cents);
+                          : () {
+                              final amount = _calcAmount(paymentType);
+                              if (amount <= 0) return;
+                              Navigator.pop(context);
+                              _executePayment(amount);
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: cs.primary,
@@ -147,8 +192,6 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
         );
       },
     );
-
-    amountController.dispose();
   }
 
   Future<void> _executePayment(int cents) async {
@@ -185,8 +228,10 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final colors = context.customColors;
+    ref.watch(valuesHiddenProvider);
 
     final invoiceAsync = ref.watch(invoiceByIdStreamProvider(widget.invoiceId));
+    final cardAsync = ref.watch(creditCardByIdStreamProvider(widget.cardId));
 
     return invoiceAsync.when(
       data: (invoice) {
@@ -372,7 +417,12 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                         child: SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () => _showPaymentDialog(invoice),
+                            onPressed: cardAsync.value == null
+                                ? null
+                                : () => _showPaymentDialog(
+                                    invoice,
+                                    cardAsync.value!,
+                                  ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: cs.primary,
                               foregroundColor: cs.onPrimary,

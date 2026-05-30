@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
+import 'package:bestfin/core/utils/icon_mapper.dart';
 
 class AccountCard extends StatefulWidget {
   const AccountCard({
@@ -64,13 +65,6 @@ class _AccountCardState extends State<AccountCard> {
                 decoration: BoxDecoration(
                   gradient: cardGradient,
                   borderRadius: asymmetricShape,
-                  boxShadow: [
-                    BoxShadow(
-                      color: baseColor.withValues(alpha: 0.25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Material(
@@ -102,9 +96,8 @@ class _AccountCardState extends State<AccountCard> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  IconData(
+                                  IconMapper.fromCodePoint(
                                     int.parse(widget.account.icon),
-                                    fontFamily: 'MaterialIcons',
                                   ),
                                   color: Colors.white,
                                   size: 24,

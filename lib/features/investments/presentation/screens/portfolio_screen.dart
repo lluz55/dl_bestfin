@@ -10,6 +10,7 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/features/investments/presentation/providers/investments_provider.dart';
 import 'package:bestfin/features/investments/domain/models/investment.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class PortfolioScreen extends ConsumerWidget {
   const PortfolioScreen({super.key});
@@ -18,12 +19,16 @@ class PortfolioScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
     final cs = context.colorScheme;
+    ref.watch(valuesHiddenProvider);
     final investmentsAsync = ref.watch(investmentsStreamProvider);
     final summary = ref.watch(portfolioSummaryProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Meus Investimentos'),
+      appBar: const AppPageAppBar(
+        title: 'Meus Investimentos',
+        showVisibilityToggle: true,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/investments/new'),
         icon: const Icon(Icons.add_chart_rounded),
@@ -159,13 +164,6 @@ class _PortfolioHeaderCard extends StatelessWidget {
             cs.tertiaryContainer.withValues(alpha: 0.8),
           ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),

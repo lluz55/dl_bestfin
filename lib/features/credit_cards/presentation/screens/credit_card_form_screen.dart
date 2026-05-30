@@ -8,6 +8,7 @@ import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/credit_cards/domain/models/credit_card.dart';
 import 'package:bestfin/features/credit_cards/presentation/providers/credit_cards_provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class CreditCardFormScreen extends ConsumerStatefulWidget {
   final CreditCardModel? card;
@@ -24,13 +25,15 @@ enum ClosingDayMode { fixed, dynamicOffset }
 class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _limitController;
+  int _limitCents = 0;
   ClosingDayMode _closingMode = ClosingDayMode.fixed;
   int _closingDay = 5;
   int _closingOffset = 7;
   int _dueDay = 15;
   String _selectedColorHex = '#2196F3';
   String? _selectedAccountId;
+  int _minPaymentPercent = 15;
+  late TextEditingController _minPaymentController;
   bool _isLoading = false;
 
   @override
@@ -39,10 +42,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
     final card = widget.card;
     if (card != null) {
       _nameController = TextEditingController(text: card.name);
-      final double limitValue = card.limitAmount / 100.0;
-      _limitController = TextEditingController(
-        text: limitValue.toStringAsFixed(2).replaceAll('.', ','),
-      );
+      _limitCents = card.limitAmount;
       if (card.closingDay <= 0) {
         _closingMode = ClosingDayMode.dynamicOffset;
         _closingOffset = -card.closingDay;
@@ -55,24 +55,38 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
       _dueDay = card.dueDay;
       _selectedColorHex = card.color ?? '#2196F3';
       _selectedAccountId = card.accountId;
+      _minPaymentPercent = card.minPaymentPercent;
     } else {
       _nameController = TextEditingController();
-      _limitController = TextEditingController();
+      _limitCents = 0;
     }
+    _minPaymentController = TextEditingController(
+      text: _minPaymentPercent.toString(),
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _limitController.dispose();
+    _minPaymentController.dispose();
     super.dispose();
   }
 
   Future<void> _saveForm() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_limitCents <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, insira um limite maior que zero'),
+        ),
+      );
+      return;
+    }
     if (_selectedAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecione uma conta para vincular ao cartão')),
+        const SnackBar(
+          content: Text('Selecione uma conta para vincular ao cartão'),
+        ),
       );
       return;
     }
@@ -80,12 +94,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
     setState(() => _isLoading = true);
 
     final name = _nameController.text.trim();
-    final limitStr = _limitController.text
-        .replaceAll('.', '')
-        .replaceAll(',', '.')
-        .trim();
-    final double limitDouble = double.tryParse(limitStr) ?? 0.0;
-    final int limitCents = (limitDouble * 100).round();
+    final int limitCents = _limitCents;
 
     final closingDayValue = _closingMode == ClosingDayMode.fixed
         ? _closingDay
@@ -103,6 +112,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
           dueDay: _dueDay,
           accountId: _selectedAccountId,
           color: _selectedColorHex,
+          minPaymentPercent: _minPaymentPercent,
         );
       } else {
         await repository.createCreditCard(
@@ -112,6 +122,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
           dueDay: _dueDay,
           accountId: _selectedAccountId!,
           color: _selectedColorHex,
+          minPaymentPercent: _minPaymentPercent,
         );
       }
 
@@ -151,9 +162,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: AppPageAppBar(
-        title: isEditing ? 'Editar Cartão' : 'Novo Cartão',
-      ),
+      appBar: AppPageAppBar(title: isEditing ? 'Editar Cartão' : 'Novo Cartão'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Form(
@@ -178,33 +187,11 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                     },
                   ),
                   const SizedBox(height: 18),
-                  TextFormField(
-                    controller: _limitController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Limite do Cartão (R\$)',
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Por favor, insira o limite do cartão';
-                      }
-                      final clean = val
-                          .replaceAll('.', '')
-                          .replaceAll(',', '.')
-                          .trim();
-                      if (double.tryParse(clean) == null ||
-                          double.parse(clean) <= 0) {
-                        return 'Por favor, insira um valor válido maior que zero';
-                      }
-                      return null;
-                    },
+                  AmountInput(
+                    amountInCents: _limitCents,
+                    label: 'Limite do Cartão',
+                    color: context.colorScheme.primary,
+                    onChanged: (val) => setState(() => _limitCents = val),
                   ),
                   const SizedBox(height: 18),
                   buildAccountField(),
@@ -267,10 +254,14 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                items: List.generate(20, (i) => i + 1).map((offset) {
+                                items: List.generate(20, (i) => i + 1).map((
+                                  offset,
+                                ) {
                                   return DropdownMenuItem<int>(
                                     value: offset,
-                                    child: Text('$offset ${offset == 1 ? 'dia' : 'dias'}'),
+                                    child: Text(
+                                      '$offset ${offset == 1 ? 'dia' : 'dias'}',
+                                    ),
                                   );
                                 }).toList(),
                                 onChanged: (val) {
@@ -304,6 +295,32 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: _minPaymentController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Pagamento mínimo (%)',
+                      hintText: 'Ex: 15',
+                      suffixText: '%',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (val) {
+                      final parsed = int.tryParse(val);
+                      if (parsed != null && parsed >= 1 && parsed <= 100) {
+                        setState(() => _minPaymentPercent = parsed);
+                      }
+                    },
+                    validator: (val) {
+                      final parsed = int.tryParse(val ?? '');
+                      if (parsed == null || parsed < 1 || parsed > 100) {
+                        return 'Informe um percentual entre 1 e 100';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 24),
                   AppColorPicker(

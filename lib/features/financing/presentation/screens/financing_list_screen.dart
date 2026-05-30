@@ -9,6 +9,7 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_provider.dart';
 import 'package:bestfin/features/financing/domain/models/financing.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class FinancingListScreen extends ConsumerWidget {
   const FinancingListScreen({super.key});
@@ -17,12 +18,16 @@ class FinancingListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
     final cs = context.colorScheme;
+    ref.watch(valuesHiddenProvider);
     final financingsAsync = ref.watch(financingsStreamProvider);
     final summary = ref.watch(financingSummaryProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Financiamentos'),
+      appBar: const AppPageAppBar(
+        title: 'Financiamentos',
+        showVisibilityToggle: true,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/financing/new'),
         icon: const Icon(Icons.add_home_work_rounded),
@@ -121,13 +126,6 @@ class _FinancingSummaryCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [cs.primary, cs.secondary],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withValues(alpha: 0.15),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),

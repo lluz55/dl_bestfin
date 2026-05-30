@@ -8,7 +8,7 @@ import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/investments/presentation/providers/investments_provider.dart';
 import 'package:bestfin/features/investments/domain/models/investment.dart';
-import 'package:bestfin/features/investments/presentation/screens/investment_form_screen.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class InvestmentDetailScreen extends ConsumerWidget {
   final String investmentId;
@@ -189,6 +189,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final custom = context.customColors;
+    ref.watch(valuesHiddenProvider);
 
     final investmentAsync = ref.watch(investmentByIdProvider(investmentId));
 
@@ -196,19 +197,12 @@ class InvestmentDetailScreen extends ConsumerWidget {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Detalhes do Ativo',
+        showVisibilityToggle: true,
         actions: [
           investmentAsync.when(
             data: (inv) => IconButton(
               icon: const Icon(Icons.edit_note_rounded),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (ctx) =>
-                        InvestmentFormScreen(existingInvestment: inv),
-                  ),
-                );
-              },
+              onPressed: () => context.push('/investments/edit', extra: inv),
             ),
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),

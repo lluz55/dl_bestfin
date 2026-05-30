@@ -178,21 +178,9 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Future<void> deleteAccount(String id) async {
-    // Repository handles pure DB level operation
-    await (_database.delete(
-      _database.accounts,
-    )..where((t) => t.id.equals(id))).go();
+    await _database.accountsDao.deleteAccount(id);
   }
 
   @override
-  Future<bool> canDelete(String id) async {
-    final countExpr = _database.entries.id.count();
-    final query = _database.selectOnly(_database.entries)
-      ..addColumns([countExpr])
-      ..where(_database.entries.accountId.equals(id));
-
-    final row = await query.getSingle();
-    final count = row.read(countExpr) ?? 0;
-    return count == 0;
-  }
+  Future<bool> canDelete(String id) async => true;
 }

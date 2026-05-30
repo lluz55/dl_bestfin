@@ -22,8 +22,9 @@ class Account {
 
   factory Account.fromDb(db.Account dbAccount, int balance) {
     final accountType = AccountType.fromString(dbAccount.type);
-    
-    String safeIcon = dbAccount.icon ?? accountType.defaultIcon.codePoint.toString();
+
+    String safeIcon =
+        dbAccount.icon ?? accountType.defaultIcon.codePoint.toString();
     if (int.tryParse(safeIcon) == null) {
       safeIcon = accountType.defaultIcon.codePoint.toString();
     }

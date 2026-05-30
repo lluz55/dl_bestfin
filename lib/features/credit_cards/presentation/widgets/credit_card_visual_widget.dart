@@ -45,13 +45,6 @@ class CreditCardVisualWidget extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: gradientColors,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: baseColor.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
@@ -146,12 +139,6 @@ class CreditCardVisualWidget extends StatelessWidget {
                           ],
                         ),
                         borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 4,
-                          ),
-                        ],
                       ),
                     ),
                     const SizedBox(height: 14),

@@ -5,6 +5,7 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/investments/presentation/providers/investments_provider.dart';
 import 'package:bestfin/features/investments/domain/models/investment.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class InvestmentFormScreen extends ConsumerStatefulWidget {
   final Investment? existingInvestment;
@@ -28,8 +29,6 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
   DateTime? _maturityDate;
 
   final _nameController = TextEditingController();
-  final _investedController = TextEditingController();
-  final _yieldController = TextEditingController();
 
   final List<Map<String, String>> _types = [
     {'value': 'fixed_income', 'label': 'Renda Fixa'},
@@ -52,52 +51,18 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
       _currentYieldCents = inv.currentYield.abs();
       _isProfit = inv.currentYield >= 0;
       _maturityDate = inv.maturityDate;
-
-      final double investedDouble = _investedAmountCents / 100.0;
-      _investedController.text = investedDouble
-          .toStringAsFixed(2)
-          .replaceAll('.', ',');
-
-      final double yieldDouble = _currentYieldCents / 100.0;
-      _yieldController.text = yieldDouble
-          .toStringAsFixed(2)
-          .replaceAll('.', ',');
     } else {
       _type = 'fixed_income';
       _investedAmountCents = 0;
       _currentYieldCents = 0;
       _isProfit = true;
-      _investedController.text = '0,00';
-      _yieldController.text = '0,00';
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _investedController.dispose();
-    _yieldController.dispose();
     super.dispose();
-  }
-
-  void _onCurrencyChanged(
-    String value,
-    TextEditingController controller,
-    void Function(int) onCentsChanged,
-  ) {
-    if (value.isEmpty) return;
-    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (clean.isEmpty) return;
-    final cents = int.parse(clean);
-    final double amount = cents / 100.0;
-    final formatted = amount.toStringAsFixed(2).replaceAll('.', ',');
-
-    controller.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-
-    onCentsChanged(cents);
   }
 
   Future<void> _selectMaturityDate() async {
@@ -117,6 +82,12 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_investedAmountCents <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Informe o valor aplicado')));
+      return;
+    }
 
     final repo = ref.read(investmentRepositoryProvider);
     final name = _nameController.text.trim();
@@ -231,28 +202,11 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
             const SizedBox(height: 16),
 
             // Invested Amount
-            TextFormField(
-              controller: _investedController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Valor Aplicado',
-                prefixText: 'R\$ ',
-                prefixIcon: const Icon(Icons.account_balance_wallet_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onChanged: (val) => _onCurrencyChanged(
-                val,
-                _investedController,
-                (cents) => _investedAmountCents = cents,
-              ),
-              validator: (val) {
-                if (_investedAmountCents <= 0) {
-                  return 'Informe um valor maior que zero';
-                }
-                return null;
-              },
+            AmountInput(
+              amountInCents: _investedAmountCents,
+              label: 'Valor Aplicado',
+              color: context.colorScheme.primary,
+              onChanged: (val) => setState(() => _investedAmountCents = val),
             ),
             const SizedBox(height: 24),
 
@@ -315,21 +269,12 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: TextFormField(
-                            controller: _yieldController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'Rendimento',
-                              prefixText: 'R\$ ',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onChanged: (val) => _onCurrencyChanged(
-                              val,
-                              _yieldController,
-                              (cents) => _currentYieldCents = cents,
-                            ),
+                          child: AmountInput(
+                            amountInCents: _currentYieldCents,
+                            label: 'Rendimento',
+                            color: context.colorScheme.primary,
+                            onChanged: (val) =>
+                                setState(() => _currentYieldCents = val),
                           ),
                         ),
                       ],

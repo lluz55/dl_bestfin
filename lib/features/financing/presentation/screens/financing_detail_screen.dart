@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_provider.dart';
@@ -145,6 +146,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    ref.watch(valuesHiddenProvider);
 
     final financingAsync = ref.watch(financingByIdProvider(widget.financingId));
     final installmentsAsync = ref.watch(
@@ -155,6 +157,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Detalhes do Contrato',
+        showVisibilityToggle: true,
         actions: [
           financingAsync.when(
             data: (fin) => IconButton(

@@ -8,6 +8,8 @@ import 'package:bestfin/core/widgets/icon_picker.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/presentation/widgets/account_card.dart';
+import 'package:bestfin/core/utils/icon_mapper.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class AccountFormScreen extends ConsumerStatefulWidget {
   const AccountFormScreen({super.key, this.accountToEdit});
@@ -28,7 +30,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   late int _initialBalanceCents;
 
   final _nameController = TextEditingController();
-  final _balanceController = TextEditingController();
 
   bool get _isEditing => widget.accountToEdit != null;
 
@@ -49,14 +50,12 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       _iconCodePoint = AccountType.checking.defaultIcon.codePoint.toString();
       _colorHex = AccountType.checking.defaultColorHex;
       _initialBalanceCents = 0;
-      _balanceController.text = '0,00';
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _balanceController.dispose();
     super.dispose();
   }
 
@@ -86,27 +85,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         },
       ),
     );
-  }
-
-  void _onBalanceChanged(String value) {
-    if (value.isEmpty) return;
-
-    // Formatting currency in real time (e.g. 10.50 -> 10,50)
-    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (clean.isEmpty) return;
-
-    final cents = int.parse(clean);
-    final double amount = cents / 100.0;
-    final formatted = amount.toStringAsFixed(2).replaceAll('.', ',');
-
-    _balanceController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-
-    setState(() {
-      _initialBalanceCents = cents;
-    });
   }
 
   Future<void> _saveForm() async {
@@ -277,9 +255,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  IconData(
+                                  IconMapper.fromCodePoint(
                                     int.parse(_iconCodePoint),
-                                    fontFamily: 'MaterialIcons',
                                   ),
                                   color: theme.colorScheme.primary,
                                 ),
@@ -297,29 +274,20 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                     const SizedBox(height: 16),
                     // Currency input for initial balance (only visible during creation mode!)
                     if (!_isEditing) ...[
-                      TextFormField(
-                        controller: _balanceController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Saldo Inicial (R\$)',
-                          filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHigh,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          prefixText: 'R\$ ',
-                        ),
-                        onChanged: _onBalanceChanged,
+                      AmountInput(
+                        amountInCents: _initialBalanceCents,
+                        label: 'Saldo Inicial',
+                        color: theme.colorScheme.primary,
+                        onChanged: (val) =>
+                            setState(() => _initialBalanceCents = val),
                       ),
                       const SizedBox(height: 24),
                     ],
                     // Color Picker swatch selector
                     AppColorPicker(
                       selectedColorHex: _colorHex,
-                      previewIcon: IconData(
+                      previewIcon: IconMapper.fromCodePoint(
                         int.parse(_iconCodePoint),
-                        fontFamily: 'MaterialIcons',
                       ),
                       onColorSelected: (color) {
                         setState(() {

@@ -14,6 +14,7 @@ abstract class CreditCardRepository {
     required int dueDay,
     required String accountId,
     String? color,
+    int minPaymentPercent = 15,
   });
   Future<void> updateCreditCard({
     required String id,
@@ -23,6 +24,7 @@ abstract class CreditCardRepository {
     required int dueDay,
     String? accountId,
     String? color,
+    int minPaymentPercent = 15,
   });
   Future<void> deleteCreditCard(String id);
 }
@@ -34,35 +36,36 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
 
   @override
   Stream<List<CreditCardModel>> watchAllCreditCards() {
+    // Junção com transactions para somar apenas despesas CC sem fatura quitada
     final query = _database.select(_database.creditCards).join([
       leftOuterJoin(
-        _database.entries,
-        _database.entries.accountId.equalsExp(_database.creditCards.accountId),
+        _database.transactions,
+        _database.transactions.creditCardId.equalsExp(_database.creditCards.id) &
+            _database.transactions.type.equals('expense') &
+            _database.transactions.invoiceId.isNull(),
       ),
     ])..where(_database.creditCards.isArchived.equals(false));
 
     return query.watch().map((rows) {
       final Map<String, db.CreditCard> cardsMap = {};
-      final Map<String, int> balancesMap = {};
+      final Map<String, int> usedMap = {};
 
       for (final row in rows) {
         final card = row.readTable(_database.creditCards);
-        final entry = row.readTableOrNull(_database.entries);
+        final tx = row.readTableOrNull(_database.transactions);
 
         cardsMap[card.id] = card;
 
-        if (entry != null) {
-          final current = balancesMap[card.accountId] ?? 0;
-          final change = entry.type == 'debit' ? entry.amount : -entry.amount;
-          balancesMap[card.accountId] = current + change;
+        if (tx != null) {
+          final current = usedMap[card.id] ?? 0;
+          usedMap[card.id] = current + (tx.rawAmount ?? 0);
         } else {
-          balancesMap[card.accountId] ??= 0;
+          usedMap[card.id] ??= 0;
         }
       }
 
       return cardsMap.values.map((dbCard) {
-        final balance = balancesMap[dbCard.accountId] ?? 0;
-        final usedLimit = balance < 0 ? -balance : 0;
+        final usedLimit = usedMap[dbCard.id] ?? 0;
         return CreditCardModel.fromDb(dbCard, usedLimit: usedLimit);
       }).toList();
     });
@@ -72,8 +75,10 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
   Stream<CreditCardModel> watchCreditCardById(String id) {
     final query = _database.select(_database.creditCards).join([
       leftOuterJoin(
-        _database.entries,
-        _database.entries.accountId.equalsExp(_database.creditCards.accountId),
+        _database.transactions,
+        _database.transactions.creditCardId.equalsExp(_database.creditCards.id) &
+            _database.transactions.type.equals('expense') &
+            _database.transactions.invoiceId.isNull(),
       ),
     ])..where(_database.creditCards.id.equals(id));
 
@@ -83,17 +88,15 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
       }
 
       final dbCard = rows.first.readTable(_database.creditCards);
-      int balance = 0;
+      int usedLimit = 0;
 
       for (final row in rows) {
-        final entry = row.readTableOrNull(_database.entries);
-        if (entry != null) {
-          final change = entry.type == 'debit' ? entry.amount : -entry.amount;
-          balance += change;
+        final tx = row.readTableOrNull(_database.transactions);
+        if (tx != null) {
+          usedLimit += tx.rawAmount ?? 0;
         }
       }
 
-      final usedLimit = balance < 0 ? -balance : 0;
       return CreditCardModel.fromDb(dbCard, usedLimit: usedLimit);
     });
   }
@@ -106,6 +109,7 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
     required int dueDay,
     required String accountId,
     String? color,
+    int minPaymentPercent = 15,
   }) async {
     final cardId = const Uuid().v4();
     final now = DateTime.now();
@@ -122,6 +126,7 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
               dueDay: dueDay,
               accountId: accountId,
               color: Value(color),
+              minPaymentPercent: Value(minPaymentPercent),
               isArchived: const Value(false),
               createdAt: Value(now),
               updatedAt: Value(now),
@@ -168,6 +173,7 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
     required int dueDay,
     String? accountId,
     String? color,
+    int minPaymentPercent = 15,
   }) async {
     final now = DateTime.now();
     await (_database.update(
@@ -180,6 +186,7 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
         dueDay: Value(dueDay),
         accountId: accountId != null ? Value(accountId) : const Value.absent(),
         color: Value(color),
+        minPaymentPercent: Value(minPaymentPercent),
         updatedAt: Value(now),
       ),
     );

@@ -8,6 +8,7 @@ class CreditCardModel {
   final int dueDay;
   final String accountId;
   final String? color;
+  final int minPaymentPercent;
   final bool isArchived;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -24,6 +25,7 @@ class CreditCardModel {
     required this.dueDay,
     required this.accountId,
     this.color,
+    this.minPaymentPercent = 15,
     required this.isArchived,
     required this.createdAt,
     required this.updatedAt,
@@ -40,6 +42,7 @@ class CreditCardModel {
       dueDay: card.dueDay,
       accountId: card.accountId,
       color: card.color,
+      minPaymentPercent: card.minPaymentPercent,
       isArchived: card.isArchived,
       createdAt: card.createdAt,
       updatedAt: card.updatedAt,
@@ -56,6 +59,7 @@ class CreditCardModel {
     int? dueDay,
     String? accountId,
     String? color,
+    int? minPaymentPercent,
     bool? isArchived,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -70,6 +74,7 @@ class CreditCardModel {
       dueDay: dueDay ?? this.dueDay,
       accountId: accountId ?? this.accountId,
       color: color ?? this.color,
+      minPaymentPercent: minPaymentPercent ?? this.minPaymentPercent,
       isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

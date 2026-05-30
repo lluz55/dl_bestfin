@@ -5,6 +5,7 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class FinancingFormScreen extends ConsumerStatefulWidget {
   const FinancingFormScreen({super.key});
@@ -18,7 +19,6 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
-  final _amountController = TextEditingController();
   final _installmentsController = TextEditingController();
   final _rateController = TextEditingController();
 
@@ -40,7 +40,7 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
   @override
   void initState() {
     super.initState();
-    _amountController.text = '0,00';
+    _totalAmountCents = 0;
     _installmentsController.text = '12';
     _rateController.text = '1,00';
   }
@@ -48,28 +48,9 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _amountController.dispose();
     _installmentsController.dispose();
     _rateController.dispose();
     super.dispose();
-  }
-
-  void _onCurrencyChanged(String value) {
-    if (value.isEmpty) return;
-    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (clean.isEmpty) return;
-    final cents = int.parse(clean);
-    final double amount = cents / 100.0;
-    final formatted = amount.toStringAsFixed(2).replaceAll('.', ',');
-
-    _amountController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-
-    setState(() {
-      _totalAmountCents = cents;
-    });
   }
 
   void _onRateChanged(String value) {
@@ -106,6 +87,12 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_totalAmountCents <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe o valor do financiamento')),
+      );
+      return;
+    }
 
     final repo = ref.read(financingRepositoryProvider);
     final name = _nameController.text.trim();
@@ -209,24 +196,11 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
             const SizedBox(height: 16),
 
             // Total Amount Financed
-            TextFormField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Valor Total Financiado',
-                prefixText: 'R\$ ',
-                prefixIcon: const Icon(Icons.home_work_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onChanged: _onCurrencyChanged,
-              validator: (val) {
-                if (_totalAmountCents <= 0) {
-                  return 'Informe o valor do financiamento';
-                }
-                return null;
-              },
+            AmountInput(
+              amountInCents: _totalAmountCents,
+              label: 'Valor Total Financiado',
+              color: context.colorScheme.primary,
+              onChanged: (val) => setState(() => _totalAmountCents = val),
             ),
             const SizedBox(height: 16),
 

@@ -20,18 +20,6 @@ class DeleteAccount {
       );
     }
 
-    final canDeletePhysically = await repository.canDelete(id);
-    if (canDeletePhysically) {
-      await repository.deleteAccount(id);
-    } else {
-      await repository.updateAccount(
-        id: id,
-        name: accountToDelete.name,
-        type: accountToDelete.type.name,
-        icon: accountToDelete.icon,
-        color: accountToDelete.color,
-        isActive: false,
-      );
-    }
+    await repository.deleteAccount(id);
   }
 }
