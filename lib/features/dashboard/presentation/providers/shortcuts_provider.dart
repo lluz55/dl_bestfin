@@ -2,13 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bestfin/features/dashboard/domain/models/app_shortcut.dart';
 
-final shortcutsProvider = AsyncNotifierProvider<ShortcutsNotifier, List<AppShortcut>>(
-  ShortcutsNotifier.new,
-);
+final shortcutsProvider =
+    AsyncNotifierProvider<ShortcutsNotifier, List<AppShortcut>>(
+      ShortcutsNotifier.new,
+    );
 
 class ShortcutsNotifier extends AsyncNotifier<List<AppShortcut>> {
   static const _shortcutsKey = 'dashboard_shortcuts';
-  
+
   // Default shortcuts if none are saved
   static const _defaultShortcuts = [
     AppShortcut.accounts,
@@ -37,7 +38,7 @@ class ShortcutsNotifier extends AsyncNotifier<List<AppShortcut>> {
   Future<void> saveShortcuts(List<AppShortcut> newShortcuts) async {
     // Limit to 4 shortcuts
     final limitedShortcuts = newShortcuts.take(4).toList();
-    
+
     // Optimistic update
     state = AsyncData(limitedShortcuts);
 

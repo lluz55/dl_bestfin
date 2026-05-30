@@ -71,13 +71,6 @@ class _GoalCelebrationWidgetState extends State<GoalCelebrationWidget>
                 decoration: BoxDecoration(
                   color: cs.surface,
                   borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.3),
-                      blurRadius: 40,
-                      spreadRadius: 4,
-                    ),
-                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

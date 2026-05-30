@@ -4,6 +4,7 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/dashboard/domain/models/dashboard_data.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class SpendingDonut extends StatefulWidget {
   final List<DashboardCategorySpending> categoryExpenses;
@@ -144,13 +145,6 @@ class _SpendingDonutState extends State<SpendingDonut> {
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Text(
                   '${(item.percentage * 100).toStringAsFixed(0)}%',
@@ -174,8 +168,9 @@ class _SpendingDonutState extends State<SpendingDonut> {
   ) {
     Color color = item.category?.parsedColor ?? cs.outline;
     final double valAmount = item.amountInCents / 100.0;
-    final formattedAmount =
-        'R\$ ${valAmount.toStringAsFixed(0)}';
+    final formattedAmount = CurrencyFormatter.valuesHidden
+        ? 'R\$ •••••'
+        : 'R\$ ${valAmount.toStringAsFixed(0)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

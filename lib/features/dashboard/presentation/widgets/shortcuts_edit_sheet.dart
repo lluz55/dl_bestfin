@@ -38,9 +38,7 @@ class _ShortcutsEditSheetState extends ConsumerState<ShortcutsEditSheet> {
             SnackBar(
               behavior: SnackBarBehavior.floating,
               backgroundColor: cs.errorContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: context.shapes.card,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: context.shapes.card),
               content: Text(
                 'Máximo de 4 atalhos atingido.',
                 style: tt.bodyMedium?.copyWith(color: cs.onErrorContainer),
@@ -102,10 +100,8 @@ class _ShortcutsEditSheetState extends ConsumerState<ShortcutsEditSheet> {
                 ),
                 AnimatedSwitcher(
                   duration: motion.fastDuration,
-                  transitionBuilder: (child, animation) => ScaleTransition(
-                    scale: animation,
-                    child: child,
-                  ),
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
                   child: Container(
                     key: ValueKey(_selectedShortcuts.length),
                     padding: const EdgeInsets.symmetric(
@@ -263,8 +259,7 @@ class _ShortcutChipState extends State<_ShortcutChip> {
                 widget.shortcut.label,
                 style: tt.labelMedium?.copyWith(
                   color: isSelected ? Colors.white : cs.onSurface,
-                  fontWeight:
-                      isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],

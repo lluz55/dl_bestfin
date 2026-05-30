@@ -26,7 +26,11 @@ class BadgeUnlockOverlay extends ConsumerWidget {
     return child;
   }
 
-  void _showUnlockDialog(BuildContext context, WidgetRef ref, String badgeKey) async {
+  void _showUnlockDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String badgeKey,
+  ) async {
     final badges = await ref.read(badgesDaoProvider).getAllBadges();
     final badgeDb = badges.firstWhere((b) => b.badgeKey == badgeKey);
     final badge = BadgeModel.fromDb(badgeDb);
@@ -101,15 +105,24 @@ class _UnlockDialog extends StatelessWidget {
 
   IconData _getBadgeIcon(String key) {
     switch (key) {
-      case 'first_transaction': return Icons.star;
-      case 'seven_days_streak': return Icons.trending_up;
-      case 'emergency_fund': return Icons.emergency;
-      case 'debt_free': return Icons.verified_user;
-      case 'goal_reached': return Icons.emoji_events;
-      case 'finance_master': return Icons.workspace_premium;
-      case 'investor': return Icons.show_chart;
-      case 'installment_completed': return Icons.task_alt;
-      default: return Icons.help_outline;
+      case 'first_transaction':
+        return Icons.star;
+      case 'seven_days_streak':
+        return Icons.trending_up;
+      case 'emergency_fund':
+        return Icons.emergency;
+      case 'debt_free':
+        return Icons.verified_user;
+      case 'goal_reached':
+        return Icons.emoji_events;
+      case 'finance_master':
+        return Icons.workspace_premium;
+      case 'investor':
+        return Icons.show_chart;
+      case 'installment_completed':
+        return Icons.task_alt;
+      default:
+        return Icons.help_outline;
     }
   }
 }

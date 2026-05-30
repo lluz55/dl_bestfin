@@ -9,6 +9,7 @@ import 'package:bestfin/core/widgets/account_selector.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
 import 'package:bestfin/features/goals/presentation/widgets/monthly_simulator_widget.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class GoalFormScreen extends ConsumerStatefulWidget {
   final GoalModel? existingGoal;
@@ -23,7 +24,6 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
-  final _targetController = TextEditingController();
 
   int _targetAmountInCents = 0;
   DateTime? _targetDate;
@@ -41,9 +41,6 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
       _nameController.text = g.name;
       _descController.text = g.description ?? '';
       _targetAmountInCents = g.targetAmountInCents;
-      _targetController.text = (g.targetAmountInCents / 100)
-          .toStringAsFixed(2)
-          .replaceAll('.', ',');
       _targetDate = g.targetDate;
       _accountId = g.accountId;
       _color = g.color ?? '#1E88E5';
@@ -56,7 +53,6 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
   void dispose() {
     _nameController.dispose();
     _descController.dispose();
-    _targetController.dispose();
     super.dispose();
   }
 
@@ -145,9 +141,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: AppPageAppBar(
-        title: isEditing ? 'Editar Meta' : 'Nova Meta',
-      ),
+      appBar: AppPageAppBar(title: isEditing ? 'Editar Meta' : 'Nova Meta'),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -224,26 +218,11 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
             const SizedBox(height: 14),
 
             // Valor alvo
-            TextFormField(
-              controller: _targetController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: InputDecoration(
-                labelText: 'Valor alvo (R\$) *',
-                hintText: '0,00',
-                prefixIcon: const Icon(Icons.attach_money_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onChanged: (val) {
-                final clean = val.replaceAll('.', '').replaceAll(',', '.');
-                final parsed = double.tryParse(clean) ?? 0;
-                setState(() => _targetAmountInCents = (parsed * 100).round());
-              },
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Informe o valor alvo' : null,
+            AmountInput(
+              amountInCents: _targetAmountInCents,
+              label: 'Valor Alvo',
+              color: context.colorScheme.primary,
+              onChanged: (val) => setState(() => _targetAmountInCents = val),
             ),
             const SizedBox(height: 14),
 
@@ -606,14 +585,6 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                     border: selected
                         ? Border.all(color: cs.onSurface, width: 3)
                         : Border.all(color: Colors.transparent, width: 3),
-                    boxShadow: selected
-                        ? [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.5),
-                              blurRadius: 8,
-                            ),
-                          ]
-                        : null,
                   ),
                   child: selected
                       ? const Icon(

@@ -35,45 +35,67 @@ class InsightsService {
     final insights = <InsightModel>[];
 
     // 1. Check for negative sentiment
-    final badSentiments = txs.where((t) => t.sentiment?.name == 'sad' || t.sentiment?.name == 'angry');
+    final badSentiments = txs.where(
+      (t) => t.sentiment?.name == 'sad' || t.sentiment?.name == 'angry',
+    );
     if (badSentiments.isNotEmpty) {
       final totalBad = badSentiments.fold(0, (sum, t) => sum + t.amount);
       if (totalBad > 0) {
-        insights.add(InsightModel(
-          text: 'Você gastou R\$ ${(totalBad / 100).toStringAsFixed(2)} em compras que te deixaram triste. Considere eliminá-las!',
-          icon: '😞',
-        ));
+        insights.add(
+          InsightModel(
+            text:
+                'Você gastou R\$ ${(totalBad / 100).toStringAsFixed(2)} em compras que te deixaram triste. Considere eliminá-las!',
+            icon: '😞',
+          ),
+        );
       }
     }
 
     // 2. Positive balance insight
     final now = DateTime.now();
-    final thisMonth = txs.where((t) => t.date.month == now.month && t.date.year == now.year);
-    final income = thisMonth.where((t) => t.type == TransactionType.income).fold(0, (sum, t) => sum + t.amount);
-    final expense = thisMonth.where((t) => t.type == TransactionType.expense).fold(0, (sum, t) => sum + t.amount);
-    
+    final thisMonth = txs.where(
+      (t) => t.date.month == now.month && t.date.year == now.year,
+    );
+    final income = thisMonth
+        .where((t) => t.type == TransactionType.income)
+        .fold(0, (sum, t) => sum + t.amount);
+    final expense = thisMonth
+        .where((t) => t.type == TransactionType.expense)
+        .fold(0, (sum, t) => sum + t.amount);
+
     if (income > expense && income > 0) {
-      insights.add(const InsightModel(
-        text: 'Parabéns! Você está gastando menos do que ganha este mês. Continue assim! 🎉',
-        icon: '📈',
-      ));
+      insights.add(
+        const InsightModel(
+          text:
+              'Parabéns! Você está gastando menos do que ganha este mês. Continue assim! 🎉',
+          icon: '📈',
+        ),
+      );
     }
 
     // 3. No Lazer expenses (example)
-    final hasLazer = thisMonth.any((t) => t.category?.name.toLowerCase().contains('lazer') ?? false);
+    final hasLazer = thisMonth.any(
+      (t) => t.category?.name.toLowerCase().contains('lazer') ?? false,
+    );
     if (!hasLazer && thisMonth.isNotEmpty) {
-       insights.add(const InsightModel(
-        text: 'Nenhum gasto em Lazer este mês. Lembre-se de reservar um tempo para você!',
-        icon: '🏖️',
-      ));
+      insights.add(
+        const InsightModel(
+          text:
+              'Nenhum gasto em Lazer este mês. Lembre-se de reservar um tempo para você!',
+          icon: '🏖️',
+        ),
+      );
     }
 
     // Default insight if none generated
     if (insights.isEmpty) {
-      insights.add(const InsightModel(
-        text: 'Mantenha seus registros em dia para receber dicas personalizadas.',
-        icon: '💡',
-      ));
+      insights.add(
+        const InsightModel(
+          text:
+              'Mantenha seus registros em dia para receber dicas personalizadas.',
+          icon: '💡',
+        ),
+      );
     }
 
     return insights;

@@ -77,7 +77,9 @@ class FreeToSpendCard extends StatelessWidget {
                       builder: (context, value, _) => CircularProgressIndicator(
                         value: value,
                         strokeWidth: 6,
-                        backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
+                        backgroundColor: cs.outlineVariant.withValues(
+                          alpha: 0.3,
+                        ),
                         valueColor: AlwaysStoppedAnimation<Color>(ringColor),
                       ),
                     ),

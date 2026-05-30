@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class IncomeExpenseBar extends StatelessWidget {
   final int monthlyIncome;
@@ -25,10 +26,10 @@ class IncomeExpenseBar extends StatelessWidget {
     final double incomeWeight = total > 0 ? (income / total) : 0.5;
     final double expenseWeight = total > 0 ? (expense / total) : 0.5;
 
-    final formattedIncome =
-        'R\$ ${income.toStringAsFixed(2).replaceAll('.', ',')}';
-    final formattedExpense =
-        'R\$ ${expense.toStringAsFixed(2).replaceAll('.', ',')}';
+    final formattedIncome = CurrencyFormatter.formatCents(monthlyIncome.abs());
+    final formattedExpense = CurrencyFormatter.formatCents(
+      monthlyExpense.abs(),
+    );
 
     final percentSpent = income > 0 ? (expense / income) * 100 : 0.0;
 
@@ -113,9 +114,7 @@ class IncomeExpenseBar extends StatelessWidget {
                   style: tt.labelMedium
                       ?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: percentSpent > 100
-                            ? cs.error
-                            : cs.onSurface,
+                        color: percentSpent > 100 ? cs.error : cs.onSurface,
                       )
                       .merge(AppTypography.monospace),
                 ),

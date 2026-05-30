@@ -8,8 +8,8 @@ class GamificationService {
   GamificationService({
     required StreakRepository streakRepository,
     required BadgeChecker badgeChecker,
-  })  : _streakRepository = streakRepository,
-        _badgeChecker = badgeChecker;
+  }) : _streakRepository = streakRepository,
+       _badgeChecker = badgeChecker;
 
   Stream<String> get onBadgeUnlocked => _badgeChecker.onBadgeUnlocked;
 

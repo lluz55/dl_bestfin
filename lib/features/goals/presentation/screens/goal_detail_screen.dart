@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
 import 'package:bestfin/features/goals/presentation/widgets/progress_ring_widget.dart';
 import 'package:bestfin/features/goals/presentation/widgets/monthly_simulator_widget.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_celebration_widget.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class GoalDetailScreen extends ConsumerStatefulWidget {
   final String goalId;
@@ -66,6 +68,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
   }
 
   Widget _buildContent(BuildContext context, GoalModel goal, Color goalColor) {
+    ref.watch(valuesHiddenProvider);
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final dateFormat = DateFormat('dd/MM/yyyy');
@@ -74,6 +77,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: goal.name,
+        showVisibilityToggle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded),
@@ -242,13 +246,13 @@ class _StatsRow extends StatelessWidget {
             value: goal.remainingInCents > 0
                 ? CurrencyFormatter.formatCents(goal.remainingInCents)
                 : goal.type == GoalType.saving
-                    ? 'Meta atingida!'
-                    : 'Orçamento excedido!',
+                ? 'Meta atingida!'
+                : 'Orçamento excedido!',
             color: goal.isCompleted
                 ? const Color(0xFF43A047)
                 : (goal.type == GoalType.spending && goal.remainingInCents < 0)
-                    ? cs.error
-                    : cs.onSurfaceVariant,
+                ? cs.error
+                : cs.onSurfaceVariant,
           ),
         ),
         const SizedBox(width: 8),
@@ -555,21 +559,11 @@ class _ContributeSheetDetailState
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 20),
-          TextFormField(
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: 'Valor (R\$)',
-              prefixIcon: const Icon(Icons.add_circle_outline_rounded),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onChanged: (val) {
-              final clean = val.replaceAll(',', '.');
-              final parsed = double.tryParse(clean) ?? 0;
-              setState(() => _amountInCents = (parsed * 100).round());
-            },
+          AmountInput(
+            amountInCents: _amountInCents,
+            label: 'Valor',
+            color: cs.primary,
+            onChanged: (val) => setState(() => _amountInCents = val),
           ),
           const SizedBox(height: 12),
           TextFormField(

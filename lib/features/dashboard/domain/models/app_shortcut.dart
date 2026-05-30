@@ -25,12 +25,7 @@ enum AppShortcut {
     icon: Icons.repeat_rounded,
     route: '/recurring',
   ),
-  goals(
-    id: 'goals',
-    label: 'Metas',
-    icon: Icons.flag_rounded,
-    route: '/goals',
-  ),
+  goals(id: 'goals', label: 'Metas', icon: Icons.flag_rounded, route: '/goals'),
   investments(
     id: 'investments',
     label: 'Investimentos',

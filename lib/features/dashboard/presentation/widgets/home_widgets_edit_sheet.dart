@@ -17,7 +17,8 @@ class HomeWidgetsEditSheet extends ConsumerStatefulWidget {
   const HomeWidgetsEditSheet({super.key});
 
   @override
-  ConsumerState<HomeWidgetsEditSheet> createState() => _HomeWidgetsEditSheetState();
+  ConsumerState<HomeWidgetsEditSheet> createState() =>
+      _HomeWidgetsEditSheetState();
 }
 
 class _HomeWidgetsEditSheetState extends ConsumerState<HomeWidgetsEditSheet> {
@@ -59,10 +60,7 @@ class _HomeWidgetsEditSheetState extends ConsumerState<HomeWidgetsEditSheet> {
     final cs = context.colorScheme;
     final tt = context.textTheme;
 
-    final allInOrder = [
-      ..._visible,
-      ..._hidden,
-    ];
+    final allInOrder = [..._visible, ..._hidden];
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -95,7 +93,9 @@ class _HomeWidgetsEditSheetState extends ConsumerState<HomeWidgetsEditSheet> {
                     Expanded(
                       child: Text(
                         'Personalizar página inicial',
-                        style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: tt.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     TextButton(
@@ -147,22 +147,20 @@ class _HomeWidgetsEditSheetState extends ConsumerState<HomeWidgetsEditSheet> {
                   },
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  8,
-                  16,
-                  16 + MediaQuery.paddingOf(context).bottom,
-                ),
-                child: FilledButton(
-                  onPressed: _save,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: FilledButton(
+                    onPressed: _save,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
+                    child: const Text('Salvar'),
                   ),
-                  child: const Text('Salvar'),
                 ),
               ),
             ],

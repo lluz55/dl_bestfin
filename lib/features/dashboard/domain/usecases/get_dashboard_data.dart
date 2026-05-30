@@ -256,7 +256,11 @@ class GetDashboardData {
     final cashFlowHistory = _calculateCashFlowHistory(transactions, now);
 
     // ── Net Worth History (current balance as single point; historical requires account snapshots) ─
-    final netWorthHistory = _calculateNetWorthHistory(accounts, transactions, now);
+    final netWorthHistory = _calculateNetWorthHistory(
+      accounts,
+      transactions,
+      now,
+    );
 
     // ── Category Ranking (all categories sorted by spending) ────────────────────
     final categoryRanking = _calculateCategoryRanking(transactions, start);

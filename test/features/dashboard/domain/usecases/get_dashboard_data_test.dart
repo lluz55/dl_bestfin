@@ -19,24 +19,28 @@ Future<void> _insertPendingTx(
   required int amount,
 }) async {
   final txId = _uuid.v4();
-  await db.into(db.transactions).insert(
-    TransactionsCompanion.insert(
-      id: txId,
-      date: date,
-      description: description,
-      type: type,
-      isCompleted: const Value(false),
-    ),
-  );
-  await db.into(db.entries).insert(
-    EntriesCompanion.insert(
-      id: _uuid.v4(),
-      transactionId: txId,
-      accountId: accId,
-      amount: amount,
-      type: type == 'income' ? 'debit' : 'credit',
-    ),
-  );
+  await db
+      .into(db.transactions)
+      .insert(
+        TransactionsCompanion.insert(
+          id: txId,
+          date: date,
+          description: description,
+          type: type,
+          isCompleted: const Value(false),
+        ),
+      );
+  await db
+      .into(db.entries)
+      .insert(
+        EntriesCompanion.insert(
+          id: _uuid.v4(),
+          transactionId: txId,
+          accountId: accId,
+          amount: amount,
+          type: type == 'income' ? 'debit' : 'credit',
+        ),
+      );
 }
 
 void main() {
@@ -61,70 +65,76 @@ void main() {
   tearDown(() async => db.close());
 
   group('freeToSpendAmount', () {
-    test('reflete liquidBalance descontado de despesas pendentes (partida dobrada)', () async {
-      final now = DateTime.now();
-      final accId = _uuid.v4();
+    test(
+      'reflete liquidBalance descontado de despesas pendentes (partida dobrada)',
+      () async {
+        final now = DateTime.now();
+        final accId = _uuid.v4();
 
-      await db.accountsDao.insertAccount(
-        AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
-      );
-      // Receita de R$ 5.000 (completa)
-      await txRepo.createTransaction(
-        date: now,
-        description: 'Salário',
-        type: 'income',
-        amount: 500000,
-        accountId: accId,
-      );
-      // Despesa pendente: R$ 500 — entry já debita o saldo da conta
-      await _insertPendingTx(
-        db,
-        accId,
-        date: now,
-        description: 'Aluguel',
-        type: 'expense',
-        amount: 50000,
-      );
+        await db.accountsDao.insertAccount(
+          AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
+        );
+        // Receita de R$ 5.000 (completa)
+        await txRepo.createTransaction(
+          date: now,
+          description: 'Salário',
+          type: 'income',
+          amount: 500000,
+          accountId: accId,
+        );
+        // Despesa pendente: R$ 500 — entry já debita o saldo da conta
+        await _insertPendingTx(
+          db,
+          accId,
+          date: now,
+          description: 'Aluguel',
+          type: 'expense',
+          amount: 50000,
+        );
 
-      final data = await useCase().first;
+        final data = await useCase().first;
 
-      // liquidBalance = 500000 - 50000 = 450000 (entry criada mesmo pending)
-      // freeToSpend = liquidBalance(450000) - goalTarget(0) = 450000
-      expect(data.freeToSpendAmount, 450000);
-      expect(data.freeToSpendPercentage, closeTo(1.0, 0.001));
-    });
+        // liquidBalance = 500000 - 50000 = 450000 (entry criada mesmo pending)
+        // freeToSpend = liquidBalance(450000) - goalTarget(0) = 450000
+        expect(data.freeToSpendAmount, 450000);
+        expect(data.freeToSpendPercentage, closeTo(1.0, 0.001));
+      },
+    );
 
-    test('transações pendentes de outros meses ainda afetam o liquidBalance', () async {
-      final now = DateTime.now();
-      final accId = _uuid.v4();
+    test(
+      'transações pendentes de outros meses ainda afetam o liquidBalance',
+      () async {
+        final now = DateTime.now();
+        final accId = _uuid.v4();
 
-      await db.accountsDao.insertAccount(
-        AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
-      );
-      await txRepo.createTransaction(
-        date: now,
-        description: 'Salário',
-        type: 'income',
-        amount: 300000,
-        accountId: accId,
-      );
-      // Despesa pendente do mês passado — afeta saldo pois entry existe
-      final lastMonth = DateTime(now.year, now.month - 1, 10);
-      await _insertPendingTx(
-        db,
-        accId,
-        date: lastMonth,
-        description: 'Conta antiga',
-        type: 'expense',
-        amount: 100000,
-      );
+        await db.accountsDao.insertAccount(
+          AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
+        );
+        await txRepo.createTransaction(
+          date: now,
+          description: 'Salário',
+          type: 'income',
+          amount: 300000,
+          accountId: accId,
+        );
+        // Despesa pendente do mês passado — afeta saldo pois entry existe
+        final lastMonth = DateTime(now.year, now.month - 1, 10);
+        await _insertPendingTx(
+          db,
+          accId,
+          date: lastMonth,
+          description: 'Conta antiga',
+          type: 'expense',
+          amount: 100000,
+        );
 
-      final data = await useCase().first;
+        final data = await useCase().first;
 
-      // liquidBalance = 300000 - 100000 = 200000
-      // freeToSpend = 200000 - goalTarget(0) = 200000
-      expect(data.freeToSpendAmount, 200000);
-    });
+        // liquidBalance = 300000 - 100000 = 200000
+        // freeToSpend = 200000 - goalTarget(0) = 200000
+        expect(data.freeToSpendAmount, 200000);
+      },
+    );
 
     test('desconta meta de poupança mensal de objetivos com prazo', () async {
       final now = DateTime.now();
@@ -224,57 +234,60 @@ void main() {
   });
 
   group('upcomingTransactions', () {
-    test('retorna transações futuras não completadas, ordenadas por data', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final accId = _uuid.v4();
+    test(
+      'retorna transações futuras não completadas, ordenadas por data',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final accId = _uuid.v4();
 
-      await db.accountsDao.insertAccount(
-        AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
-      );
+        await db.accountsDao.insertAccount(
+          AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
+        );
 
-      // Futura — 5 dias
-      await _insertPendingTx(
-        db,
-        accId,
-        date: today.add(const Duration(days: 5)),
-        description: 'Conta de Luz',
-        type: 'expense',
-        amount: 20000,
-      );
-      // Futura — 2 dias (deve aparecer primeiro)
-      await _insertPendingTx(
-        db,
-        accId,
-        date: today.add(const Duration(days: 2)),
-        description: 'Streaming',
-        type: 'expense',
-        amount: 3990,
-      );
-      // Passada — NÃO deve aparecer
-      await _insertPendingTx(
-        db,
-        accId,
-        date: today.subtract(const Duration(days: 3)),
-        description: 'Conta Velha',
-        type: 'expense',
-        amount: 5000,
-      );
-      // Futura mas já COMPLETADA — NÃO deve aparecer
-      await txRepo.createTransaction(
-        date: today.add(const Duration(days: 1)),
-        description: 'Já pago',
-        type: 'expense',
-        amount: 1000,
-        accountId: accId,
-      );
+        // Futura — 5 dias
+        await _insertPendingTx(
+          db,
+          accId,
+          date: today.add(const Duration(days: 5)),
+          description: 'Conta de Luz',
+          type: 'expense',
+          amount: 20000,
+        );
+        // Futura — 2 dias (deve aparecer primeiro)
+        await _insertPendingTx(
+          db,
+          accId,
+          date: today.add(const Duration(days: 2)),
+          description: 'Streaming',
+          type: 'expense',
+          amount: 3990,
+        );
+        // Passada — NÃO deve aparecer
+        await _insertPendingTx(
+          db,
+          accId,
+          date: today.subtract(const Duration(days: 3)),
+          description: 'Conta Velha',
+          type: 'expense',
+          amount: 5000,
+        );
+        // Futura mas já COMPLETADA — NÃO deve aparecer
+        await txRepo.createTransaction(
+          date: today.add(const Duration(days: 1)),
+          description: 'Já pago',
+          type: 'expense',
+          amount: 1000,
+          accountId: accId,
+        );
 
-      final data = await useCase().first;
+        final data = await useCase().first;
 
-      expect(data.upcomingTransactions.length, 2);
-      expect(data.upcomingTransactions.first.description, 'Streaming');
-      expect(data.upcomingTransactions.last.description, 'Conta de Luz');
-    });
+        expect(data.upcomingTransactions.length, 2);
+        expect(data.upcomingTransactions.first.description, 'Streaming');
+        expect(data.upcomingTransactions.last.description, 'Conta de Luz');
+      },
+    );
 
     test('limita a 3 próximas transações', () async {
       final today = DateTime(

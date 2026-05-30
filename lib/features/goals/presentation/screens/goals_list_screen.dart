@@ -6,10 +6,12 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_card.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_celebration_widget.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class GoalsListScreen extends ConsumerStatefulWidget {
   const GoalsListScreen({super.key});
@@ -112,13 +114,17 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(valuesHiddenProvider);
     final cs = context.colorScheme;
 
     return Stack(
       children: [
         Scaffold(
           backgroundColor: cs.surface,
-          appBar: const AppPageAppBar(title: 'Metas'),
+          appBar: const AppPageAppBar(
+            title: 'Metas',
+            showVisibilityToggle: true,
+          ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => context.push('/goals/new'),
             icon: const Icon(Icons.add_rounded),
@@ -138,34 +144,34 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-              _GoalsList(
-                watchProvider: (ref) => ref.watch(activeGoalsProvider),
-                onContribute: _contribute,
-                onArchive: _archive,
-                onDelete: _delete,
-                emptyTitle: 'Nenhuma meta ativa',
-                emptyDescription:
-                    'Crie seu primeiro objetivo financeiro e acompanhe o progresso!',
-                emptyIcon: Icons.flag_rounded,
-                onAction: () => context.push('/goals/new'),
-                actionLabel: 'Criar meta',
-              ),
-              _GoalsList(
-                watchProvider: (ref) => ref.watch(completedGoalsProvider),
-                onContribute: _contribute,
-                onArchive: _archive,
-                onDelete: _delete,
-                emptyTitle: 'Nenhuma meta concluída',
-                emptyDescription:
-                    'Metas que você atingiu aparecerão aqui. Continue assim!',
-                emptyIcon: Icons.check_circle_outline_rounded,
+                    _GoalsList(
+                      watchProvider: (ref) => ref.watch(activeGoalsProvider),
+                      onContribute: _contribute,
+                      onArchive: _archive,
+                      onDelete: _delete,
+                      emptyTitle: 'Nenhuma meta ativa',
+                      emptyDescription:
+                          'Crie seu primeiro objetivo financeiro e acompanhe o progresso!',
+                      emptyIcon: Icons.flag_rounded,
+                      onAction: () => context.push('/goals/new'),
+                      actionLabel: 'Criar meta',
+                    ),
+                    _GoalsList(
+                      watchProvider: (ref) => ref.watch(completedGoalsProvider),
+                      onContribute: _contribute,
+                      onArchive: _archive,
+                      onDelete: _delete,
+                      emptyTitle: 'Nenhuma meta concluída',
+                      emptyDescription:
+                          'Metas que você atingiu aparecerão aqui. Continue assim!',
+                      emptyIcon: Icons.check_circle_outline_rounded,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-          ],
-        ),
-      ),
 
         // Celebração overlay
         if (_celebratingGoal != null)
@@ -290,21 +296,11 @@ class _ContributeSheetState extends ConsumerState<_ContributeSheet> {
           const SizedBox(height: 20),
 
           // Campo de valor simples
-          TextFormField(
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: 'Valor (R\$)',
-              prefixIcon: const Icon(Icons.add_circle_outline_rounded),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onChanged: (val) {
-              final clean = val.replaceAll(',', '.');
-              final parsed = double.tryParse(clean) ?? 0;
-              setState(() => _amountInCents = (parsed * 100).round());
-            },
+          AmountInput(
+            amountInCents: _amountInCents,
+            label: 'Valor',
+            color: cs.primary,
+            onChanged: (val) => setState(() => _amountInCents = val),
           ),
           const SizedBox(height: 12),
 

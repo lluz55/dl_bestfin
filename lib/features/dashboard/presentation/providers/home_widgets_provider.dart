@@ -13,6 +13,9 @@ enum HomeWidgetId {
   netWorthLineChart,
   categoryRanking,
   cashFlowLineChart,
+  periodFilter,
+  quickActions,
+  recentTransactions,
 }
 
 extension HomeWidgetIdLabel on HomeWidgetId {
@@ -28,6 +31,9 @@ extension HomeWidgetIdLabel on HomeWidgetId {
     HomeWidgetId.netWorthLineChart => 'Evolução Patrimonial',
     HomeWidgetId.categoryRanking => 'Ranking de Categorias',
     HomeWidgetId.cashFlowLineChart => 'Fluxo de Caixa',
+    HomeWidgetId.periodFilter => 'Filtro de período',
+    HomeWidgetId.quickActions => 'Ações rápidas',
+    HomeWidgetId.recentTransactions => 'Últimas transações',
   };
 }
 

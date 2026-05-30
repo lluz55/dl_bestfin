@@ -12,25 +12,27 @@ class StreakRepositoryImpl implements StreakRepository {
   @override
   Stream<List<StreakModel>> watchAllStreaks() {
     return _streaksDao.watchAllStreaks().map(
-          (list) => list.map((s) => StreakModel.fromDb(s)).toList(),
-        );
+      (list) => list.map((s) => StreakModel.fromDb(s)).toList(),
+    );
   }
 
   @override
   Stream<StreakModel?> watchStreakByType(StreakType type) {
-    return _streaksDao.watchStreakByType(type.value).map(
-          (s) => s != null ? StreakModel.fromDb(s) : null,
-        );
+    return _streaksDao
+        .watchStreakByType(type.value)
+        .map((s) => s != null ? StreakModel.fromDb(s) : null);
   }
 
   @override
   Future<void> updateRecordingStreak() async {
-    final streak = await _streaksDao.getStreakByType(StreakType.recording.value);
+    final streak = await _streaksDao.getStreakByType(
+      StreakType.recording.value,
+    );
     if (streak == null) return;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     if (streak.lastDate != null) {
       final lastDate = DateTime(
         streak.lastDate!.year,
@@ -51,7 +53,9 @@ class StreakRepositoryImpl implements StreakRepository {
         newCount = 1;
       }
 
-      final newLongest = newCount > streak.longestCount ? newCount : streak.longestCount;
+      final newLongest = newCount > streak.longestCount
+          ? newCount
+          : streak.longestCount;
 
       await _streaksDao.updateStreakCount(
         streak.id,
@@ -62,13 +66,7 @@ class StreakRepositoryImpl implements StreakRepository {
       );
     } else {
       // First recording
-      await _streaksDao.updateStreakCount(
-        streak.id,
-        1,
-        1,
-        today,
-        true,
-      );
+      await _streaksDao.updateStreakCount(streak.id, 1, 1, today, true);
     }
   }
 
@@ -105,16 +103,21 @@ class StreakRepositoryImpl implements StreakRepository {
     if (underBudget) {
       final yesterday = today.subtract(const Duration(days: 1));
       int newCount;
-      
-      if (streak.lastDate != null && 
-          DateTime(streak.lastDate!.year, streak.lastDate!.month, streak.lastDate!.day)
-          .isAtSameMomentAs(yesterday)) {
+
+      if (streak.lastDate != null &&
+          DateTime(
+            streak.lastDate!.year,
+            streak.lastDate!.month,
+            streak.lastDate!.day,
+          ).isAtSameMomentAs(yesterday)) {
         newCount = streak.currentCount + 1;
       } else {
         newCount = 1;
       }
 
-      final newLongest = newCount > streak.longestCount ? newCount : streak.longestCount;
+      final newLongest = newCount > streak.longestCount
+          ? newCount
+          : streak.longestCount;
 
       await _streaksDao.updateStreakCount(
         streak.id,

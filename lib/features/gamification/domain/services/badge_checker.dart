@@ -25,12 +25,12 @@ class BadgeChecker {
     required InvestmentRepository investmentRepository,
     required FinancingRepository financingRepository,
     required StreakRepository streakRepository,
-  })  : _badgesDao = badgesDao,
-        _transactionRepository = transactionRepository,
-        _goalRepository = goalRepository,
-        _investmentRepository = investmentRepository,
-        _financingRepository = financingRepository,
-        _streakRepository = streakRepository;
+  }) : _badgesDao = badgesDao,
+       _transactionRepository = transactionRepository,
+       _goalRepository = goalRepository,
+       _investmentRepository = investmentRepository,
+       _financingRepository = financingRepository,
+       _streakRepository = streakRepository;
 
   Future<void> checkAllBadges() async {
     await Future.wait([
@@ -61,7 +61,9 @@ class BadgeChecker {
   }
 
   Future<void> _checkSevenDaysStreak() async {
-    final streak = await _streakRepository.watchStreakByType(StreakType.recording).first;
+    final streak = await _streakRepository
+        .watchStreakByType(StreakType.recording)
+        .first;
     if (streak != null && streak.currentCount >= 7) {
       await _unlockBadge('seven_days_streak');
     }
@@ -69,7 +71,9 @@ class BadgeChecker {
 
   Future<void> _checkEmergencyFund() async {
     final goals = await _goalRepository.watchAllGoals().first;
-    final hasEmergency = goals.any((g) => g.name.toLowerCase().contains('emergência'));
+    final hasEmergency = goals.any(
+      (g) => g.name.toLowerCase().contains('emergência'),
+    );
     if (hasEmergency) {
       await _unlockBadge('emergency_fund');
     }
@@ -87,14 +91,18 @@ class BadgeChecker {
 
   Future<void> _checkGoalReached() async {
     final goals = await _goalRepository.watchAllGoals().first;
-    final hasReached = goals.any((g) => g.currentAmountInCents >= g.targetAmountInCents);
+    final hasReached = goals.any(
+      (g) => g.currentAmountInCents >= g.targetAmountInCents,
+    );
     if (hasReached) {
       await _unlockBadge('goal_reached');
     }
   }
 
   Future<void> _checkFinanceMaster() async {
-    final streak = await _streakRepository.watchStreakByType(StreakType.budget).first;
+    final streak = await _streakRepository
+        .watchStreakByType(StreakType.budget)
+        .first;
     if (streak != null && streak.currentCount >= 30) {
       await _unlockBadge('finance_master');
     }

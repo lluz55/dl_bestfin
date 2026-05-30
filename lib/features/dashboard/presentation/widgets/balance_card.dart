@@ -55,13 +55,6 @@ class _BalanceCardState extends State<BalanceCard> {
                   colors: [cs.primary, cs.tertiary],
                   stops: const [0.0, 1.0],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
               child: ClipRRect(
                 borderRadius: radius,

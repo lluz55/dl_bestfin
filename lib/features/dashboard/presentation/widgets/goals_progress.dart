@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 
@@ -124,11 +125,7 @@ class _GoalItem extends StatelessWidget {
   final ColorScheme cs;
   final TextTheme tt;
 
-  const _GoalItem({
-    required this.goal,
-    required this.cs,
-    required this.tt,
-  });
+  const _GoalItem({required this.goal, required this.cs, required this.tt});
 
   static Color? _parseGoalColor(String? hex) {
     if (hex == null) return null;
@@ -142,8 +139,7 @@ class _GoalItem extends StatelessWidget {
   }
 
   String _formatAmount(int cents) {
-    final value = cents / 100.0;
-    return 'R\$ ${value.toStringAsFixed(2).replaceAll('.', ',')}';
+    return CurrencyFormatter.formatCents(cents);
   }
 
   @override
@@ -226,7 +222,9 @@ class _GoalItem extends StatelessWidget {
                       color: goal.isCompleted
                           ? const Color(0xFF4CAF50)
                           : cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      fontWeight: goal.isCompleted ? FontWeight.w700 : FontWeight.w600,
+                      fontWeight: goal.isCompleted
+                          ? FontWeight.w700
+                          : FontWeight.w600,
                       fontSize: 10,
                     ),
                   ),

@@ -23,8 +23,9 @@ class DashboardPeriodNotifier extends Notifier<int> {
   void select(int index) => state = index;
 }
 
-final dashboardPeriodProvider =
-    NotifierProvider<DashboardPeriodNotifier, int>(DashboardPeriodNotifier.new);
+final dashboardPeriodProvider = NotifierProvider<DashboardPeriodNotifier, int>(
+  DashboardPeriodNotifier.new,
+);
 
 final dashboardProvider = StreamProvider<DashboardData>((ref) {
   final periodIndex = ref.watch(dashboardPeriodProvider);

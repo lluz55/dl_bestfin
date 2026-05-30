@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
-import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
@@ -26,6 +25,7 @@ import 'package:bestfin/features/dashboard/presentation/widgets/goals_progress.d
 import 'package:bestfin/features/dashboard/presentation/widgets/insight_card.dart';
 import 'package:bestfin/features/dashboard/presentation/widgets/chart_widgets_wrapper.dart';
 import 'package:bestfin/features/gamification/presentation/widgets/streaks_dashboard_widget.dart';
+import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -37,47 +37,37 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const _filters = ['Este mês', 'Semana', '3 meses', 'Ano'];
 
+  static String _getGreeting() {
+    final now = DateTime.now();
+    final months = [
+      'jan',
+      'fev',
+      'mar',
+      'abr',
+      'mai',
+      'jun',
+      'jul',
+      'ago',
+      'set',
+      'out',
+      'nov',
+      'dez',
+    ];
+    final month = months[now.month - 1];
+    if (now.hour < 12) return 'Bom dia, $month';
+    if (now.hour < 18) return 'Boa tarde, $month';
+    return 'Boa noite, $month';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final visibleWidgets = ref.watch(homeWidgetsProvider);
-    final periodIndex = ref.watch(dashboardPeriodProvider);
     final hidden = ref.watch(valuesHiddenProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: AppPageAppBar(
-        title: 'BestFin',
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) =>
-                  ScaleTransition(scale: animation, child: child),
-              child: Icon(
-                hidden
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                key: ValueKey(hidden),
-              ),
-            ),
-            tooltip: hidden ? 'Mostrar valores' : 'Ocultar valores',
-            onPressed: () => ref.read(valuesHiddenProvider.notifier).toggle(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.palette_outlined),
-            tooltip: 'Aparência',
-            onPressed: () => showThemeSettingsSheet(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune_rounded),
-            tooltip: 'Personalizar página inicial',
-            onPressed: () => showHomeWidgetsEditSheet(context),
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(dashboardProvider);
@@ -88,12 +78,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _DashboardHeaderDelegate(
+                cs: cs,
+                tt: tt,
+                greeting: _getGreeting(),
+                hidden: hidden,
+                onToggleHidden: () =>
+                    ref.read(valuesHiddenProvider.notifier).toggle(),
+                onTheme: () => showThemeSettingsSheet(context),
+                onCustomize: () => showHomeWidgetsEditSheet(context),
+              ),
+            ),
+
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  // Widgets que dependem do DashboardData
                   Consumer(
                     builder: (context, ref, child) {
                       final dashboardAsync = ref.watch(dashboardProvider);
@@ -101,7 +103,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       return dashboardAsync.when(
                         data: (data) => Column(
                           children: [
-                            // Balance Card
                             BalanceCard(
                                   balanceInCents: data.totalBalance,
                                   monthlyIncome: data.monthlyIncome,
@@ -115,7 +116,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   curve: Curves.easeOutCubic,
                                 ),
 
-                            // Widgets dinâmicos
                             for (int i = 0; i < visibleWidgets.length; i++) ...[
                               const SizedBox(height: 8),
                               _buildWidget(visibleWidgets[i], data, i)
@@ -130,6 +130,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     curve: Curves.easeOutCubic,
                                   ),
                             ],
+                            const SizedBox(height: 100),
                           ],
                         ),
                         loading: () => const Padding(
@@ -140,80 +141,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       );
                     },
                   ),
-
-                  const SizedBox(height: 24),
-
-                  _SectionHeader(title: 'Período', cs: cs, tt: tt),
-                  const SizedBox(height: 12),
-                  _QuickActionsRow(
-                    selectedIndex: periodIndex,
-                    onSelect: (i) =>
-                        ref.read(dashboardPeriodProvider.notifier).select(i),
-                    filters: _filters,
-                  ),
-                  const SizedBox(height: 24),
-
-                  _SectionHeader(
-                    title: 'Ações rápidas',
-                    actionLabel: 'Editar',
-                    onAction: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => const ShortcutsEditSheet(),
-                      );
-                    },
-                    cs: cs,
-                    tt: tt,
-                  ),
-                  const SizedBox(height: 12),
-                  const _ShortcutsRow(),
-                  const SizedBox(height: 24),
-
-                  _SectionHeader(
-                    title: 'Últimas transações',
-                    actionLabel: 'Ver todas',
-                    onAction: () => context.push('/transactions'),
-                    cs: cs,
-                    tt: tt,
-                  ),
-                  const SizedBox(height: 8),
-
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final dashboardAsync = ref.watch(dashboardProvider);
-                      return dashboardAsync.when(
-                        data: (data) {
-                          final transactionItems = _buildTransactionItems(data);
-                          if (transactionItems.isEmpty) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 24,
-                                horizontal: 20,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Nenhuma transação recente encontrada.',
-                                  style: tt.bodyMedium?.copyWith(
-                                    color: cs.onSurfaceVariant.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          return StaggeredTransactionList(
-                            items: transactionItems,
-                          );
-                        },
-                        loading: () => const SizedBox.shrink(),
-                        error: (err, stack) => const SizedBox.shrink(),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -224,6 +151,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   List<TransactionItem> _buildTransactionItems(dynamic data) {
+    final accounts = ref.watch(activeAccountsProvider);
     return data.recentTransactions.map<TransactionItem>((tx) {
       final isExpense = tx.type == TransactionType.expense;
       final amountInCents = isExpense ? -tx.amount : tx.amount;
@@ -231,6 +159,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final day = tx.date.day.toString().padLeft(2, '0');
       final month = tx.date.month.toString().padLeft(2, '0');
       final dateStr = '$day/$month';
+
+      if (tx.type == TransactionType.transfer) {
+        final fromAccount = accounts
+            .where((a) => a.id == tx.fromAccountId)
+            .firstOrNull;
+        final toAccount = accounts
+            .where((a) => a.id == tx.toAccountId)
+            .firstOrNull;
+        final fromName = fromAccount?.name ?? '—';
+        final toName = toAccount?.name ?? '—';
+        return TransactionItem(
+          title: '$fromName → $toName',
+          category: 'Transferência',
+          amountInCents: amountInCents,
+          date: dateStr,
+          icon: Icons.swap_horiz_rounded,
+        );
+      }
 
       return TransactionItem(
         title: tx.description,
@@ -274,6 +220,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildWidget(HomeWidgetId id, dynamic data, int index) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final periodIndex = ref.watch(dashboardPeriodProvider);
+
     return switch (id) {
       HomeWidgetId.freeToSpend => FreeToSpendCard(
         amountInCents: data.freeToSpendAmount,
@@ -304,7 +254,255 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       HomeWidgetId.cashFlowLineChart => CashFlowLineChartWidgetWrapper(
         points: data.cashFlowHistory,
       ),
+      HomeWidgetId.periodFilter => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SectionHeader(title: 'Período', cs: cs, tt: tt),
+            const SizedBox(height: 12),
+            _QuickActionsRow(
+              selectedIndex: periodIndex,
+              onSelect: (i) =>
+                  ref.read(dashboardPeriodProvider.notifier).select(i),
+              filters: _filters,
+            ),
+          ],
+        ),
+      ),
+      HomeWidgetId.quickActions => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SectionHeader(
+              title: 'Ações rápidas',
+              actionLabel: 'Editar',
+              onAction: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const ShortcutsEditSheet(),
+                );
+              },
+              cs: cs,
+              tt: tt,
+            ),
+            const SizedBox(height: 12),
+            const _ShortcutsRow(),
+          ],
+        ),
+      ),
+      HomeWidgetId.recentTransactions => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SectionHeader(
+              title: 'Últimas transações',
+              actionLabel: 'Ver todas',
+              onAction: () => context.push('/transactions'),
+              cs: cs,
+              tt: tt,
+            ),
+            const SizedBox(height: 8),
+            Builder(
+              builder: (context) {
+                final transactionItems = _buildTransactionItems(data);
+                if (transactionItems.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 24,
+                      horizontal: 20,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Nenhuma transação recente encontrada.',
+                        style: tt.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return StaggeredTransactionList(items: transactionItems);
+              },
+            ),
+          ],
+        ),
+      ),
     };
+  }
+}
+
+class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _DashboardHeaderDelegate({
+    required this.cs,
+    required this.tt,
+    required this.greeting,
+    required this.hidden,
+    required this.onToggleHidden,
+    required this.onTheme,
+    required this.onCustomize,
+  });
+
+  final ColorScheme cs;
+  final TextTheme tt;
+  final String greeting;
+  final bool hidden;
+  final VoidCallback onToggleHidden;
+  final VoidCallback onTheme;
+  final VoidCallback onCustomize;
+
+  @override
+  double get maxExtent => 96.0;
+
+  @override
+  double get minExtent => 56.0;
+
+  @override
+  bool shouldRebuild(_DashboardHeaderDelegate old) =>
+      old.greeting != greeting || old.hidden != hidden || old.cs != cs;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final t = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    final subtitleOpacity = (1.0 - t / 0.7).clamp(0.0, 1.0);
+    final showDivider = t > 0.5;
+
+    return Material(
+      color: cs.surface,
+      child: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'BestFin',
+                          style: TextStyle.lerp(
+                            tt.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
+                            tt.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
+                            t,
+                          ),
+                        ),
+                        if (subtitleOpacity > 0.01)
+                          Opacity(
+                            opacity: subtitleOpacity,
+                            child: Text(
+                              greeting,
+                              style: tt.labelMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _TonalIconButton(
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) =>
+                          ScaleTransition(scale: animation, child: child),
+                      child: Icon(
+                        hidden
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        key: ValueKey(hidden),
+                        size: 18,
+                      ),
+                    ),
+                    tooltip: hidden ? 'Mostrar valores' : 'Ocultar valores',
+                    onPressed: onToggleHidden,
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 6),
+                  _TonalIconButton(
+                    icon: const Icon(Icons.palette_outlined, size: 18),
+                    tooltip: 'Aparência',
+                    onPressed: onTheme,
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 6),
+                  _TonalIconButton(
+                    icon: const Icon(Icons.tune_rounded, size: 18),
+                    tooltip: 'Personalizar página inicial',
+                    onPressed: onCustomize,
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+          ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 100),
+            opacity: showDivider ? 1.0 : 0.0,
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TonalIconButton extends StatelessWidget {
+  const _TonalIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    required this.cs,
+  });
+
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(child: icon),
+        ),
+      ),
+    );
   }
 }
 
@@ -375,7 +573,6 @@ class _ShortcutsRow extends ConsumerWidget {
   }
 }
 
-
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
@@ -398,11 +595,26 @@ class _SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: tt.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 2,
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: tt.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
             ),
           ),
           if (actionLabel != null)
@@ -413,12 +625,23 @@ class _SectionHeader extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Text(
-                actionLabel!,
-                style: tt.labelMedium?.copyWith(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    actionLabel!,
+                    style: tt.labelMedium?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 14,
+                    color: cs.primary,
+                  ),
+                ],
               ),
             ),
         ],

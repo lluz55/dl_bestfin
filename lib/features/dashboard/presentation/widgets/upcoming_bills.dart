@@ -3,6 +3,7 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class UpcomingBills extends StatelessWidget {
   final List<TransactionModel> transactions;
@@ -92,8 +93,8 @@ class _BillItem extends StatelessWidget {
   }
 
   String _formatAmount(int cents, TransactionType type) {
-    final value = cents / 100.0;
-    final formatted = 'R\$ ${value.toStringAsFixed(2).replaceAll('.', ',')}';
+    final formatted = CurrencyFormatter.formatCents(cents);
+    if (CurrencyFormatter.valuesHidden) return formatted;
     return type == TransactionType.income ? '+ $formatted' : '- $formatted';
   }
 
@@ -101,9 +102,7 @@ class _BillItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = tx.category?.iconData ?? Icons.receipt_long_outlined;
     final isIncome = tx.type == TransactionType.income;
-    final amountColor = isIncome
-        ? const Color(0xFF4CAF50)
-        : cs.onSurface;
+    final amountColor = isIncome ? const Color(0xFF4CAF50) : cs.onSurface;
 
     return Row(
       children: [
