@@ -5,12 +5,15 @@ import 'package:bestfin/features/reports/presentation/providers/reports_provider
 import 'package:bestfin/features/reports/presentation/widgets/bar_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/waterfall_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/comparison_indicator.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class MonthlyReportScreen extends ConsumerWidget {
   const MonthlyReportScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(valuesHiddenProvider);
     final reportAsync = ref.watch(monthlyReportProvider);
 
     return reportAsync.when(
@@ -83,7 +86,7 @@ class _MonthlyReportContent extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'R\$ ${(currentBar.income / 100).toStringAsFixed(2)}',
+                          CurrencyFormatter.formatCents(currentBar.income),
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -124,7 +127,7 @@ class _MonthlyReportContent extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'R\$ ${(currentBar.expense / 100).toStringAsFixed(2)}',
+                          CurrencyFormatter.formatCents(currentBar.expense),
                           style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),

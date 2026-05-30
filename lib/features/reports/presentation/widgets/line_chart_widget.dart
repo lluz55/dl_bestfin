@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class NetWorthLineChartWidget extends StatefulWidget {
   final List<NetWorthPoint> points;
@@ -97,11 +98,12 @@ class _NetWorthLineChartWidgetState extends State<NetWorthLineChartWidget>
                       'Nov',
                       'Dez',
                     ];
+                    final formattedWorth = CurrencyFormatter.formatCents(
+                      p.netWorth,
+                    );
                     return LineTooltipItem(
-                      '${months[p.date.month - 1]} ${p.date.year}\nR\$ ${(p.netWorth / 100).toStringAsFixed(2)}',
-                      Theme.of(
-                        context,
-                      ).textTheme.labelSmall!.copyWith(
+                      '${months[p.date.month - 1]} ${p.date.year}\n$formattedWorth',
+                      Theme.of(context).textTheme.labelSmall!.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
@@ -136,10 +138,13 @@ class _NetWorthLineChartWidgetState extends State<NetWorthLineChartWidget>
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           months[p.date.month - 1],
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       );
                     },

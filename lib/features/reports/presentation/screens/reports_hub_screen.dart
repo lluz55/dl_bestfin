@@ -9,6 +9,7 @@ import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/reports/presentation/screens/screens.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class ReportsHubScreen extends ConsumerStatefulWidget {
   const ReportsHubScreen({super.key});
@@ -44,8 +45,12 @@ class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(valuesHiddenProvider);
     return Scaffold(
-      appBar: const AppPageAppBar(title: 'Relatórios'),
+      appBar: const AppPageAppBar(
+        title: 'Relatórios',
+        showVisibilityToggle: true,
+      ),
       body: Column(
         children: [
           const ReportFiltersWidget(),
@@ -86,6 +91,7 @@ class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen>
 class _HeatmapAndTreemapTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(valuesHiddenProvider);
     final filters = ref.watch(reportFiltersProvider);
     final allTxAsync = ref.watch(filteredTransactionsProvider);
     final tt = Theme.of(context).textTheme;

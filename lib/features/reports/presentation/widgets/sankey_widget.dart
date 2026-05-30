@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:bestfin/features/reports/domain/models/sankey_models.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 // ─── Internal layout data ────────────────────────────────────────────────────
 
@@ -64,9 +64,8 @@ _SankeyLayout _buildLayout(SankeyData data, Size size) {
   final nodeMap = <String, _NodeLayout>{};
 
   for (int c = 0; c < 3; c++) {
-    final colNodes =
-        data.nodes.where((n) => n.column == c).toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
+    final colNodes = data.nodes.where((n) => n.column == c).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     if (colNodes.isEmpty) continue;
 
     final totalVal = colNodes.fold<int>(0, (s, n) => s + n.value);
@@ -88,10 +87,8 @@ _SankeyLayout _buildLayout(SankeyData data, Size size) {
   final srcTotals = <String, int>{};
   final tgtTotals = <String, int>{};
   for (final link in data.links) {
-    srcTotals[link.sourceId] =
-        (srcTotals[link.sourceId] ?? 0) + link.value;
-    tgtTotals[link.targetId] =
-        (tgtTotals[link.targetId] ?? 0) + link.value;
+    srcTotals[link.sourceId] = (srcTotals[link.sourceId] ?? 0) + link.value;
+    tgtTotals[link.targetId] = (tgtTotals[link.targetId] ?? 0) + link.value;
   }
 
   final srcOffsets = <String, double>{};
@@ -167,7 +164,8 @@ class _SankeyPainter extends CustomPainter {
 
     // Draw links (below nodes)
     for (final link in layout.links) {
-      final isHl = highlightedLink == link ||
+      final isHl =
+          highlightedLink == link ||
           (highlightedNodeId != null &&
               (link.link.sourceId == highlightedNodeId ||
                   link.link.targetId == highlightedNodeId));
@@ -177,8 +175,7 @@ class _SankeyPainter extends CustomPainter {
     // Draw nodes
     for (final node in layout.nodes) {
       final isHl = node.node.id == highlightedNodeId;
-      final isDim = anyHighlight && !isHl &&
-          highlightedLink == null;
+      final isDim = anyHighlight && !isHl && highlightedLink == null;
       _drawNode(canvas, node, isHl, isDim);
     }
 
@@ -190,14 +187,26 @@ class _SankeyPainter extends CustomPainter {
     }
   }
 
-  void _drawLink(Canvas canvas, _LinkLayout link, bool dimmed, bool highlighted) {
+  void _drawLink(
+    Canvas canvas,
+    _LinkLayout link,
+    bool dimmed,
+    bool highlighted,
+  ) {
     final midX = (link.sx + link.tx) / 2;
 
     final path = Path()
       ..moveTo(link.sx, link.syTop)
       ..cubicTo(midX, link.syTop, midX, link.tyTop, link.tx, link.tyTop)
       ..lineTo(link.tx, link.tyBottom)
-      ..cubicTo(midX, link.tyBottom, midX, link.syBottom, link.sx, link.syBottom)
+      ..cubicTo(
+        midX,
+        link.tyBottom,
+        midX,
+        link.syBottom,
+        link.sx,
+        link.syBottom,
+      )
       ..close();
 
     final baseAlpha = highlighted ? 0.70 : (dimmed ? 0.06 : 0.38);
@@ -205,14 +214,15 @@ class _SankeyPainter extends CustomPainter {
 
     final paint = Paint()
       ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        colors: [
-          link.sourceColor.withValues(alpha: alpha),
-          link.targetColor.withValues(alpha: alpha),
-        ],
-      ).createShader(
-        Rect.fromLTRB(link.sx, link.syTop, link.tx, link.tyBottom),
-      );
+      ..shader =
+          LinearGradient(
+            colors: [
+              link.sourceColor.withValues(alpha: alpha),
+              link.targetColor.withValues(alpha: alpha),
+            ],
+          ).createShader(
+            Rect.fromLTRB(link.sx, link.syTop, link.tx, link.tyBottom),
+          );
 
     canvas.drawPath(path, paint);
   }
@@ -282,10 +292,7 @@ class _SankeyPainter extends CustomPainter {
       textDirection: ui.TextDirection.ltr,
     )..layout(maxWidth: 100);
 
-    tp.paint(
-      canvas,
-      Offset(colX + nodeWidth / 2 - tp.width / 2, 8),
-    );
+    tp.paint(canvas, Offset(colX + nodeWidth / 2 - tp.width / 2, 8));
   }
 
   @override
@@ -367,8 +374,9 @@ class _SankeyWidgetState extends State<SankeyWidget>
     for (final n in layout.nodes) {
       if (n.rect.inflate(6).contains(scenePos)) {
         setState(() {
-          _highlightedNodeId =
-              _highlightedNodeId == n.node.id ? null : n.node.id;
+          _highlightedNodeId = _highlightedNodeId == n.node.id
+              ? null
+              : n.node.id;
           _highlightedLink = null;
         });
         return;
@@ -466,18 +474,13 @@ class _LinkDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(
-      locale: 'pt_BR',
-      symbol: 'R\$',
-      decimalDigits: 2,
-    );
     final src = layout?.nodes
         .where((n) => n.node.id == link.link.sourceId)
         .firstOrNull;
     final tgt = layout?.nodes
         .where((n) => n.node.id == link.link.targetId)
         .firstOrNull;
-    final amount = fmt.format(link.link.value / 100);
+    final amount = CurrencyFormatter.formatCents(link.link.value);
 
     return Container(
       width: double.infinity,
@@ -504,16 +507,10 @@ class _NodeDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(
-      locale: 'pt_BR',
-      symbol: 'R\$',
-      decimalDigits: 2,
-    );
-    final node =
-        layout?.nodes.where((n) => n.node.id == nodeId).firstOrNull;
+    final node = layout?.nodes.where((n) => n.node.id == nodeId).firstOrNull;
     if (node == null) return const SizedBox.shrink();
 
-    final amount = fmt.format(node.node.value / 100);
+    final amount = CurrencyFormatter.formatCents(node.node.value);
 
     return Container(
       width: double.infinity,

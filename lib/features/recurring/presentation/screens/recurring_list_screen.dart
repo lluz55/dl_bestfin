@@ -122,39 +122,39 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-          _RuleList(
-            watchProvider: (ref) => ref.watch(activeRecurringProvider),
-            onPause: _pause,
-            onResume: _resume,
-            onDelete: _delete,
-            emptyTitle: 'Nenhuma recorrência ativa',
-            emptyDescription:
-                'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
-            emptyIcon: Icons.repeat_rounded,
+                _RuleList(
+                  watchProvider: (ref) => ref.watch(activeRecurringProvider),
+                  onPause: _pause,
+                  onResume: _resume,
+                  onDelete: _delete,
+                  emptyTitle: 'Nenhuma recorrência ativa',
+                  emptyDescription:
+                      'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
+                  emptyIcon: Icons.repeat_rounded,
+                ),
+                _RuleList(
+                  watchProvider: (ref) => ref.watch(pausedRecurringProvider),
+                  onPause: _pause,
+                  onResume: _resume,
+                  onDelete: _delete,
+                  emptyTitle: 'Nenhuma recorrência pausada',
+                  emptyDescription:
+                      'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
+                  emptyIcon: Icons.pause_circle_outline_rounded,
+                ),
+                _RuleList(
+                  watchProvider: (ref) => ref.watch(finishedRecurringProvider),
+                  onPause: _pause,
+                  onResume: _resume,
+                  onDelete: _delete,
+                  emptyTitle: 'Nenhuma recorrência finalizada',
+                  emptyDescription:
+                      'Recorrências que atingiram a data de término aparecem aqui.',
+                  emptyIcon: Icons.check_circle_outline_rounded,
+                ),
+              ],
+            ),
           ),
-          _RuleList(
-            watchProvider: (ref) => ref.watch(pausedRecurringProvider),
-            onPause: _pause,
-            onResume: _resume,
-            onDelete: _delete,
-            emptyTitle: 'Nenhuma recorrência pausada',
-            emptyDescription:
-                'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
-            emptyIcon: Icons.pause_circle_outline_rounded,
-          ),
-          _RuleList(
-            watchProvider: (ref) => ref.watch(finishedRecurringProvider),
-            onPause: _pause,
-            onResume: _resume,
-            onDelete: _delete,
-            emptyTitle: 'Nenhuma recorrência finalizada',
-            emptyDescription:
-                'Recorrências que atingiram a data de término aparecem aqui.',
-            emptyIcon: Icons.check_circle_outline_rounded,
-          ),
-        ],
-      ),
-    ),
         ],
       ),
     );

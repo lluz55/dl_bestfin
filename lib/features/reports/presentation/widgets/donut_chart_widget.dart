@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class DonutChartWidget extends StatefulWidget {
   final List<CategorySpending> items;
@@ -120,15 +121,6 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
                                 decoration: BoxDecoration(
                                   color: cs.surfaceContainerHigh,
                                   borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
                                 ),
                                 child: Text(
                                   '${(item.percentage * 100).toStringAsFixed(0)}%',
@@ -154,8 +146,7 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
           final item = widget.items[i];
           final isSelected = i == _touchedIndex;
           final pct = (item.percentage * 100).toStringAsFixed(1);
-          final valAmount = item.amountInCents / 100.0;
-          final amt = 'R\$ ${valAmount.toStringAsFixed(2)}';
+          final amt = CurrencyFormatter.formatCents(item.amountInCents);
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -216,7 +207,10 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
                   Text(
                     amt,
                     style: tt.labelLarge
-                        ?.copyWith(fontWeight: FontWeight.w700, color: cs.onSurface)
+                        ?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        )
                         .merge(AppTypography.monospace),
                   ),
                 ],

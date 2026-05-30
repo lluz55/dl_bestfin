@@ -18,7 +18,8 @@ class ReportFilters {
   final ReportPeriod period;
   final DateTime? customStart;
   final DateTime? customEnd;
-  final String? accountId;
+  final List<String> accountIds;
+  final List<String> creditCardIds;
   final String? categoryId;
   final String? type; // income | expense | transfer | null
 
@@ -26,7 +27,8 @@ class ReportFilters {
     this.period = ReportPeriod.month,
     this.customStart,
     this.customEnd,
-    this.accountId,
+    this.accountIds = const [],
+    this.creditCardIds = const [],
     this.categoryId,
     this.type,
   });
@@ -65,10 +67,12 @@ class ReportFilters {
     ReportPeriod? period,
     DateTime? customStart,
     DateTime? customEnd,
-    String? accountId,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
     String? categoryId,
     String? type,
-    bool clearAccount = false,
+    bool clearAccounts = false,
+    bool clearCreditCards = false,
     bool clearCategory = false,
     bool clearType = false,
   }) {
@@ -76,7 +80,8 @@ class ReportFilters {
       period: period ?? this.period,
       customStart: customStart ?? this.customStart,
       customEnd: customEnd ?? this.customEnd,
-      accountId: clearAccount ? null : (accountId ?? this.accountId),
+      accountIds: clearAccounts ? const [] : (accountIds ?? this.accountIds),
+      creditCardIds: clearCreditCards ? const [] : (creditCardIds ?? this.creditCardIds),
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       type: clearType ? null : (type ?? this.type),
     );
@@ -127,7 +132,8 @@ final categoryReportProvider = StreamProvider<CategoryReport>((ref) {
   return useCase(
     startDate: filters.startDate,
     endDate: filters.endDate,
-    accountId: filters.accountId,
+    accountIds: filters.accountIds,
+    creditCardIds: filters.creditCardIds,
   );
 });
 
@@ -135,7 +141,11 @@ final monthlyReportProvider = StreamProvider<MonthlyReport>((ref) {
   final useCase = ref.watch(generateMonthlyReportProvider);
   final filters = ref.watch(reportFiltersProvider);
   final months = filters.period == ReportPeriod.year ? 12 : 6;
-  return useCase(months: months, accountId: filters.accountId);
+  return useCase(
+    months: months,
+    accountIds: filters.accountIds,
+    creditCardIds: filters.creditCardIds,
+  );
 });
 
 final cashFlowProvider = StreamProvider<CashFlowReport>((ref) {
@@ -144,7 +154,8 @@ final cashFlowProvider = StreamProvider<CashFlowReport>((ref) {
   return useCase(
     startDate: filters.startDate,
     endDate: filters.endDate,
-    accountId: filters.accountId,
+    accountIds: filters.accountIds,
+    creditCardIds: filters.creditCardIds,
   );
 });
 
@@ -165,6 +176,7 @@ final sankeyReportProvider = StreamProvider<SankeyData>((ref) {
   return useCase(
     startDate: filters.startDate,
     endDate: filters.endDate,
-    accountId: filters.accountId,
+    accountIds: filters.accountIds,
+    creditCardIds: filters.creditCardIds,
   );
 });

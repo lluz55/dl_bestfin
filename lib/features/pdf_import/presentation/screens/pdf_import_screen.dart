@@ -134,8 +134,7 @@ class _PdfImportScreenState extends ConsumerState<PdfImportScreen> {
                 Text(
                   _statusMessage,
                   textAlign: TextAlign.center,
-                  style: tt.bodyMedium
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ] else
                 FilledButton.icon(
@@ -251,13 +250,11 @@ class _FormatRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: tt.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(
                 detail,
-                style: tt.labelSmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
           ),

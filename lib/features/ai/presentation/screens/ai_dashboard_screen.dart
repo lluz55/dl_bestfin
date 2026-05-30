@@ -906,7 +906,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                         '${(health.savingsRate * 100).toStringAsFixed(1)}%',
                         style: tt.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: health.savingsRate >= 0 ? cs.primary : cs.error,
+                          color: health.savingsRate >= 0
+                              ? cs.primary
+                              : cs.error,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -919,8 +921,8 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                             health.savingsRate >= 0.20
                                 ? Colors.green
                                 : health.savingsRate >= 0.10
-                                    ? Colors.amber
-                                    : cs.error,
+                                ? Colors.amber
+                                : cs.error,
                           ),
                           minHeight: 6,
                         ),
@@ -1065,13 +1067,13 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                   final trendColor = isIncreasing
                       ? cs.error
                       : isDecreasing
-                          ? Colors.green
-                          : cs.onSurfaceVariant;
+                      ? Colors.green
+                      : cs.onSurfaceVariant;
                   final trendIcon = isIncreasing
                       ? Icons.trending_up_rounded
                       : isDecreasing
-                          ? Icons.trending_down_rounded
-                          : Icons.trending_flat_rounded;
+                      ? Icons.trending_down_rounded
+                      : Icons.trending_flat_rounded;
 
                   return Row(
                     children: [
@@ -1170,8 +1172,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (context, idx) {
                 final f = forecasts[idx];
-                final progressColor =
-                    f.isOnTrack ? Colors.green : cs.primary;
+                final progressColor = f.isOnTrack ? Colors.green : cs.primary;
                 final goalColor = f.goalColor != null
                     ? CategoryIcon.hexToColor(f.goalColor!)
                     : cs.primary;
@@ -1213,7 +1214,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                       child: LinearProgressIndicator(
                         value: f.progressFraction.clamp(0.0, 1.0),
                         backgroundColor: cs.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          progressColor,
+                        ),
                         minHeight: 8,
                       ),
                     ),

@@ -10,11 +10,13 @@ class GenerateCashFlow {
   Stream<CashFlowReport> call({
     required DateTime startDate,
     required DateTime endDate,
-    String? accountId,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
   }) {
     return _repository
         .watchTransactionsWithFilters(
-          accountId: accountId,
+          accountIds: accountIds,
+          creditCardIds: creditCardIds,
           startDate: startDate,
           endDate: endDate,
         )

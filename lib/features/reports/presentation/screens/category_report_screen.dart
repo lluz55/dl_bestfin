@@ -4,12 +4,15 @@ import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/donut_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/bar_chart_widget.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class CategoryReportScreen extends ConsumerWidget {
   const CategoryReportScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(valuesHiddenProvider);
     final reportAsync = ref.watch(categoryReportProvider);
 
     return reportAsync.when(
@@ -73,7 +76,7 @@ class _CategoryReportContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'R\$ ${(report.totalExpense / 100).toStringAsFixed(2)}',
+                  CurrencyFormatter.formatCents(report.totalExpense),
                   style: tt.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),

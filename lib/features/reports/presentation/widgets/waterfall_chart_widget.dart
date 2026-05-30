@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class WaterfallChartWidget extends StatefulWidget {
   final int income;
@@ -43,27 +44,35 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final net = widget.income - widget.expense;
-    final maxVal = widget.income.toDouble() * 1.1;
+    final int net = widget.income - widget.expense;
+    final double incomeDouble = widget.income.toDouble();
+    final double expenseDouble = widget.expense.toDouble();
+
+    final double minYVal = net < 0 ? net.toDouble() : 0.0;
+    final double maxYVal = incomeDouble > expenseDouble ? incomeDouble : expenseDouble;
+
+    // Calculate range to apply a nice padding
+    final double range = maxYVal - minYVal;
+    
+    // If there are values, add 15% padding at the top and bottom to prevent the bars from touching the edges of the chart.
+    // If range is 0 (i.e. both income and expense are 0), use a default scale.
+    final double padding = range > 0 ? range * 0.15 : 100.0;
+    
+    final double finalMinY = minYVal - (minYVal < 0 ? padding : 0.0);
+    final double finalMaxY = maxYVal + padding;
 
     // Waterfall: 3 bars
     // Bar 0: income (from 0 to income)
-    // Bar 1: expense (from income to income-expense = net), rendered as floating
+    // Bar 1: expense (from 0 to expense)
     // Bar 2: net (from 0 to net)
 
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, _) {
         final t = _animation.value;
-        final incomeH = widget.income.toDouble() * t;
-        final expenseFrom = widget.income.toDouble() * t;
-        final expenseTo =
-            (widget.income - widget.expense).toDouble().clamp(
-              0,
-              double.infinity,
-            ) *
-            t;
-        final netH = net.toDouble().clamp(0, double.infinity) * t;
+        final double incomeH = incomeDouble * t;
+        final double expenseH = expenseDouble * t;
+        final double netH = net.toDouble() * t;
 
         return Column(
           children: [
@@ -71,7 +80,8 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
               aspectRatio: 1.7,
               child: BarChart(
                 BarChartData(
-                  maxY: maxVal > 0 ? maxVal : 100,
+                  minY: finalMinY,
+                  maxY: finalMaxY,
                   barTouchData: const BarTouchData(enabled: false),
                   titlesData: FlTitlesData(
                     bottomTitles: AxisTitles(
@@ -80,16 +90,20 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
                         getTitlesWidget: (value, meta) {
                           const labels = ['Receita', 'Despesa', 'Saldo'];
                           final i = value.toInt();
-                          if (i < 0 || i >= labels.length)
+                          if (i < 0 || i >= labels.length) {
                             return const SizedBox();
+                          }
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
                               labels[i],
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                           );
                         },
@@ -132,13 +146,13 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
                         ),
                       ],
                     ),
-                    // Expense floating bar
+                    // Expense bar
                     BarChartGroupData(
                       x: 1,
                       barRods: [
                         BarChartRodData(
-                          fromY: expenseTo,
-                          toY: expenseFrom,
+                          fromY: 0,
+                          toY: expenseH,
                           color: cs.error,
                           width: 32,
                           borderRadius: const BorderRadius.vertical(
@@ -156,9 +170,13 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
                           toY: netH,
                           color: net >= 0 ? cs.tertiary : cs.error,
                           width: 32,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(8),
-                          ),
+                          borderRadius: net >= 0
+                              ? const BorderRadius.vertical(
+                                  top: Radius.circular(8),
+                                )
+                              : const BorderRadius.vertical(
+                                  bottom: Radius.circular(8),
+                                ),
                         ),
                       ],
                     ),
@@ -207,7 +225,6 @@ class _WaterfallLegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sign = value < 0 ? '-' : '';
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -231,7 +248,7 @@ class _WaterfallLegendItem extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          '$sign R\$ ${(value.abs() / 100).toStringAsFixed(0)}',
+          CurrencyFormatter.formatCents(value),
           style: tt.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.onSurface,

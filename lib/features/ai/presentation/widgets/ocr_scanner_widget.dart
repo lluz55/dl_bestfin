@@ -521,13 +521,6 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,15 +587,6 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
                                 decoration: BoxDecoration(
                                   color: Colors.greenAccent,
                                   borderRadius: BorderRadius.circular(2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.greenAccent.withValues(
-                                        alpha: 0.8,
-                                      ),
-                                      blurRadius: 12,
-                                      spreadRadius: 3,
-                                    ),
-                                  ],
                                 ),
                               ),
                             ),

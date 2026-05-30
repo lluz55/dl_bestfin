@@ -7,6 +7,7 @@ import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
 import 'package:bestfin/features/recurring/presentation/widgets/recurring_card.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 /// Hub de assinaturas: visão centralizada de recorrentes com total mensal.
 class SubscriptionsHubScreen extends ConsumerWidget {
@@ -16,6 +17,7 @@ class SubscriptionsHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    ref.watch(valuesHiddenProvider);
 
     final asyncRules = ref.watch(activeRecurringProvider);
     final statsValue = ref.watch(recurringStatsProvider);
@@ -24,6 +26,7 @@ class SubscriptionsHubScreen extends ConsumerWidget {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Hub de Assinaturas',
+        showVisibilityToggle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
@@ -70,9 +73,13 @@ class SubscriptionsHubScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        statsValue.whenData((s) => CurrencyFormatter.formatCents(
-                              s.totalMonthlyInCents.round(),
-                            )).value ??
+                        statsValue
+                                .whenData(
+                                  (s) => CurrencyFormatter.formatCents(
+                                    s.totalMonthlyInCents.round(),
+                                  ),
+                                )
+                                .value ??
                             '—',
                         style: tt.headlineMedium?.copyWith(
                           color: cs.onPrimaryContainer,

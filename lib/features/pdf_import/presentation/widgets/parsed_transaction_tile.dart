@@ -53,9 +53,7 @@ class _ParsedTransactionTileState extends State<ParsedTransactionTile> {
       duration: const Duration(milliseconds: 200),
       child: Card(
         elevation: 0,
-        color: tx.selected
-            ? cs.surfaceContainerLow
-            : cs.surfaceContainerLowest,
+        color: tx.selected ? cs.surfaceContainerLow : cs.surfaceContainerLowest,
         margin: const EdgeInsets.symmetric(vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(

@@ -12,8 +12,10 @@ class BBComprovanteParser extends PdfBankParser {
   List<PdfParsedTransaction> parse(String fullText) {
     // Try "VALOR R$ XX,XX" first, then generic R$ pattern
     final amountMatch =
-        RegExp(r'VALOR\s*R\$\s*([\d.,]+)', caseSensitive: false)
-            .firstMatch(fullText) ??
+        RegExp(
+          r'VALOR\s*R\$\s*([\d.,]+)',
+          caseSensitive: false,
+        ).firstMatch(fullText) ??
         RegExp(r'R\$\s*([\d.,]+)').firstMatch(fullText);
 
     final dateMatch = RegExp(r'(\d{2}/\d{2}/\d{4})').firstMatch(fullText);

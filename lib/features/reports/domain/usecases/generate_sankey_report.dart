@@ -11,24 +11,23 @@ class GenerateSankeyReport {
   Stream<SankeyData> call({
     required DateTime startDate,
     required DateTime endDate,
-    String? accountId,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
     int maxMerchants = 8,
   }) {
     return _repository
         .watchTransactionsWithFilters(
-          accountId: accountId,
+          accountIds: accountIds,
+          creditCardIds: creditCardIds,
           startDate: startDate,
           endDate: endDate,
         )
         .map((transactions) {
-          final completed =
-              transactions
-                  .where(
-                    (tx) =>
-                        tx.isCompleted &&
-                        tx.type != TransactionType.transfer,
-                  )
-                  .toList();
+          final completed = transactions
+              .where(
+                (tx) => tx.isCompleted && tx.type != TransactionType.transfer,
+              )
+              .toList();
 
           final Map<String, _Group> incomeGroups = {};
           for (final tx in completed) {
@@ -74,9 +73,8 @@ class GenerateSankeyReport {
             return const SankeyData(nodes: [], links: []);
           }
 
-          final topMerchants =
-              merchantGroups.entries.toList()
-                ..sort((a, b) => b.value.total.compareTo(a.value.total));
+          final topMerchants = merchantGroups.entries.toList()
+            ..sort((a, b) => b.value.total.compareTo(a.value.total));
           final selectedMerchants = topMerchants.take(maxMerchants).toList();
 
           final nodes = <SankeyNode>[];
@@ -118,10 +116,7 @@ class GenerateSankeyReport {
                 id: 'cat_${e.key}',
                 label: e.value.name,
                 value: e.value.total,
-                color: _parseHex(
-                  e.value.colorHex,
-                  const Color(0xFFFF7043),
-                ),
+                color: _parseHex(e.value.colorHex, const Color(0xFFFF7043)),
                 column: 1,
               ),
             );
@@ -149,8 +144,7 @@ class GenerateSankeyReport {
           final incomeNodes = nodes.where((n) => n.column == 0).toList();
           final totalIncome = incomeNodes.fold<int>(0, (s, n) => s + n.value);
           for (final incNode in incomeNodes) {
-            final ratio =
-                totalIncome > 0 ? incNode.value / totalIncome : 1.0;
+            final ratio = totalIncome > 0 ? incNode.value / totalIncome : 1.0;
             for (final catE in expenseGroups.entries) {
               final linkVal = (catE.value.total * ratio).round();
               if (linkVal > 0) {

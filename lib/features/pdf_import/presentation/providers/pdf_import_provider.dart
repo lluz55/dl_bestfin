@@ -18,7 +18,8 @@ final _createTransactionProvider = Provider<CreateTransaction>((ref) {
   return CreateTransaction(TransactionRepositoryImpl(db));
 });
 
-class PdfImportNotifier extends Notifier<AsyncValue<List<PdfParsedTransaction>>> {
+class PdfImportNotifier
+    extends Notifier<AsyncValue<List<PdfParsedTransaction>>> {
   @override
   AsyncValue<List<PdfParsedTransaction>> build() => const AsyncValue.data([]);
 
@@ -32,7 +33,9 @@ class PdfImportNotifier extends Notifier<AsyncValue<List<PdfParsedTransaction>>>
     final list = state.value;
     if (list == null) return;
     final updated = List<PdfParsedTransaction>.from(list);
-    updated[index] = updated[index].copyWith(selected: !updated[index].selected);
+    updated[index] = updated[index].copyWith(
+      selected: !updated[index].selected,
+    );
     state = AsyncValue.data(updated);
   }
 
@@ -76,8 +79,8 @@ class PdfImportNotifier extends Notifier<AsyncValue<List<PdfParsedTransaction>>>
 
 final pdfImportProvider =
     NotifierProvider<PdfImportNotifier, AsyncValue<List<PdfParsedTransaction>>>(
-  PdfImportNotifier.new,
-);
+      PdfImportNotifier.new,
+    );
 
 /// Provides a cached list of accounts for the account picker in the review screen.
 final pdfImportAccountsProvider = FutureProvider<List<Account>>((ref) async {
@@ -108,13 +111,15 @@ Future<String> resolveOrCreateAccount(
   if (existing.id.isNotEmpty) return existing.id;
 
   final newId = 'acc_${const Uuid().v4()}';
-  await db.into(db.accounts).insert(
-    AccountsCompanion.insert(
-      id: newId,
-      name: name,
-      type: type,
-      color: Value(color),
-    ),
-  );
+  await db
+      .into(db.accounts)
+      .insert(
+        AccountsCompanion.insert(
+          id: newId,
+          name: name,
+          type: type,
+          color: Value(color),
+        ),
+      );
   return newId;
 }

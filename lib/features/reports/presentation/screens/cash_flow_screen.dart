@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/line_chart_widget.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class CashFlowScreen extends ConsumerWidget {
   const CashFlowScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(valuesHiddenProvider);
     final reportAsync = ref.watch(cashFlowProvider);
 
     return reportAsync.when(
@@ -122,18 +125,18 @@ class _CashFlowContent extends StatelessWidget {
                         ),
                         Expanded(
                           child: Text(
-                            '+ R\$ ${(p.income / 100).toStringAsFixed(2)}',
+                            '+ ${CurrencyFormatter.formatCents(p.income)}',
                             style: tt.labelSmall?.copyWith(color: cs.primary),
                           ),
                         ),
                         Expanded(
                           child: Text(
-                            '- R\$ ${(p.expense / 100).toStringAsFixed(2)}',
+                            '- ${CurrencyFormatter.formatCents(p.expense)}',
                             style: tt.labelSmall?.copyWith(color: cs.error),
                           ),
                         ),
                         Text(
-                          '${net >= 0 ? '+' : ''}R\$ ${(net / 100).toStringAsFixed(2)}',
+                          '${net >= 0 ? '+' : ''}${CurrencyFormatter.formatCents(net)}',
                           style: tt.labelSmall?.copyWith(
                             color: net >= 0 ? cs.tertiary : cs.error,
                             fontWeight: FontWeight.w600,
@@ -179,7 +182,7 @@ class _SummaryTile extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'R\$ ${(value.abs() / 100).toStringAsFixed(0)}',
+              CurrencyFormatter.formatCents(value),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w700,

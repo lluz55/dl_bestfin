@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/sankey_widget.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class SankeyScreen extends ConsumerWidget {
   const SankeyScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(valuesHiddenProvider);
     final async = ref.watch(sankeyReportProvider);
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
@@ -27,10 +29,7 @@ class SankeyScreen extends ConsumerWidget {
                   color: cs.onSurfaceVariant,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Sem fluxo de caixa',
-                  style: tt.titleMedium,
-                ),
+                Text('Sem fluxo de caixa', style: tt.titleMedium),
                 const SizedBox(height: 4),
                 Text(
                   'Registre receitas e despesas para ver o diagrama',
@@ -66,17 +65,13 @@ class SankeyScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Expanded(
-                  child: SankeyWidget(data: data),
-                ),
+                Expanded(child: SankeyWidget(data: data)),
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: Text(
                     'Toque em um nó ou fluxo para ver detalhes. Pinça para zoom.',
-                    style: tt.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ),
               ],

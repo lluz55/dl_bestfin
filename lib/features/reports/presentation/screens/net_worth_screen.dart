@@ -4,12 +4,15 @@ import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/line_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/comparison_indicator.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class NetWorthScreen extends ConsumerWidget {
   const NetWorthScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(valuesHiddenProvider);
     final reportAsync = ref.watch(netWorthProvider);
 
     return reportAsync.when(
@@ -47,7 +50,7 @@ class _NetWorthContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'R\$ ${(report.currentNetWorth / 100).toStringAsFixed(2)}',
+                  CurrencyFormatter.formatCents(report.currentNetWorth),
                   style: tt.headlineLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: cs.onPrimaryContainer,
@@ -121,7 +124,7 @@ class _NetWorthContent extends StatelessWidget {
                           ),
                           Expanded(
                             child: Text(
-                              'R\$ ${(p.netWorth / 100).toStringAsFixed(2)}',
+                              CurrencyFormatter.formatCents(p.netWorth),
                               style: tt.labelMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),

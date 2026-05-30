@@ -32,102 +32,140 @@ class AiCategorySuggestion {
 }
 
 // Pre-seeded fallback rules when user has no transaction history
+// Single-word entries use word-boundary matching; multi-word use substring.
 final Map<String, List<String>> _fallbackKeywords = {
   'cat_food': [
-    'mercado',
-    'comida',
-    'almoço',
-    'jantar',
-    'restaurante',
-    'pão',
-    'padaria',
-    'pizza',
-    'burger',
-    'supermercado',
-    'lanche',
-    'ifood',
-    'café',
-    'mcdonalds',
-    'carrefour',
-    'pão de açúcar',
-    'extra',
-    'hortifruti',
+    // Redes e apps
+    'ifood', 'rappi', 'aiqfome', 'mcdonalds', 'burguer king', 'subway',
+    'habib', 'outback', 'giraffas', 'bob\'s', 'frango',
+    // Supermercados
+    'mercado', 'supermercado', 'hipermercado', 'atacadão', 'assaí', 'carrefour',
+    'pão de açúcar', 'extra', 'atacado', 'makro', 'sams club', 'costco',
+    'apoio mineiro', 'bretas', 'muffato', 'condor', 'angeloni', 'nagumo',
+    'sonda', 'bishopric', 'dia supermercado', 'walmart',
+    // Estabelecimentos
+    'restaurante', 'lanchonete', 'pizzaria', 'hamburgueria', 'churrascaria',
+    'padaria', 'confeitaria', 'sorveteria', 'açougue', 'hortifruti', 'feira',
+    'mercearia', 'empório', 'delicatessen',
+    // Comidas/bebidas
+    'almoço', 'jantar', 'café', 'lanche', 'pizza', 'burger', 'sushi',
+    'comida', 'refeição', 'bebida', 'cerveja', 'vinho', 'água mineral',
+    'refrigerante', 'salgado', 'marmita', 'delivery',
   ],
   'cat_transport': [
-    'uber',
-    '99',
-    'táxi',
-    'posto',
-    'gasolina',
-    'combustível',
-    'ônibus',
-    'metrô',
-    'pedágio',
-    'shell',
-    'ipiranga',
-    'br',
-    'estacionamento',
-    'passagem',
+    // Apps de transporte
+    'uber', '99pop', '99taxi', 'cabify', 'indrive', 'lift',
+    // Táxi/ônibus/metrô
+    'táxi', 'ônibus', 'metrô', 'trem', 'vlt', 'brt', 'van escolar',
+    'passagem', 'bilhete único', 'cartão transporte',
+    // Combustível
+    'gasolina', 'etanol', 'combustível', 'diesel', 'gnv', 'abastecimento',
+    // Postos
+    'posto', 'shell', 'ipiranga', 'petrobras', 'ale', 'raizen',
+    'br distribuidora', 'texaco',
+    // Estacionamento/pedágio
+    'estacionamento', 'pedágio', 'sem parar', 'veloe', 'connect car',
+    'autopass', 'move mais', 'estapar',
+    // Aluguel/bike
+    'localiza', 'movida', 'unidas', 'hertz', 'avis', 'budget',
+    'tembici', 'bike itaú', 'yellow', 'parafuzo',
+    // Manutenção
+    'mecânico', 'oficina', 'borracharia', 'lavagem', 'revisão',
+    'licenciamento', 'ipva', 'seguro auto',
   ],
   'cat_leisure': [
-    'cinema',
-    'show',
-    'ingresso',
-    'teatro',
-    'festa',
-    'bar',
-    'cerveja',
-    'balada',
-    'clube',
-    'netflix',
-    'spotify',
-    'games',
-    'steam',
-    'playstation',
-    'viagem',
+    // Streaming
+    'netflix', 'spotify', 'youtube premium', 'amazon prime', 'disney',
+    'hbo', 'hbomax', 'globoplay', 'crunchyroll', 'paramount', 'star+',
+    'apple tv', 'deezer', 'tidal', 'primevideo', 'telecine',
+    // Games
+    'steam', 'playstation', 'xbox', 'nintendo', 'epic games', 'nuuvem',
+    'humble bundle', 'jogos',
+    // Eventos
+    'cinema', 'ingresso', 'teatro', 'show', 'festival', 'balada', 'festa',
+    'bilheteria', 'ticketmaster', 'sympla', 'eventim',
+    // Social
+    'bar', 'clube', 'camarote', 'boliche', 'laser', 'escape room',
+    // Viagem
+    'viagem', 'hotel', 'pousada', 'hostel', 'airbnb', 'booking',
+    'decolar', 'latam', 'gol', 'azul', 'trip', 'passagem aérea',
+    // Outros
+    'parque', 'museu', 'zoológico', 'aquário', 'circo',
   ],
   'cat_housing': [
-    'luz',
-    'água',
-    'internet',
-    'aluguel',
-    'condomínio',
-    'gás',
-    'energia',
-    'telecom',
-    'enel',
-    'sabesp',
-    'net',
-    'claro',
-    'vivo',
-    'imobiliária',
+    // Energia
+    'energia', 'luz', 'enel', 'cemig', 'copel', 'celg', 'coelba',
+    'elektro', 'cpfl', 'celpe', 'celesc', 'eletrobras',
+    // Água/esgoto
+    'água', 'sabesp', 'cedae', 'sanepar', 'embasa', 'caern', 'saneago',
+    'copasa', 'casan',
+    // Gás
+    'gás', 'comgas', 'scgas', 'bahiagás', 'ceg', 'losango gás',
+    // Internet/telefone
+    'internet', 'banda larga', 'fibra', 'net virtua', 'oi fibra',
+    'vivo fibra', 'claro fibra', 'tim fibra', 'sky',
+    // Aluguel/condomínio
+    'aluguel', 'condomínio', 'imobiliária', 'locação', 'iptu',
+    'taxa condomínio', 'mensalidade condomínio',
+    // Manutenção/reforma
+    'reforma', 'manutenção', 'encanador', 'eletricista', 'pintura',
+    'desentupidora', 'chaveiro',
+    // Celular
+    'celular', 'plano celular', 'claro', 'vivo', 'tim', 'oi',
+    'recarregue', 'recarga',
   ],
   'cat_education': [
-    'faculdade',
-    'escola',
-    'curso',
-    'livro',
-    'mensalidade',
-    'idioma',
-    'inglês',
-    'udemy',
-    'coursera',
-    'escola',
-    'matrícula',
+    // Instituições
+    'faculdade', 'universidade', 'escola', 'colégio', 'creche',
+    'mensalidade escolar', 'matrícula',
+    // Cursos
+    'curso', 'graduação', 'pós-graduação', 'mba', 'extensão',
+    'capacitação', 'treinamento', 'workshop', 'palestra',
+    // Plataformas online
+    'udemy', 'coursera', 'alura', 'dio', 'rocketseat', 'platzi',
+    'skillshare', 'linkedin learning', 'duolingo',
+    // Idiomas
+    'idioma', 'inglês', 'espanhol', 'francês', 'alemão', 'japonês',
+    'mandarin', 'cna', 'wizard', 'cultura inglesa', 'ccaa',
+    // Material
+    'livro', 'apostila', 'material escolar', 'papelaria', 'caderno',
+    'mochila escolar',
   ],
   'cat_health': [
-    'remédio',
-    'farmácia',
-    'médico',
-    'consulta',
-    'hospital',
-    'dentista',
-    'exame',
-    'drogasil',
-    'pague menos',
-    'droga raia',
-    'unimed',
-    'plano de saúde',
+    // Farmácias
+    'farmácia', 'drogaria', 'drogasil', 'droga raia', 'pague menos',
+    'ultrafarma', 'panvel', 'nissei', 'pacheco', 'raia', 'ultragenix',
+    // Saúde
+    'remédio', 'medicamento', 'vitamina', 'suplemento',
+    // Profissionais
+    'médico', 'consulta', 'dentista', 'psicólogo', 'terapeuta',
+    'nutricionista', 'fisioterapeuta', 'ortopedista', 'cardiologista',
+    'dermatologista', 'oftalmologista',
+    // Estabelecimentos
+    'hospital', 'clínica', 'laboratório', 'UPA', 'pronto socorro',
+    'posto de saúde',
+    // Exames
+    'exame', 'análise', 'ressonância', 'tomografia', 'ultrassom',
+    'raio-x', 'eletrocardiograma',
+    // Planos
+    'plano de saúde', 'unimed', 'amil', 'sulamerica', 'bradesco saúde',
+    'porto seguro saúde', 'hapvida', 'notredame',
+    // Fitness
+    'academia', 'gym', 'smartfit', 'bodytech', 'selfit', 'bluefit',
+    'crossfit', 'pilates',
+  ],
+  'cat_clothing': [
+    // Lojas
+    'zara', 'h&m', 'riachuelo', 'renner', 'marisa', 'hering', 'shein',
+    'forever21', 'cea', 'proteste', 'shoulder', 'farm', 'animale',
+    'arezzo', 'schutz', 'melissa', 'havaianas',
+    // Esportes
+    'nike', 'adidas', 'puma', 'asics', 'new balance', 'olympikus',
+    'decathlon', 'netshoes', 'centauro',
+    // Roupas/acessórios
+    'roupa', 'camiseta', 'calça', 'vestido', 'blusa', 'jaqueta',
+    'tênis', 'sapato', 'sandália', 'bolsa', 'carteira', 'mala',
+    'óculos', 'relogio', 'acessório',
   ],
 };
 
@@ -150,7 +188,39 @@ final Map<String, Map<String, String>> _categoryMeta = {
     'color': '#F44336',
     'icon': 'medical_services',
   },
+  'cat_clothing': {
+    'name': 'Vestuário',
+    'color': '#795548',
+    'icon': 'checkroom',
+  },
 };
+
+// Tokenizes a string into lowercase words (min 2 chars), ignoring punctuation.
+Set<String> _tokenize(String text) {
+  return text
+      .toLowerCase()
+      .split(RegExp(r'[\s\-_/,\.!?@#&\(\)]+'))
+      .where((w) => w.length >= 2)
+      .toSet();
+}
+
+// Returns true if the keyword matches the query.
+// Multi-word keywords: substring match.
+// Short single-word keywords (< 4 chars): exact token match to avoid false positives.
+// Long single-word keywords (>= 4 chars): substring match for compound word support.
+bool _keywordMatches(
+  String keyword,
+  String cleanQuery,
+  Set<String> queryTokens,
+) {
+  if (keyword.contains(' ')) {
+    return cleanQuery.contains(keyword);
+  }
+  if (keyword.length < 4) {
+    return queryTokens.contains(keyword);
+  }
+  return cleanQuery.contains(keyword);
+}
 
 final autoCategorizeProvider = Provider.family<AiCategorySuggestion?, String>((
   ref,
@@ -159,57 +229,83 @@ final autoCategorizeProvider = Provider.family<AiCategorySuggestion?, String>((
   if (query.trim().length < 3) return null;
 
   final cleanQuery = query.toLowerCase().trim();
+  final queryTokens = _tokenize(cleanQuery);
   final txsAsync = ref.watch(filteredTransactionsProvider);
 
   return txsAsync.when(
     data: (txs) {
-      // 1. Core Learning Loop: Search history for identical/partial description matches
-      final Map<String, int> categoryCounts = {};
-      TransactionModel? matchedTx;
+      // 1. History-based: exact and partial description matching
+      final Map<String, int> exactCounts = {};
+      final Map<String, int> wordCounts = {};
+
+      final meaningfulQuery = queryTokens.where((w) => w.length >= 3).toSet();
 
       for (final tx in txs) {
-        if (tx.description.toLowerCase().contains(cleanQuery) &&
-            tx.category != null) {
-          final catId = tx.categoryId!;
-          categoryCounts[catId] = (categoryCounts[catId] ?? 0) + 1;
-          matchedTx = tx;
+        if (tx.category == null) continue;
+        final txDesc = tx.description.toLowerCase();
+        final txTokens = _tokenize(txDesc);
+        final catId = tx.categoryId!;
+
+        if (txDesc.contains(cleanQuery) || cleanQuery.contains(txDesc)) {
+          // Exact or near-exact match → high weight
+          exactCounts[catId] = (exactCounts[catId] ?? 0) + 2;
+        } else if (meaningfulQuery.isNotEmpty) {
+          // Word overlap: count shared tokens (only meaningful words ≥ 3 chars)
+          final meaningful = meaningfulQuery.intersection(
+            txTokens.where((w) => w.length >= 3).toSet(),
+          );
+          if (meaningful.isNotEmpty) {
+            wordCounts[catId] = (wordCounts[catId] ?? 0) + meaningful.length;
+          }
         }
       }
 
-      if (categoryCounts.isNotEmpty) {
-        // Find most frequent category
-        final sortedCats = categoryCounts.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        final bestCatId = sortedCats.first.key;
-        final totalCount = categoryCounts.values.fold<int>(
-          0,
-          (sum, val) => sum + val,
-        );
-        final confidence = sortedCats.first.value / totalCount;
-
-        // Retrieve visual metadata
-        final cat = txs.firstWhere((t) => t.categoryId == bestCatId).category!;
-        return AiCategorySuggestion(
-          categoryId: bestCatId,
-          categoryName: cat.name,
-          categoryColor: cat.color,
-          categoryIcon: cat.icon,
-          confidence: confidence,
-        );
+      // Merge exact + word match counts (exact counts double-weighted)
+      final Map<String, int> combined = {...exactCounts};
+      for (final e in wordCounts.entries) {
+        combined[e.key] = (combined[e.key] ?? 0) + e.value;
       }
 
-      // 2. Fallback: Word-match based keyword classifier
+      if (combined.isNotEmpty) {
+        final sortedCats = combined.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        final bestCatId = sortedCats.first.key;
+        final totalCount = combined.values.fold<int>(0, (s, v) => s + v);
+        final rawConf = sortedCats.first.value / totalCount;
+        // Scale confidence: exact matches start higher
+        final hasExact = exactCounts.containsKey(bestCatId);
+        final confidence = hasExact
+            ? (0.70 + rawConf * 0.30).clamp(0.0, 1.0)
+            : (0.50 + rawConf * 0.30).clamp(0.0, 1.0);
+
+        try {
+          final cat = txs
+              .firstWhere((t) => t.categoryId == bestCatId)
+              .category!;
+          return AiCategorySuggestion(
+            categoryId: bestCatId,
+            categoryName: cat.name,
+            categoryColor: cat.color,
+            categoryIcon: cat.icon,
+            confidence: confidence,
+          );
+        } catch (_) {
+          // Category not found in current txs — fall through to keyword matcher
+        }
+      }
+
+      // 2. Fallback: keyword classifier with word-boundary matching
       for (final catId in _fallbackKeywords.keys) {
         final keywords = _fallbackKeywords[catId]!;
         for (final keyword in keywords) {
-          if (cleanQuery.contains(keyword)) {
+          if (_keywordMatches(keyword, cleanQuery, queryTokens)) {
             final meta = _categoryMeta[catId]!;
             return AiCategorySuggestion(
               categoryId: catId,
               categoryName: meta['name']!,
               categoryColor: meta['color']!,
               categoryIcon: meta['icon']!,
-              confidence: 0.80, // High certainty for standard keywords
+              confidence: 0.82,
             );
           }
         }
@@ -760,8 +856,9 @@ final financialHealthScoreProvider = Provider<AiHealthScore>((ref) {
           .where((t) => t.type == TransactionType.expense)
           .fold<int>(0, (sum, t) => sum + t.amount);
 
-      final double savingsRate =
-          totalIncome > 0 ? (totalIncome - totalExpense) / totalIncome : 0.0;
+      final double savingsRate = totalIncome > 0
+          ? (totalIncome - totalExpense) / totalIncome
+          : 0.0;
 
       final int savingsScore;
       if (savingsRate >= 0.20) {
@@ -798,8 +895,7 @@ final financialHealthScoreProvider = Provider<AiHealthScore>((ref) {
         error: (_, __) => 12,
       );
 
-      final int sentimentScore =
-          (sentiments.positivePercentage * 25).round();
+      final int sentimentScore = (sentiments.positivePercentage * 25).round();
 
       final int totalScore =
           savingsScore + anomalyScore + goalScore + sentimentScore;
@@ -925,8 +1021,7 @@ final goalAchievabilityProvider = Provider<List<AiGoalForecast>>((ref) {
         final totalExpense = completed
             .where((t) => t.type == TransactionType.expense)
             .fold<int>(0, (sum, t) => sum + t.amount);
-        final int monthlySurplus =
-            ((totalIncome - totalExpense) / 3.0).round();
+        final int monthlySurplus = ((totalIncome - totalExpense) / 3.0).round();
 
         final List<AiGoalForecast> forecasts = [];
 
@@ -940,8 +1035,8 @@ final goalAchievabilityProvider = Provider<List<AiGoalForecast>>((ref) {
 
           DateTime? projectedCompletion;
           if (monthlySurplus > 0) {
-            final monthsToCompletion =
-                (goal.remainingInCents / monthlySurplus).ceil();
+            final monthsToCompletion = (goal.remainingInCents / monthlySurplus)
+                .ceil();
             projectedCompletion = DateTime(
               now.year,
               now.month + monthsToCompletion,
@@ -952,8 +1047,8 @@ final goalAchievabilityProvider = Provider<List<AiGoalForecast>>((ref) {
           String statusMessage = '';
           if (monthlyNeeded == null) {
             if (monthlySurplus > 0 && projectedCompletion != null) {
-              final months =
-                  (projectedCompletion.difference(now).inDays / 30).round();
+              final months = (projectedCompletion.difference(now).inDays / 30)
+                  .round();
               statusMessage =
                   'No ritmo atual, concluída em ~$months ${months == 1 ? 'mês' : 'meses'}';
             } else {
@@ -1014,8 +1109,9 @@ class AiBudgetRecommendation {
   });
 }
 
-final budgetRecommendationsProvider =
-    Provider<List<AiBudgetRecommendation>>((ref) {
+final budgetRecommendationsProvider = Provider<List<AiBudgetRecommendation>>((
+  ref,
+) {
   final txsAsync = ref.watch(filteredTransactionsProvider);
 
   return txsAsync.when(

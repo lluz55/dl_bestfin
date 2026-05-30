@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class MonthlyBarChartWidget extends StatefulWidget {
   final List<MonthlyBar> bars;
@@ -70,10 +70,8 @@ class _MonthlyBarChartWidgetState extends State<MonthlyBarChartWidget>
                     final label = rodIndex == 0 ? 'Receita' : 'Despesa';
                     final amt = rodIndex == 0 ? bar.income : bar.expense;
                     return BarTooltipItem(
-                      '$label\nR\$ ${(amt / 100).toStringAsFixed(2)}',
-                      Theme.of(
-                        context,
-                      ).textTheme.labelSmall!.copyWith(
+                      '$label\n${CurrencyFormatter.formatCents(amt.toInt())}',
+                      Theme.of(context).textTheme.labelSmall!.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
@@ -93,10 +91,13 @@ class _MonthlyBarChartWidgetState extends State<MonthlyBarChartWidget>
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           widget.bars[i].label,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.8,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       );
                     },
@@ -259,7 +260,7 @@ class _CategoryBarChartWidgetState extends State<CategoryBarChartWidget>
                   SizedBox(
                     width: 80,
                     child: Text(
-                      'R\$ ${(item.amount / 100).toStringAsFixed(0)}',
+                      CurrencyFormatter.formatCents(item.amount),
                       style: tt.labelMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: cs.onSurface,

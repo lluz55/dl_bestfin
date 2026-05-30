@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class TreemapWidget extends StatefulWidget {
   final List<TreemapNode> nodes;
@@ -104,7 +105,9 @@ class _TreemapWidgetState extends State<TreemapWidget>
                                     ),
                                     if (rect.height > 48)
                                       Text(
-                                        'R\$ ${(node.value / 100).toStringAsFixed(0)}',
+                                        CurrencyFormatter.valuesHidden
+                                            ? 'R\$ •••••'
+                                            : 'R\$ ${(node.value / 100).toStringAsFixed(0)}',
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall

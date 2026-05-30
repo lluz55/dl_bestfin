@@ -11,12 +11,14 @@ class GenerateCategoryReport {
   Stream<CategoryReport> call({
     required DateTime startDate,
     required DateTime endDate,
-    String? accountId,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
   }) {
     return _repository
         .watchTransactionsWithFilters(
           type: 'expense',
-          accountId: accountId,
+          accountIds: accountIds,
+          creditCardIds: creditCardIds,
           startDate: startDate,
           endDate: endDate,
         )

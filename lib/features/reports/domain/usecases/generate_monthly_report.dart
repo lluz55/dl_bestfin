@@ -7,14 +7,19 @@ class GenerateMonthlyReport {
 
   GenerateMonthlyReport(this._repository);
 
-  Stream<MonthlyReport> call({int months = 6, String? accountId}) {
+  Stream<MonthlyReport> call({
+    int months = 6,
+    List<String>? accountIds,
+    List<String>? creditCardIds,
+  }) {
     final now = DateTime.now();
     final startDate = DateTime(now.year, now.month - months + 1, 1);
     final endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
     return _repository
         .watchTransactionsWithFilters(
-          accountId: accountId,
+          accountIds: accountIds,
+          creditCardIds: creditCardIds,
           startDate: startDate,
           endDate: endDate,
         )

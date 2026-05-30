@@ -50,8 +50,9 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
 
     setState(() => _isImporting = true);
     try {
-      final count =
-          await ref.read(pdfImportProvider.notifier).commitImport(accountId);
+      final count = await ref
+          .read(pdfImportProvider.notifier)
+          .commitImport(accountId);
       if (!mounted) return;
       ref.read(pdfImportProvider.notifier).reset();
       _showSnack('$count transações importadas com sucesso!');
@@ -68,8 +69,9 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor:
-            error ? context.colorScheme.error : Colors.green.shade700,
+        backgroundColor: error
+            ? context.colorScheme.error
+            : Colors.green.shade700,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -133,8 +135,9 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
                           value: _selectedAccountId,
                           hint: Text(
                             'Auto (${list.isNotEmpty ? list.first.accountName : "Detectar"})',
-                            style: tt.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                           isExpanded: true,
@@ -173,7 +176,9 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
                         '$selectedCount de ${list.length} selecionadas',
                         style: tt.labelMedium,
                       ),
-                      backgroundColor: cs.primaryContainer.withValues(alpha: 0.4),
+                      backgroundColor: cs.primaryContainer.withValues(
+                        alpha: 0.4,
+                      ),
                       side: BorderSide.none,
                     ),
                   ],
@@ -186,8 +191,9 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
                     ? Center(
                         child: Text(
                           'Nenhuma transação encontrada.',
-                          style: tt.bodyMedium
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: tt.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -218,7 +224,8 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
             onPressed: _isImporting
                 ? null
                 : () async {
-                    final list = ref.read(pdfImportProvider).value ??
+                    final list =
+                        ref.read(pdfImportProvider).value ??
                         widget.transactions;
                     final accounts =
                         ref.read(pdfImportAccountsProvider).value ?? [];
