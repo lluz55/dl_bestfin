@@ -4,13 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:bestfin/core/constants/default_categories.dart';
-import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/app_database.dart' hide Account;
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/providers/default_account_provider.dart';
+import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
+import 'package:bestfin/features/accounts/domain/models/account.dart';
+import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
+import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -141,10 +148,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     ref.invalidate(databaseProvider);
 
+    // Clear PIN from secure storage
+    await SecurityActions.clearPin();
+
+    // Clear all SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    // Reset global settings/onboarding variables
+    initialOnboardingCompleted = false;
+    initialBiometricsEnabled = false;
+    initialValuesHidden = false;
+    initialAlwaysHideValues = false;
+    initialIsLocked = false;
+
+    // Reset provider states
+    ref.read(onboardingCompletedProvider.notifier).set(false);
+    ref.read(biometricsEnabledProvider.notifier).set(false);
+    ref.read(isLockedProvider.notifier).unlock();
+
+    // Invalidate providers to force them to reload from the cleared state
+    ref.invalidate(themeProvider);
+    ref.invalidate(valuesHiddenProvider);
+    ref.invalidate(alwaysHideValuesProvider);
+    ref.invalidate(homeWidgetsProvider);
+    ref.invalidate(shortcutsProvider);
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Todos os dados foram apagados.'),
+        content: const Text(
+          'Todos os dados foram apagados. O app foi reiniciado.',
+        ),
         backgroundColor: context.colorScheme.error,
         behavior: SnackBarBehavior.floating,
       ),
@@ -186,6 +221,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          _SectionHeader(title: 'Privacidade', tt: tt, cs: cs),
+          _SettingsTile(
+            icon: Icons.visibility_off_outlined,
+            title: 'Ocultar valores',
+            subtitle: 'Ocultar saldos por padrão ao abrir',
+            cs: cs,
+            tt: tt,
+            trailing: Switch(
+              value: ref.watch(alwaysHideValuesProvider),
+              onChanged: (v) =>
+                  ref.read(alwaysHideValuesProvider.notifier).set(v),
+            ),
+          ),
+          const SizedBox(height: 8),
           if (_biometricsAvailable) ...[
             _SectionHeader(title: 'Segurança', tt: tt, cs: cs),
             _SettingsTile(
@@ -212,6 +261,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             const SizedBox(height: 8),
           ],
+          _SectionHeader(title: 'Transações', tt: tt, cs: cs),
+          _DefaultAccountTile(cs: cs, tt: tt),
+          const SizedBox(height: 8),
           _SectionHeader(title: 'Dados', tt: tt, cs: cs),
           _SettingsTile(
             icon: Icons.upload_rounded,
@@ -317,6 +369,120 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       case ThemeMode.dark:
         return Icons.dark_mode_rounded;
     }
+  }
+}
+
+class _DefaultAccountTile extends ConsumerWidget {
+  const _DefaultAccountTile({required this.cs, required this.tt});
+
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accounts = ref.watch(activeAccountsProvider);
+    final defaultId = ref.watch(defaultAccountIdProvider);
+    final defaultAccount = accounts.where((a) => a.id == defaultId).firstOrNull;
+
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.account_balance_wallet_outlined,
+          size: 20,
+          color: cs.onSurface,
+        ),
+      ),
+      title: Text(
+        'Conta padrão',
+        style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        defaultAccount?.name ?? 'Nenhuma (seleção automática)',
+        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: () => _showAccountPicker(context, ref, accounts, defaultId),
+    );
+  }
+
+  void _showAccountPicker(
+    BuildContext context,
+    WidgetRef ref,
+    List<Account> accounts,
+    String? currentDefaultId,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final tt = Theme.of(ctx).textTheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Conta padrão',
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Selecionada automaticamente em novas transações',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: Icon(
+                    Icons.auto_awesome_outlined,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  title: const Text('Nenhuma (seleção automática)'),
+                  selected: currentDefaultId == null,
+                  selectedColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onTap: () {
+                    ref.read(defaultAccountIdProvider.notifier).set(null);
+                    Navigator.pop(ctx);
+                  },
+                ),
+                for (final account in accounts)
+                  ListTile(
+                    leading: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    title: Text(account.name),
+                    subtitle: Text(account.type.label),
+                    selected: account.id == currentDefaultId,
+                    selectedColor: cs.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    onTap: () {
+                      ref
+                          .read(defaultAccountIdProvider.notifier)
+                          .set(account.id);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

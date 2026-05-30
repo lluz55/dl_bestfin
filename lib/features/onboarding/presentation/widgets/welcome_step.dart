@@ -24,13 +24,6 @@ class WelcomeStep extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: context.primaryGradient,
                   borderRadius: BorderRadius.circular(36),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.35),
-                      blurRadius: 32,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
                 ),
                 child: Icon(
                   Icons.account_balance_wallet_rounded,

@@ -17,138 +17,134 @@ class MoreScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-                _SectionHeader(title: 'Finanças', cs: cs, tt: tt),
-                _MenuGrid(
-                  items: [
-                    _MenuItem(
-                      icon: Icons.account_balance_rounded,
-                      label: 'Contas',
-                      color: cs.primary,
-                      onTap: () => context.push('/accounts'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.category_rounded,
-                      label: 'Categorias',
-                      color: cs.secondary,
-                      onTap: () => context.push('/categories'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.credit_card_rounded,
-                      label: 'Cartões',
-                      color: cs.tertiary,
-                      onTap: () => context.push('/credit-cards'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.repeat_rounded,
-                      label: 'Recorrentes',
-                      color: cs.error,
-                      onTap: () => context.push('/recurring'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _SectionHeader(title: 'Objetivos', cs: cs, tt: tt),
-                _MenuGrid(
-                  items: [
-                    _MenuItem(
-                      icon: Icons.flag_rounded,
-                      label: 'Metas',
-                      color: cs.tertiary,
-                      onTap: () => context.push('/goals'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.trending_up_rounded,
-                      label: 'Investimentos',
-                      color: cs.secondary,
-                      onTap: () => context.push('/investments'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.home_work_rounded,
-                      label: 'Financiamentos',
-                      color: cs.primary,
-                      onTap: () => context.push('/financing'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.psychology_rounded,
-                      label: 'Painel IA',
-                      color: cs.primary,
-                      onTap: () => context.push('/ai'),
-                    ),
-                    _MenuItem(
-                      icon: Icons.emoji_events_rounded,
-                      label: 'Conquistas',
-                      color: Colors.orange,
-                      onTap: () => context.push('/gamification'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _SectionHeader(title: 'Automação', cs: cs, tt: tt),
-                _MenuList(
-                  items: [
-                    _MenuListItem(
-                      icon: Icons.notifications_active_outlined,
-                      label: 'Sugestões',
-                      onTap: () => context.push('/notifications/review'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                    _MenuListItem(
-                      icon: Icons.tune_rounded,
-                      label: 'Captura de notificações',
-                      onTap: () => context.push('/notifications/settings'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                    _MenuListItem(
-                      icon: Icons.picture_as_pdf_rounded,
-                      label: 'Importar PDF',
-                      onTap: () => context.push('/pdf-import'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _SectionHeader(title: 'Sincronização', cs: cs, tt: tt),
-                _MenuList(
-                  items: [
-                    _MenuListItem(
-                      icon: Icons.sync_rounded,
-                      label: 'Sincronizar',
-                      onTap: () => context.push('/sync'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                    _MenuListItem(
-                      icon: Icons.group_outlined,
-                      label: 'Grupos familiares',
-                      onTap: () => context.push('/sync/household'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _SectionHeader(title: 'App', cs: cs, tt: tt),
-                _MenuList(
-                  items: [
-                    _MenuListItem(
-                      icon: Icons.file_download_outlined,
-                      label: 'Exportar dados',
-                      onTap: () => context.push('/backup'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                    _MenuListItem(
-                      icon: Icons.settings_outlined,
-                      label: 'Configurações',
-                      onTap: () => context.push('/settings'),
-                      cs: cs,
-                      tt: tt,
-                    ),
-                  ],
-                ),
+          _SectionHeader(title: 'Finanças', cs: cs, tt: tt, isFirst: true),
+          _MenuGrid(
+            items: [
+              _MenuItem(
+                icon: Icons.account_balance_rounded,
+                label: 'Contas',
+                color: cs.primary,
+                onTap: () => context.push('/accounts'),
+              ),
+              _MenuItem(
+                icon: Icons.category_rounded,
+                label: 'Categorias',
+                color: cs.secondary,
+                onTap: () => context.push('/categories'),
+              ),
+              _MenuItem(
+                icon: Icons.credit_card_rounded,
+                label: 'Cartões',
+                color: cs.tertiary,
+                onTap: () => context.push('/credit-cards'),
+              ),
+              _MenuItem(
+                icon: Icons.repeat_rounded,
+                label: 'Recorrentes',
+                color: cs.error,
+                onTap: () => context.push('/recurring'),
+              ),
+            ],
+          ),
+          _SectionHeader(title: 'Objetivos', cs: cs, tt: tt),
+          _MenuGrid(
+            items: [
+              _MenuItem(
+                icon: Icons.flag_rounded,
+                label: 'Metas',
+                color: cs.tertiary,
+                onTap: () => context.push('/goals'),
+              ),
+              _MenuItem(
+                icon: Icons.trending_up_rounded,
+                label: 'Investimentos',
+                color: cs.secondary,
+                onTap: () => context.push('/investments'),
+              ),
+              _MenuItem(
+                icon: Icons.home_work_rounded,
+                label: 'Financiamentos',
+                color: cs.primary,
+                onTap: () => context.push('/financing'),
+              ),
+              _MenuItem(
+                icon: Icons.psychology_rounded,
+                label: 'Painel IA',
+                color: cs.primary,
+                onTap: () => context.push('/ai'),
+              ),
+              _MenuItem(
+                icon: Icons.emoji_events_rounded,
+                label: 'Conquistas',
+                color: Colors.orange,
+                onTap: () => context.push('/gamification'),
+              ),
+            ],
+          ),
+          _SectionHeader(title: 'Automação', cs: cs, tt: tt),
+          _MenuList(
+            items: [
+              _MenuListItem(
+                icon: Icons.notifications_active_outlined,
+                label: 'Sugestões',
+                onTap: () => context.push('/notifications/review'),
+                cs: cs,
+                tt: tt,
+              ),
+              _MenuListItem(
+                icon: Icons.tune_rounded,
+                label: 'Captura de notificações',
+                onTap: () => context.push('/notifications/settings'),
+                cs: cs,
+                tt: tt,
+              ),
+              _MenuListItem(
+                icon: Icons.picture_as_pdf_rounded,
+                label: 'Importar PDF',
+                onTap: () => context.push('/pdf-import'),
+                cs: cs,
+                tt: tt,
+              ),
+            ],
+          ),
+          _SectionHeader(title: 'Sincronização', cs: cs, tt: tt),
+          _MenuList(
+            items: [
+              _MenuListItem(
+                icon: Icons.sync_rounded,
+                label: 'Sincronizar',
+                onTap: () => context.push('/sync'),
+                cs: cs,
+                tt: tt,
+              ),
+              _MenuListItem(
+                icon: Icons.group_outlined,
+                label: 'Grupos familiares',
+                onTap: () => context.push('/sync/household'),
+                cs: cs,
+                tt: tt,
+              ),
+            ],
+          ),
+          _SectionHeader(title: 'App', cs: cs, tt: tt),
+          _MenuList(
+            items: [
+              _MenuListItem(
+                icon: Icons.file_download_outlined,
+                label: 'Exportar dados',
+                onTap: () => context.push('/backup'),
+                cs: cs,
+                tt: tt,
+              ),
+              _MenuListItem(
+                icon: Icons.settings_outlined,
+                label: 'Configurações',
+                onTap: () => context.push('/settings'),
+                cs: cs,
+                tt: tt,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -160,16 +156,18 @@ class _SectionHeader extends StatelessWidget {
     required this.title,
     required this.cs,
     required this.tt,
+    this.isFirst = false,
   });
 
   final String title;
   final ColorScheme cs;
   final TextTheme tt;
+  final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+      padding: EdgeInsets.fromLTRB(4, isFirst ? 4 : 16, 4, 8),
       child: Text(
         title,
         style: tt.titleSmall?.copyWith(
@@ -195,6 +193,8 @@ class _MenuGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 8,
       mainAxisSpacing: 8,
+      childAspectRatio: 0.85,
+      padding: EdgeInsets.zero,
       children: items,
     );
   }
@@ -225,7 +225,7 @@ class _MenuItem extends StatelessWidget {
           color: cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(16),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -238,15 +238,17 @@ class _MenuItem extends StatelessWidget {
               ),
               child: Icon(icon, size: 22, color: color),
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: tt.labelSmall?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w600,
+            const SizedBox(height: 4),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],

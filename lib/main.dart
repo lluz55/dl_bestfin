@@ -17,17 +17,35 @@ import 'package:bestfin/features/gamification/presentation/widgets/badge_unlock_
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
+import 'dart:io';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:bestfin/features/security/presentation/widgets/lock_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (Platform.isAndroid) {
+    try {
+      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+    } catch (e) {
+      debugPrint('Failed to apply sqlite3 workaround: $e');
+    }
+  }
+
   initialOnboardingCompleted = await OnboardingActions.readCompleted();
   initialBiometricsEnabled = await OnboardingActions.readBiometrics();
   initialIsLocked = initialBiometricsEnabled;
   final prefs = await SharedPreferences.getInstance();
-  initialValuesHidden = prefs.getBool(kValuesHiddenKey) ?? false;
+  initialAlwaysHideValues = prefs.getBool(kAlwaysHideValuesKey) ?? false;
+  if (initialAlwaysHideValues) {
+    initialValuesHidden = true;
+  } else {
+    initialValuesHidden = prefs.getBool(kValuesHiddenKey) ?? false;
+  }
+  initialDefaultAccountId = prefs.getString(kDefaultAccountIdKey);
   runApp(const ProviderScope(child: BestFinApp()));
 }
 
@@ -95,16 +113,15 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
           darkScheme = themeState.preset.dark();
         }
 
-        return BadgeUnlockOverlay(
-          child: MaterialApp.router(
-            title: 'BestFin',
-            theme: AppTheme.build(lightScheme),
-            darkTheme: AppTheme.build(darkScheme),
-            themeMode: themeState.mode,
-            debugShowCheckedModeBanner: false,
-            routerConfig: router,
-            builder: (context, child) =>
-                LockOverlay(child: child ?? const SizedBox()),
+        return MaterialApp.router(
+          title: 'BestFin',
+          theme: AppTheme.build(lightScheme),
+          darkTheme: AppTheme.build(darkScheme),
+          themeMode: themeState.mode,
+          debugShowCheckedModeBanner: false,
+          routerConfig: router,
+          builder: (context, child) => BadgeUnlockOverlay(
+            child: LockOverlay(child: child ?? const SizedBox()),
           ),
         );
       },

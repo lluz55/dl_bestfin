@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/widgets/color_picker.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class CreateAccountStep extends ConsumerStatefulWidget {
   const CreateAccountStep({super.key, required this.onNext});
@@ -17,27 +19,20 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController(text: 'Conta Principal');
   AccountType _selectedType = AccountType.checking;
+  late String _selectedColorHex;
   int _balanceCents = 0;
-  final _balanceController = TextEditingController(text: '0,00');
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColorHex = _selectedType.defaultColorHex;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _balanceController.dispose();
     super.dispose();
-  }
-
-  void _onBalanceChanged(String value) {
-    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (clean.isEmpty) return;
-    final cents = int.tryParse(clean) ?? 0;
-    final formatted = (cents / 100.0).toStringAsFixed(2).replaceAll('.', ',');
-    _balanceController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-    setState(() => _balanceCents = cents);
   }
 
   Future<void> _save() async {
@@ -49,7 +44,7 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
       name: _nameController.text.trim(),
       type: _selectedType.name,
       icon: _selectedType.defaultIcon.codePoint.toString(),
-      color: _selectedType.defaultColorHex,
+      color: _selectedColorHex,
       initialBalance: _balanceCents,
     );
 
@@ -117,26 +112,29 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                     return FilterChip(
                       label: Text(type.label),
                       selected: selected,
-                      onSelected: (_) => setState(() => _selectedType = type),
+                      onSelected: (_) => setState(() {
+                        _selectedType = type;
+                        _selectedColorHex = type.defaultColorHex;
+                      }),
                       avatar: Icon(type.defaultIcon, size: 16),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
-                  controller: _balanceController,
-                  decoration: InputDecoration(
-                    labelText: 'Saldo atual (R\$)',
-                    hintText: '0,00',
-                    prefixIcon: const Icon(Icons.attach_money_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onChanged: _onBalanceChanged,
+                AmountInput(
+                  amountInCents: _balanceCents,
+                  label: 'Saldo atual',
+                  color: cs.primary,
+                  onChanged: (val) => setState(() => _balanceCents = val),
+                ),
+                const SizedBox(height: 20),
+                AppColorPicker(
+                  selectedColorHex: _selectedColorHex,
+                  onColorSelected: (color) {
+                    setState(() {
+                      _selectedColorHex = color;
+                    });
+                  },
                 ),
               ],
             ),
