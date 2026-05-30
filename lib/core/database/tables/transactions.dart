@@ -41,7 +41,8 @@ class Transactions extends Table {
     #id,
     onDelete: KeyAction.setNull,
   )();
-  IntColumn get rawAmount => integer().nullable()(); // centavos; preenchido quando não há entries (CC)
+  IntColumn get rawAmount =>
+      integer().nullable()(); // centavos; preenchido quando não há entries (CC)
   TextColumn get invoiceId => text().nullable().references(
     Invoices,
     #id,

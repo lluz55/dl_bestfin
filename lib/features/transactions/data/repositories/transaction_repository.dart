@@ -197,16 +197,21 @@ class TransactionRepositoryImpl implements TransactionRepository {
         final Set<String> matchedTxIds = {};
 
         if (hasAccountFilter) {
-          final filterEntries = await (_database.select(_database.entries)
-            ..where((e) => e.accountId.isIn(accountIds) & e.transactionId.isIn(txIds)))
-            .get();
+          final filterEntries =
+              await (_database.select(_database.entries)..where(
+                    (e) =>
+                        e.accountId.isIn(accountIds) &
+                        e.transactionId.isIn(txIds),
+                  ))
+                  .get();
           matchedTxIds.addAll(filterEntries.map((e) => e.transactionId));
         }
 
         if (hasCardFilter) {
           for (final row in rows) {
             final tx = row.readTable(_database.transactions);
-            if (tx.creditCardId != null && creditCardIds.contains(tx.creditCardId)) {
+            if (tx.creditCardId != null &&
+                creditCardIds.contains(tx.creditCardId)) {
               matchedTxIds.add(tx.id);
             }
           }
@@ -218,9 +223,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
         if (txIds.isEmpty) return <TransactionModel>[];
       }
 
-      allEntries = await (_database.select(_database.entries)
-        ..where((e) => e.transactionId.isIn(txIds)))
-        .get();
+      allEntries = await (_database.select(
+        _database.entries,
+      )..where((e) => e.transactionId.isIn(txIds))).get();
 
       final List<TransactionModel> results = [];
       for (final row in rows) {
@@ -406,7 +411,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
               entityId: Value(entityId),
               goalId: Value(goalId),
               creditCardId: Value(creditCardId),
-              rawAmount: creditCardId != null ? Value(amount) : const Value.absent(),
+              rawAmount: creditCardId != null
+                  ? Value(amount)
+                  : const Value.absent(),
               isCompleted: const Value(true),
             ),
           );

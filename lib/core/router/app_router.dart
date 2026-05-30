@@ -215,6 +215,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             prefillDescription: extra?['description'] as String?,
             prefillType: extra?['type'] as TransactionType?,
             prefillAccountId: extra?['accountId'] as String?,
+            prefillToAccountId: extra?['toAccountId'] as String?,
             prefillCategoryId: extra?['categoryId'] as String?,
             prefillCategoryName: extra?['categoryName'] as String?,
             prefillCategoryColor: extra?['categoryColor'] as String?,

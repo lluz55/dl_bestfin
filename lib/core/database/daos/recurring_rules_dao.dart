@@ -136,6 +136,7 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
 
         if (existing == null) {
           final newTxId = const Uuid().v4();
+          final isTransfer = baseTx.type == 'transfer';
           await into(transactions).insert(
             TransactionsCompanion.insert(
               id: newTxId,
@@ -146,7 +147,8 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
               entityId: Value(baseTx.entityId),
               notes: Value(baseTx.notes),
               sentiment: Value(baseTx.sentiment),
-              isCompleted: Value(rule.autoConfirm),
+              isCompleted: Value(isTransfer ? false : rule.autoConfirm),
+              isConfirmed: Value(isTransfer ? false : rule.autoConfirm),
               recurringRuleId: Value(rule.id),
             ),
           );
