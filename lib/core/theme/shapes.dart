@@ -110,9 +110,6 @@ class ExpressiveShapes extends ThemeExtension<ExpressiveShapes> {
     ),
     fabDefault: BorderRadius.all(Radius.circular(16)),
     fabExpanded: BorderRadius.all(Radius.circular(28)),
-    navigationBar: BorderRadius.only(
-      topLeft: Radius.circular(24),
-      topRight: Radius.circular(24),
-    ),
+    navigationBar: BorderRadius.all(Radius.circular(20)),
   );
 }

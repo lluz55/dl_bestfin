@@ -91,7 +91,7 @@ class _TransactionTileState extends State<_TransactionTile> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: cs.surfaceContainer,
+            color: cs.surfaceContainerLow,
             borderRadius: shapes.transactionTile,
           ),
           child: Row(
@@ -154,7 +154,7 @@ class _TransactionTileState extends State<_TransactionTile> {
     return tile
         .animate(delay: widget.delay)
         .slideX(
-          begin: 0.08,
+          begin: 0.05,
           end: 0,
           curve: Curves.easeOutCubic,
           duration: context.motion.mediumDuration,

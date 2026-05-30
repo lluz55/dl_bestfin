@@ -111,15 +111,6 @@ class _SentimentButton extends StatelessWidget {
                     color: isSelected ? sentiment.color : Colors.transparent,
                     width: 2,
                   ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: sentiment.color.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : [],
                 ),
                 child: Center(
                   child: Text(

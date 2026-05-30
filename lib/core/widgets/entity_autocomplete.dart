@@ -5,6 +5,7 @@ import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
+import 'package:bestfin/core/providers/entity_categories_provider.dart';
 
 final allEntitiesProvider = StreamProvider<List<db.Entity>>((ref) {
   final database = ref.watch(databaseProvider);
@@ -16,6 +17,8 @@ class EntityAutocomplete extends ConsumerStatefulWidget {
   final String entityType; // 'payee', 'payer', etc.
   final Function(db.Entity?) onEntitySelected;
   final String label;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const EntityAutocomplete({
     super.key,
@@ -23,6 +26,8 @@ class EntityAutocomplete extends ConsumerStatefulWidget {
     required this.entityType,
     required this.onEntitySelected,
     this.label = 'Pagador / Recebedor',
+    this.focusNode,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -31,82 +36,305 @@ class EntityAutocomplete extends ConsumerStatefulWidget {
 
 class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   final TextEditingController _controller = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   db.Entity? _currentEntity;
+  bool _showSuggestions = false;
 
-  final List<Map<String, dynamic>> _categories = [
-    {'id': 'person', 'label': 'Pessoa', 'icon': Icons.person_outline},
-    {'id': 'store', 'label': 'Loja/Mercado', 'icon': Icons.store_outlined},
-    {'id': 'restaurant', 'label': 'Restaurante/Delivery', 'icon': Icons.restaurant_outlined},
-    {'id': 'subscription', 'label': 'Assinatura/SaaS', 'icon': Icons.credit_card_outlined},
-    {'id': 'work', 'label': 'Trabalho/Freelance', 'icon': Icons.work_outline},
-    {'id': 'government', 'label': 'Governo/Imposto', 'icon': Icons.account_balance_outlined},
-    {'id': 'health', 'label': 'Saúde', 'icon': Icons.medical_services_outlined},
-    {'id': 'transport', 'label': 'Transporte', 'icon': Icons.directions_bus_outlined},
-    {'id': 'education', 'label': 'Educação', 'icon': Icons.school_outlined},
-    {'id': 'leisure', 'label': 'Lazer/Entretenimento', 'icon': Icons.movie_outlined},
-    {'id': 'online_service', 'label': 'Serviço Online', 'icon': Icons.language_outlined},
-    {'id': 'donation', 'label': 'Doação/Presente', 'icon': Icons.volunteer_activism_outlined},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
+    _focusNode.addListener(_onFocusChange);
+    _controller.addListener(_onTextChanged);
+  }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
-    _focusNode.dispose();
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
     super.dispose();
+  }
+
+  void _onFocusChange() {
+    setState(() {
+      _showSuggestions = _focusNode.hasFocus;
+    });
+  }
+
+  void _onTextChanged() {
+    setState(() {});
+  }
+
+  Future<EntityCategory?> _showCreateCategorySheet() async {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    String selectedIconKey = 'person';
+
+    return showModalBottomSheet<EntityCategory>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Nova Categoria',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: nameController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: 'Nome da Categoria',
+                        hintText: 'Ex: Academia, Presentes...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        prefixIcon: Icon(
+                          entityIconMap[selectedIconKey] ??
+                              Icons.category_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Digite o nome da categoria';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Selecione um Ícone',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 180,
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 6,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                        itemCount: entityIconMap.keys.length,
+                        itemBuilder: (context, index) {
+                          final key = entityIconMap.keys.elementAt(index);
+                          final icon = entityIconMap[key]!;
+                          final isSelected = key == selectedIconKey;
+
+                          return InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                selectedIconKey = key;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.outlineVariant,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Icon(
+                                icon,
+                                color: isSelected
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () async {
+                        if (formKey.currentState!.validate()) {
+                          final label = nameController.text.trim();
+                          final newCat = await ref
+                              .read(entityCategoriesProvider.notifier)
+                              .addCustomCategory(label, selectedIconKey);
+                          if (context.mounted) {
+                            Navigator.pop(context, newCat);
+                          }
+                        }
+                      },
+                      child: const Text('Salvar Categoria'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<String?> _showCategoryPicker() async {
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Selecione a Categoria',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 1,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
+        return Consumer(
+          builder: (context, ref, child) {
+            final categories = ref.watch(entityCategoriesProvider);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Selecione a Categoria',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
-                    return InkWell(
-                      onTap: () => Navigator.pop(context, cat['id']),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(cat['icon'], size: 32, color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(height: 4),
-                          Text(
-                            cat['label'],
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        ],
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 1,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
                       ),
-                    );
-                  },
-                ),
+                      itemCount: categories.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == categories.length) {
+                          return InkWell(
+                            onTap: () async {
+                              final newCat = await _showCreateCategorySheet();
+                              if (newCat != null && context.mounted) {
+                                Navigator.pop(context, newCat.id);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  style: BorderStyle.solid,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    size: 32,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Incluir Nova',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        final cat = categories[index];
+                        return InkWell(
+                          onTap: () => Navigator.pop(context, cat.id),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                cat.icon,
+                                size: 32,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                cat.label,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -152,6 +380,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final entitiesAsync = ref.watch(allEntitiesProvider);
+    final categories = ref.watch(entityCategoriesProvider);
 
     return entitiesAsync.when(
       data: (entities) {
@@ -185,168 +414,309 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
             .where((e) => e.type == widget.entityType)
             .toList();
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return RawAutocomplete<String>(
-              textEditingController: _controller,
-              focusNode: _focusNode,
-              optionsBuilder: (TextEditingValue textEditingValue) {
-                final search = textEditingValue.text.trim();
-                if (search.isEmpty) {
-                  return filteredEntities.map((e) => e.name);
-                }
+        final search = _controller.text.trim();
+        final List<String> suggestions = [];
+        if (search.isEmpty) {
+          suggestions.addAll(filteredEntities.map((e) => e.name));
+        } else {
+          final matched = filteredEntities
+              .where(
+                (e) =>
+                    e.name.toLowerCase().contains(search.toLowerCase()),
+              )
+              .map((e) => e.name)
+              .toList();
+          suggestions.addAll(matched);
 
-                final matched = filteredEntities
-                    .where(
-                      (e) =>
-                          e.name.toLowerCase().contains(search.toLowerCase()),
-                    )
-                    .map((e) => e.name)
-                    .toList();
+          final hasExactMatch = filteredEntities.any(
+            (e) => e.name.toLowerCase() == search.toLowerCase(),
+          );
 
-                // Adiciona opção de criação inline se não houver correspondência exata
-                final hasExactMatch = filteredEntities.any(
-                  (e) => e.name.toLowerCase() == search.toLowerCase(),
-                );
+          if (!hasExactMatch && search.isNotEmpty) {
+            suggestions.add('Criar "$search"');
+          }
+        }
 
-                if (!hasExactMatch && search.isNotEmpty) {
-                  return [...matched, 'Criar "$search"'];
-                }
-                return matched;
-              },
-              onSelected: (String selection) async {
-                if (selection.startsWith('Criar "')) {
-                  final name = selection.substring(7, selection.length - 1);
-                  await _createNewEntity(name);
-                } else {
-                  final entity = filteredEntities.firstWhere(
-                    (e) => e.name == selection,
-                  );
-                  widget.onEntitySelected(entity);
-                  setState(() {
-                    _currentEntity = entity;
-                    _controller.text = entity.name;
-                  });
-                }
-              },
-                  fieldViewBuilder:
-                  (context, textController, focusNode, onFieldSubmitted) {
-                    IconData prefixIcon = Icons.person_outline;
-                    if (_currentEntity != null && _currentEntity!.category != null) {
-                      final cat = _categories.firstWhere(
-                        (c) => c['id'] == _currentEntity!.category,
-                        orElse: () => {'icon': Icons.person_outline},
+        final isMobile = MediaQuery.of(context).size.width < 600;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isMobile && _showSuggestions && suggestions.isNotEmpty) ...[
+              SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  itemCount: suggestions.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final String option = suggestions[index];
+                    final isCreateOption = option.startsWith('Criar "');
+
+                    IconData iconData = isCreateOption
+                        ? Icons.add_circle_outline
+                        : Icons.person_rounded;
+
+                    if (!isCreateOption) {
+                      final entity = filteredEntities.firstWhere(
+                        (e) => e.name == option,
+                        orElse: () => filteredEntities.first,
                       );
-                      prefixIcon = cat['icon'];
+                      if (entity.category != null) {
+                        final cat = categories.firstWhere(
+                          (c) => c.id == entity.category,
+                          orElse: () => const EntityCategory(
+                            id: '',
+                            label: '',
+                            icon: Icons.person_rounded,
+                            iconKey: '',
+                          ),
+                        );
+                        iconData = cat.icon;
+                      }
                     }
 
-                    return TextField(
-                      controller: textController,
-                      focusNode: focusNode,
-                      decoration: InputDecoration(
-                        labelText: widget.label,
-                        hintText: 'Digite o nome do favorecido...',
-                        prefixIcon: Icon(prefixIcon),
-                        suffixIcon: textController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  textController.clear();
-                                  widget.onEntitySelected(null);
-                                  setState(() {
-                                    _currentEntity = null;
-                                  });
-                                },
-                              )
-                            : null,
-                        border: OutlineInputBorder(
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ActionChip(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        labelPadding: EdgeInsets.zero,
+                        avatar: Icon(
+                          iconData,
+                          color: isCreateOption
+                              ? cs.primary
+                              : cs.onSurfaceVariant,
+                          size: 16,
+                        ),
+                        label: Text(
+                          option,
+                          style: TextStyle(
+                            color: isCreateOption ? cs.primary : cs.onSurface,
+                            fontWeight: isCreateOption
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                        ),
+                        backgroundColor: cs.surfaceContainerLow,
+                        side: BorderSide(
+                          color: isCreateOption
+                              ? cs.primary.withValues(alpha: 0.5)
+                              : cs.outlineVariant,
+                          width: 0.5,
+                        ),
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
+                        ),
+                        onPressed: () async {
+                          if (isCreateOption) {
+                            final name = option.substring(7, option.length - 1);
+                            await _createNewEntity(name);
+                          } else {
+                            final entity = filteredEntities.firstWhere(
+                              (e) => e.name == option,
+                            );
+                            widget.onEntitySelected(entity);
+                            setState(() {
+                              _currentEntity = entity;
+                              _controller.text = entity.name;
+                            });
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return RawAutocomplete<String>(
+                  textEditingController: _controller,
+                  focusNode: _focusNode,
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (isMobile) {
+                      return const Iterable<String>.empty();
+                    }
+
+                    final searchVal = textEditingValue.text.trim();
+                    if (searchVal.isEmpty) {
+                      return filteredEntities.map((e) => e.name);
+                    }
+
+                    final matched = filteredEntities
+                        .where(
+                          (e) =>
+                              e.name.toLowerCase().contains(searchVal.toLowerCase()),
+                        )
+                        .map((e) => e.name)
+                        .toList();
+
+                    final hasExactMatch = filteredEntities.any(
+                      (e) => e.name.toLowerCase() == searchVal.toLowerCase(),
+                    );
+
+                    if (!hasExactMatch && searchVal.isNotEmpty) {
+                      return [...matched, 'Criar "$searchVal"'];
+                    }
+                    return matched;
+                  },
+                  onSelected: (String selection) async {
+                    if (selection.startsWith('Criar "')) {
+                      final name = selection.substring(7, selection.length - 1);
+                      await _createNewEntity(name);
+                    } else {
+                      final entity = filteredEntities.firstWhere(
+                        (e) => e.name == selection,
+                      );
+                      widget.onEntitySelected(entity);
+                      setState(() {
+                        _currentEntity = entity;
+                        _controller.text = entity.name;
+                      });
+                    }
+                  },
+                  fieldViewBuilder:
+                      (context, textController, focusNode, onFieldSubmitted) {
+                        IconData prefixIcon = Icons.person_outline;
+                        if (_currentEntity != null &&
+                            _currentEntity!.category != null) {
+                          final cat = categories.firstWhere(
+                            (c) => c.id == _currentEntity!.category,
+                            orElse: () => const EntityCategory(
+                              id: '',
+                              label: '',
+                              icon: Icons.person_outline,
+                              iconKey: '',
+                            ),
+                          );
+                          prefixIcon = cat.icon;
+                        }
+
+                        return TextField(
+                          controller: textController,
+                          focusNode: focusNode,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (value) {
+                            onFieldSubmitted();
+                            widget.onFieldSubmitted?.call(value);
+                          },
+                          decoration: InputDecoration(
+                            labelText: widget.label,
+                            hintText: 'Digite o nome do favorecido...',
+                            prefixIcon: Icon(prefixIcon),
+                            suffixIcon: textController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      textController.clear();
+                                      widget.onEntitySelected(null);
+                                      setState(() {
+                                        _currentEntity = null;
+                                      });
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        );
+                      },
+                  optionsViewBuilder: (context, onSelected, options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 8,
+                        borderRadius: BorderRadius.circular(16),
+                        color: cs.surfaceContainerHigh,
+                        child: Container(
+                          width: constraints.maxWidth,
+                          constraints: const BoxConstraints(maxHeight: 250),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: cs.outlineVariant),
+                          ),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              final isCreateOption = option.startsWith('Criar "');
+
+                              IconData iconData = isCreateOption
+                                  ? Icons.add_circle_outline
+                                  : Icons.person_rounded;
+
+                              if (!isCreateOption) {
+                                final entity = filteredEntities.firstWhere(
+                                  (e) => e.name == option,
+                                  orElse: () => filteredEntities.first,
+                                );
+                                if (entity.category != null) {
+                                  final cat = categories.firstWhere(
+                                    (c) => c.id == entity.category,
+                                    orElse: () => const EntityCategory(
+                                      id: '',
+                                      label: '',
+                                      icon: Icons.person_rounded,
+                                      iconKey: '',
+                                    ),
+                                  );
+                                  iconData = cat.icon;
+                                }
+                              }
+
+                              return InkWell(
+                                onTap: () => onSelected(option),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        iconData,
+                                        color: isCreateOption
+                                            ? cs.primary
+                                            : cs.onSurfaceVariant,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          option,
+                                          style: TextStyle(
+                                            color: isCreateOption
+                                                ? cs.primary
+                                                : cs.onSurface,
+                                            fontWeight: isCreateOption
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     );
                   },
-              optionsViewBuilder: (context, onSelected, options) {
-                return Align(
-                  alignment: Alignment.topLeft,
-                  child: Material(
-                    elevation: 8,
-                    borderRadius: BorderRadius.circular(16),
-                    color: cs.surfaceContainerHigh,
-                    child: Container(
-                      width: constraints.maxWidth,
-                      constraints: const BoxConstraints(maxHeight: 250),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: cs.outlineVariant),
-                      ),
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: options.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          final String option = options.elementAt(index);
-                          final isCreateOption = option.startsWith('Criar "');
-
-                          IconData iconData = isCreateOption
-                              ? Icons.add_circle_outline
-                              : Icons.person_rounded;
-
-                          if (!isCreateOption) {
-                            final entity = filteredEntities.firstWhere(
-                              (e) => e.name == option,
-                              orElse: () => filteredEntities.first,
-                            );
-                            if (entity.category != null) {
-                              final cat = _categories.firstWhere(
-                                (c) => c['id'] == entity.category,
-                                orElse: () => {'icon': Icons.person_rounded},
-                              );
-                              iconData = cat['icon'];
-                            }
-                          }
-
-                          return InkWell(
-                            onTap: () => onSelected(option),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    iconData,
-                                    color: isCreateOption
-                                        ? cs.primary
-                                        : cs.onSurfaceVariant,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      option,
-                                      style: TextStyle(
-                                        color: isCreateOption
-                                            ? cs.primary
-                                            : cs.onSurface,
-                                        fontWeight: isCreateOption
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
                 );
               },
-            );
-          },
+            ),
+          ],
         );
       },
       loading: () => TextField(
@@ -362,7 +732,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
-      error: (_, __) => TextField(
+      error: (error, stackTrace) => TextField(
         enabled: false,
         decoration: InputDecoration(
           labelText: widget.label,

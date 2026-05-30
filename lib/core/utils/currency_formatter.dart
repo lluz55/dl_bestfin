@@ -1,6 +1,15 @@
 class CurrencyFormatter {
+  static bool valuesHidden = false;
+
+  /// Mascara padrões de moedas formatadas (ex: "R$ 1.234,56") contidos em um texto comum.
+  static String sanitizeText(String text) {
+    if (!valuesHidden) return text;
+    return text.replaceAll(RegExp(r'R\$\s*[\d\.\,]+'), 'R\$ •••••');
+  }
+
   /// Formata centavos para o padrão BRL: "R$ 1.234,56" ou "-R$ 1.234,56"
   static String formatCents(int cents) {
+    if (valuesHidden) return 'R\$ •••••';
     final double value = cents / 100.0;
     final isNegative = value < 0;
     final absValue = value.abs();
@@ -21,6 +30,7 @@ class CurrencyFormatter {
 
   /// Formata centavos sem o símbolo "R$": "1.234,56" ou "-1.234,56"
   static String formatCentsWithoutSymbol(int cents) {
+    if (valuesHidden) return '•••••';
     final double value = cents / 100.0;
     final isNegative = value < 0;
     final absValue = value.abs();

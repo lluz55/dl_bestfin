@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 /// AppBar unificado para todas as páginas do app.
 /// Detecta o back button explicitamente para garantir padding e ícone consistentes.
-class AppPageAppBar extends StatelessWidget implements PreferredSizeWidget {
+class AppPageAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const AppPageAppBar({
     super.key,
     required this.title,
@@ -12,6 +14,7 @@ class AppPageAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.leading,
     this.automaticallyImplyLeading = true,
     this.bottom,
+    this.showVisibilityToggle = false,
   });
 
   final String title;
@@ -19,6 +22,7 @@ class AppPageAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final Widget? leading;
   final bool automaticallyImplyLeading;
+  final bool showVisibilityToggle;
 
   /// Substitui a linha divisória padrão. Use para TabBar ou filtros customizados.
   final PreferredSizeWidget? bottom;
@@ -30,13 +34,14 @@ class AppPageAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
 
     // Detecta se um back button deve aparecer, para controle explícito do ícone e spacing
     final canPop = ModalRoute.of(context)?.canPop ?? false;
-    final effectiveLeading = leading ??
+    final effectiveLeading =
+        leading ??
         (automaticallyImplyLeading && canPop
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -46,21 +51,44 @@ class AppPageAppBar extends StatelessWidget implements PreferredSizeWidget {
             : null);
     final hasLeading = effectiveLeading != null;
 
-    final effectiveBottom = bottom ??
+    final effectiveBottom =
+        bottom ??
         PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(
             height: 1,
             thickness: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.4),
+            color: cs.outlineVariant.withValues(alpha: 0.6),
           ),
         );
 
+    final hidden = ref.watch(valuesHiddenProvider);
+    final List<Widget> effectiveActions = [
+      ...?actions,
+      if (showVisibilityToggle)
+        IconButton(
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) =>
+                ScaleTransition(scale: animation, child: child),
+            child: Icon(
+              hidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              key: ValueKey(hidden),
+              size: 20,
+            ),
+          ),
+          tooltip: hidden ? 'Mostrar valores' : 'Ocultar valores',
+          onPressed: () => ref.read(valuesHiddenProvider.notifier).toggle(),
+        ),
+    ];
+
     return AppBar(
       backgroundColor: cs.surface,
-      surfaceTintColor: Colors.transparent,
+      surfaceTintColor: cs.primary,
       elevation: 0,
-      scrolledUnderElevation: 0,
+      scrolledUnderElevation: 1,
       centerTitle: false,
       automaticallyImplyLeading: false,
       leading: effectiveLeading,
@@ -80,12 +108,16 @@ class AppPageAppBar extends StatelessWidget implements PreferredSizeWidget {
                   style: tt.labelMedium?.copyWith(
                     color: cs.onSurfaceVariant,
                     height: 1.2,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ],
             )
-          : Text(title, style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-      actions: actions,
+          : Text(
+              title,
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+      actions: effectiveActions,
       bottom: effectiveBottom,
     );
   }

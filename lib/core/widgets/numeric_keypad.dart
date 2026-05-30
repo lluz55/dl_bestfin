@@ -52,15 +52,15 @@ class NumericKeypad extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Decimal key or comma
+              // Double zero key
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: _KeyButton(
-                    text: ',',
+                    text: '00',
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      onKeyPressed(',');
+                      onKeyPressed('00');
                     },
                   ),
                 ),
@@ -171,15 +171,6 @@ class _KeyButtonState extends State<_KeyButton>
           decoration: BoxDecoration(
             color: _isPressed ? bg.withValues(alpha: 0.8) : bg,
             borderRadius: BorderRadius.circular(18),
-            boxShadow: _isPressed
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
           ),
           alignment: Alignment.center,
           child: widget.icon != null

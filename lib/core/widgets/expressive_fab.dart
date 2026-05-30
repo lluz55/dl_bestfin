@@ -84,13 +84,6 @@ class _ExpressiveFABState extends State<ExpressiveFAB>
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: targetRadius,
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: ClipRRect(
                 borderRadius: targetRadius,

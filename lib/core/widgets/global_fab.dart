@@ -70,13 +70,6 @@ class _GlobalFABState extends State<GlobalFAB>
           decoration: BoxDecoration(
             color: _isExpanded ? cs.surfaceContainerHighest : cs.primary,
             borderRadius: BorderRadius.circular(_isExpanded ? 20 : 16),
-            boxShadow: [
-              BoxShadow(
-                color: cs.primary.withValues(alpha: _isExpanded ? 0.12 : 0.28),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           child: InkWell(
             onTap: _toggle,
@@ -134,13 +127,6 @@ class _FABOption extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: cs.surface,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
                 child: Text(
                   label,
@@ -154,17 +140,7 @@ class _FABOption extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                 child: Icon(icon, color: Colors.white, size: 20),
               ),
             ],

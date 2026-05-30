@@ -177,10 +177,12 @@ class _CategoryPickerTile extends StatelessWidget {
       leading: CategoryIcon(
         icon: category.icon,
         color: category.color,
+        parentIcon: category.parentIcon,
+        parentColor: category.parentColor,
         size: 40,
       ),
       title: Text(
-        category.name,
+        category.displayName,
         style: tt.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
           color: isSelected ? cs.primary : cs.onSurface,

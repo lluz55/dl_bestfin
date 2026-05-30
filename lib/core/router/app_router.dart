@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/shell/app_shell.dart';
 import 'package:bestfin/features/accounts/presentation/screens/account_form_screen.dart';
+import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/screens/accounts_list_screen.dart';
+import 'package:bestfin/features/accounts/presentation/screens/account_detail_screen.dart';
 import 'package:bestfin/features/dashboard/dashboard_screen.dart';
 import 'package:bestfin/features/gamification/presentation/screens/gamification_hub_screen.dart';
 import 'package:bestfin/features/more/presentation/screens/more_screen.dart';
@@ -38,7 +40,10 @@ import 'package:bestfin/features/sync/presentation/screens/sync_settings_screen.
 import 'package:bestfin/features/sync/presentation/screens/household_screen.dart';
 import 'package:bestfin/features/ai/presentation/screens/ai_dashboard_screen.dart';
 import 'package:bestfin/features/ai/presentation/widgets/ocr_scanner_widget.dart';
+import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/screens/categories_screen.dart';
+import 'package:bestfin/features/categories/presentation/screens/category_form_screen.dart';
+import 'package:bestfin/features/investments/domain/models/investment.dart';
 import 'package:bestfin/features/credit_cards/presentation/screens/credit_cards_list_screen.dart';
 import 'package:bestfin/features/credit_cards/presentation/screens/credit_card_form_screen.dart';
 import 'package:bestfin/features/credit_cards/presentation/screens/credit_card_detail_screen.dart';
@@ -163,6 +168,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AccountFormScreen(),
       ),
       GoRoute(
+        path: '/accounts/edit',
+        builder: (context, state) {
+          final account = state.extra as Account;
+          return AccountFormScreen(accountToEdit: account);
+        },
+      ),
+      GoRoute(
+        path: '/accounts/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return AccountDetailScreen(accountId: id);
+        },
+      ),
+      GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
@@ -238,6 +257,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const InvestmentFormScreen(),
       ),
       GoRoute(
+        path: '/investments/edit',
+        builder: (context, state) {
+          final inv = state.extra as Investment;
+          return InvestmentFormScreen(existingInvestment: inv);
+        },
+      ),
+      GoRoute(
         path: '/investments/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
@@ -292,6 +318,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CategoriesScreen(),
       ),
       GoRoute(
+        path: '/categories/new',
+        builder: (context, state) => const CategoryFormScreen(),
+      ),
+      GoRoute(
+        path: '/categories/edit',
+        builder: (context, state) {
+          final cat = state.extra as CategoryModel;
+          return CategoryFormScreen(categoryToEdit: cat);
+        },
+      ),
+      GoRoute(
         path: '/credit-cards',
         builder: (context, state) => const CreditCardsListScreen(),
       ),
@@ -332,8 +369,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pdf-import/review',
         builder: (context, state) {
-          final transactions =
-              state.extra as List<PdfParsedTransaction>;
+          final transactions = state.extra as List<PdfParsedTransaction>;
           return PdfReviewScreen(transactions: transactions);
         },
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +37,7 @@ class AppShell extends ConsumerWidget {
   ];
 
   void _onBranchTap(int index) {
+    HapticFeedback.selectionClick();
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -98,20 +100,17 @@ class _AnimatedNavigationBar extends StatelessWidget {
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        bottom: 16 + MediaQuery.paddingOf(context).bottom,
+        bottom: 12 + MediaQuery.paddingOf(context).bottom,
       ),
       child: Container(
-        height: 80,
+        height: 64,
         decoration: BoxDecoration(
-          color: cs.surfaceContainer.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: 0.30),
+            width: 1,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: LayoutBuilder(
@@ -127,12 +126,17 @@ class _AnimatedNavigationBar extends StatelessWidget {
                   curve: motion.morphCurve,
                   left: selectedIndex * itemWidth + 8,
                   width: itemWidth - 16,
-                  top: 8,
-                  bottom: 8,
+                  top: 6,
+                  bottom: 6,
                   child: Container(
                     decoration: BoxDecoration(
                       color: cs.secondaryContainer,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(14),
+                        topRight: Radius.circular(6),
+                        bottomLeft: Radius.circular(6),
+                        bottomRight: Radius.circular(14),
+                      ),
                     ),
                   ),
                 ),
@@ -158,11 +162,11 @@ class _AnimatedNavigationBar extends StatelessWidget {
         ),
       ),
     ).animate().slideY(
-      begin: 1.0,
+      begin: 0.6,
       end: 0,
       curve: Curves.easeOutCubic,
-      duration: const Duration(milliseconds: 500),
-      delay: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 400),
+      delay: const Duration(milliseconds: 100),
     );
   }
 }
@@ -188,8 +192,10 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = context.textTheme.labelMedium?.copyWith(
-      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+    final labelStyle = context.textTheme.labelSmall?.copyWith(
+      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+      letterSpacing: 0.3,
+      color: isSelected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
     );
 
     return InkWell(
@@ -206,15 +212,23 @@ class _NavBarItem extends StatelessWidget {
               end: isSelected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
             ),
             builder: (context, color, child) {
-              return Icon(isSelected ? activeIcon : icon, color: color);
+              return AnimatedSwitcher(
+                duration: motion.fastDuration,
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  key: ValueKey(isSelected),
+                  color: color,
+                  size: 22,
+                ),
+              );
             },
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           AnimatedDefaultTextStyle(
             duration: motion.fastDuration,
-            style: labelStyle!.copyWith(
-              color: isSelected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
-            ),
+            style: labelStyle!,
             child: Text(label),
           ),
         ],
@@ -222,4 +236,3 @@ class _NavBarItem extends StatelessWidget {
     );
   }
 }
-

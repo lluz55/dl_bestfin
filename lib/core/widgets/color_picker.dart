@@ -93,15 +93,6 @@ class AppColorPicker extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : null,
                     border: Border.all(
                       color: isSelected
                           ? theme.colorScheme.outline
