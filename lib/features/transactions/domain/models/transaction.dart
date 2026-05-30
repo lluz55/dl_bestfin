@@ -62,6 +62,7 @@ class TransactionModel {
     CategoryModel? category,
     db.Entity? entity,
     List<EntryModel> entries = const [],
+    String? recurringRuleId,
   }) {
     return TransactionModel(
       id: tx.id,
@@ -75,7 +76,7 @@ class TransactionModel {
       goalId: tx.goalId,
       installmentPlanId: tx.installmentPlanId,
       installmentNumber: tx.installmentNumber,
-      recurringRuleId: tx.recurringRuleId,
+      recurringRuleId: recurringRuleId ?? tx.recurringRuleId,
       creditCardId: tx.creditCardId,
       rawAmount: tx.rawAmount,
       invoiceId: tx.invoiceId,

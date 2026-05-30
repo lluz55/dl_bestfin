@@ -47,6 +47,7 @@ class TransactionTile extends ConsumerWidget {
     final isTransfer = transaction.type == TransactionType.transfer;
 
     final isCreditCard = transaction.creditCardId != null;
+    final isRecurring = transaction.recurringRuleId != null;
 
     final amountColor = isIncome
         ? colors.income
@@ -61,9 +62,9 @@ class TransactionTile extends ConsumerWidget {
         : '-';
 
     // ── Icon widget ─────────────────────────────────────────────────────────
-    Widget iconWidget;
+    Widget baseIcon;
     if (isTransfer) {
-      iconWidget = Container(
+      baseIcon = Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
@@ -72,45 +73,44 @@ class TransactionTile extends ConsumerWidget {
         ),
         child: Icon(Icons.swap_horiz_rounded, color: colors.transfer, size: 20),
       );
+    } else if (transaction.category != null) {
+      final cat = transaction.category!;
+      // Look up the enriched category from the tree to get parent info
+      final allCategories = ref.watch(allFlatCategoriesProvider);
+      final enrichedCat =
+          allCategories.where((c) => c.id == cat.id).firstOrNull ?? cat;
+      baseIcon = CategoryIcon(
+        icon: enrichedCat.icon,
+        color: enrichedCat.color,
+        parentIcon: enrichedCat.parentIcon,
+        parentColor: enrichedCat.parentColor,
+        size: 44,
+      );
     } else {
-      Widget baseIcon;
-      if (transaction.category != null) {
-        final cat = transaction.category!;
-        // Look up the enriched category from the tree to get parent info
-        final allCategories = ref.watch(allFlatCategoriesProvider);
-        final enrichedCat =
-            allCategories.where((c) => c.id == cat.id).firstOrNull ?? cat;
-        baseIcon = CategoryIcon(
-          icon: enrichedCat.icon,
-          color: enrichedCat.color,
-          parentIcon: enrichedCat.parentIcon,
-          parentColor: enrichedCat.parentColor,
-          size: 44,
-        );
-      } else {
-        baseIcon = Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-            color: cs.onSurfaceVariant,
-            size: 20,
-          ),
-        );
-      }
+      baseIcon = Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+          color: cs.onSurfaceVariant,
+          size: 20,
+        ),
+      );
+    }
 
-      if (isCreditCard) {
-        // Overlay small credit card badge
-        iconWidget = SizedBox(
-          width: 44,
-          height: 44,
-          child: Stack(
-            children: [
-              baseIcon,
+    Widget iconWidget;
+    if (isCreditCard || isRecurring) {
+      iconWidget = SizedBox(
+        width: 44,
+        height: 44,
+        child: Stack(
+          children: [
+            baseIcon,
+            if (isCreditCard)
               Positioned(
                 right: 0,
                 bottom: 0,
@@ -130,12 +130,31 @@ class TransactionTile extends ConsumerWidget {
                   ),
                 ),
               ),
-            ],
-          ),
-        );
-      } else {
-        iconWidget = baseIcon;
-      }
+            if (isRecurring)
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.repeat_rounded,
+                      size: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      iconWidget = baseIcon;
     }
 
     // ── Subtitle line ────────────────────────────────────────────────────────

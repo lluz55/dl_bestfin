@@ -12,6 +12,8 @@ class TransactionItem {
     required this.amountInCents,
     required this.date,
     required this.icon,
+    this.isCreditCard = false,
+    this.isRecurring = false,
     this.rawTransaction,
   });
 
@@ -20,6 +22,8 @@ class TransactionItem {
   final int amountInCents;
   final String date;
   final IconData icon;
+  final bool isCreditCard;
+  final bool isRecurring;
   final dynamic rawTransaction;
 }
 
@@ -80,6 +84,74 @@ class _TransactionTileState extends State<_TransactionTile> {
         : colors.income.withValues(alpha: 0.12);
     final iconColor = isNegative ? colors.expense : colors.income;
 
+    final isCreditCard = widget.item.isCreditCard;
+    final isRecurring = widget.item.isRecurring;
+
+    final baseIcon = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: iconBg,
+        borderRadius: shapes.chip,
+      ),
+      child: Icon(widget.item.icon, color: iconColor, size: 20),
+    );
+
+    Widget iconWidget;
+    if (isCreditCard || isRecurring) {
+      iconWidget = SizedBox(
+        width: 44,
+        height: 44,
+        child: Stack(
+          children: [
+            baseIcon,
+            if (isCreditCard)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.credit_card_rounded,
+                      size: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            if (isRecurring)
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.repeat_rounded,
+                      size: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      iconWidget = baseIcon;
+    }
+
     final tile = GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
@@ -98,15 +170,7 @@ class _TransactionTileState extends State<_TransactionTile> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: shapes.chip,
-                ),
-                child: Icon(widget.item.icon, color: iconColor, size: 20),
-              ),
+              iconWidget,
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

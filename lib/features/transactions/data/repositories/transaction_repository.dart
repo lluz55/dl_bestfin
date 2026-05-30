@@ -94,6 +94,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
               _database.entities,
               _database.entities.id.equalsExp(_database.transactions.entityId),
             ),
+            leftOuterJoin(
+              _database.recurringRules,
+              _database.recurringRules.baseTransactionId.equalsExp(
+                _database.transactions.id,
+              ),
+            ),
           ])
           ..where(_database.transactions.isConfirmed.equals(true))
           ..orderBy([
@@ -121,6 +127,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         final tx = row.readTable(_database.transactions);
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
+        final rule = row.readTableOrNull(_database.recurringRules);
 
         final txEntries = allEntries
             .where((e) => e.transactionId == tx.id)
@@ -133,6 +140,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             category: cat != null ? CategoryModel.fromDb(cat) : null,
             entity: ent,
             entries: txEntries,
+            recurringRuleId: rule?.id,
           ),
         );
       }
@@ -157,6 +165,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
       leftOuterJoin(
         _database.entities,
         _database.entities.id.equalsExp(_database.transactions.entityId),
+      ),
+      leftOuterJoin(
+        _database.recurringRules,
+        _database.recurringRules.baseTransactionId.equalsExp(
+          _database.transactions.id,
+        ),
       ),
     ]);
 
@@ -234,6 +248,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
+        final rule = row.readTableOrNull(_database.recurringRules);
 
         final txEntries = allEntries
             .where((e) => e.transactionId == tx.id)
@@ -246,6 +261,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             category: cat != null ? CategoryModel.fromDb(cat) : null,
             entity: ent,
             entries: txEntries,
+            recurringRuleId: rule?.id,
           ),
         );
       }
@@ -266,6 +282,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
             leftOuterJoin(
               _database.entities,
               _database.entities.id.equalsExp(_database.transactions.entityId),
+            ),
+            leftOuterJoin(
+              _database.recurringRules,
+              _database.recurringRules.baseTransactionId.equalsExp(
+                _database.transactions.id,
+              ),
             ),
           ])
           ..where(_database.transactions.isConfirmed.equals(false))
@@ -290,6 +312,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         final tx = row.readTable(_database.transactions);
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
+        final rule = row.readTableOrNull(_database.recurringRules);
         final txEntries = allEntries
             .where((e) => e.transactionId == tx.id)
             .map((e) => EntryModel.fromDb(e))
@@ -299,6 +322,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
           category: cat != null ? CategoryModel.fromDb(cat) : null,
           entity: ent,
           entries: txEntries,
+          recurringRuleId: rule?.id,
         );
       }).toList();
     });

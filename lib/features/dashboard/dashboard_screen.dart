@@ -175,6 +175,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           amountInCents: amountInCents,
           date: dateStr,
           icon: Icons.swap_horiz_rounded,
+          isCreditCard: tx.creditCardId != null,
+          isRecurring: tx.recurringRuleId != null,
           rawTransaction: tx,
         );
       }
@@ -185,6 +187,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         amountInCents: amountInCents,
         date: dateStr,
         icon: tx.category?.iconData ?? Icons.receipt_long_outlined,
+        isCreditCard: tx.creditCardId != null,
+        isRecurring: tx.recurringRuleId != null,
         rawTransaction: tx,
       );
     }).toList();

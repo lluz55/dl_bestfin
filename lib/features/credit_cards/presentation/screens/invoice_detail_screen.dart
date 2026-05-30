@@ -273,8 +273,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
         // Mapeia transações
         final transactionItems = invoice.transactions.map((tx) {
-          final isExpense =
-              tx.type == 'expense' || tx.type == TransactionType.expense;
+          final isExpense = tx.type == TransactionType.expense;
           final amountInCents = isExpense ? -tx.amount : tx.amount;
 
           final day = tx.date.day.toString().padLeft(2, '0');
@@ -287,6 +286,9 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
             amountInCents: amountInCents,
             date: dateStr,
             icon: tx.category?.iconData ?? Icons.receipt_long_outlined,
+            isCreditCard: tx.creditCardId != null,
+            isRecurring: tx.recurringRuleId != null,
+            rawTransaction: tx,
           );
         }).toList();
 
