@@ -16,6 +16,7 @@ abstract class CategoryRepository {
     required String color,
     required String type,
     String? parentId,
+    String? description,
   });
   Future<void> updateCategory({
     required String id,
@@ -24,6 +25,7 @@ abstract class CategoryRepository {
     required String color,
     required String type,
     String? parentId,
+    String? description,
   });
   Future<void> archiveCategory(String id);
   Future<void> deleteCategory(String id);
@@ -66,8 +68,18 @@ class CategoryRepositoryImpl implements CategoryRepository {
     final roots = <CategoryModel>[];
     for (final model in allModels) {
       if (model.parentId == null) {
-        final children = allModels.where((m) => m.parentId == model.id).toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
+        final children =
+            allModels
+                .where((m) => m.parentId == model.id)
+                .map(
+                  (c) => c.copyWith(
+                    parentName: model.name,
+                    parentIcon: model.icon,
+                    parentColor: model.color,
+                  ),
+                )
+                .toList()
+              ..sort((a, b) => a.name.compareTo(b.name));
         roots.add(model.copyWith(children: children));
       }
     }
@@ -107,6 +119,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required String color,
     required String type,
     String? parentId,
+    String? description,
   }) async {
     final id = const Uuid().v4();
     await _database.categoriesDao.insertCategory(
@@ -118,6 +131,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
         type: type,
         isSystem: const Value(false),
         parentId: parentId != null ? Value(parentId) : const Value.absent(),
+        description: description != null
+            ? Value(description)
+            : const Value.absent(),
       ),
     );
     return id;
@@ -131,6 +147,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required String color,
     required String type,
     String? parentId,
+    String? description,
   }) async {
     await (_database.update(
       _database.categories,
@@ -141,6 +158,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
         color: Value(color),
         type: Value(type),
         parentId: Value(parentId),
+        description: Value(description),
         updatedAt: Value(DateTime.now()),
       ),
     );

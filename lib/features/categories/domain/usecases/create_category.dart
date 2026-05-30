@@ -10,11 +10,13 @@ class CreateCategory {
     required String color,
     required String type,
     String? parentId,
+    String? description,
   }) => _repository.createCategory(
     name: name,
     icon: icon,
     color: color,
     type: type,
     parentId: parentId,
+    description: description,
   );
 }

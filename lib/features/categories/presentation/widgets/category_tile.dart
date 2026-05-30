@@ -196,6 +196,10 @@ class _TileRow extends StatelessWidget {
     if (category.hasChildren) {
       parts.add('${category.children.length} subcategorias');
     }
+    if (category.description != null &&
+        category.description!.trim().isNotEmpty) {
+      parts.add(category.description!.trim());
+    }
     return parts.join(' · ');
   }
 }
@@ -227,12 +231,29 @@ class _SubcategoryTile extends StatelessWidget {
             color: cs.onSurfaceVariant,
           ),
           const SizedBox(width: 8),
-          CategoryIcon(icon: category.icon, color: category.color, size: 32),
+          CategoryIcon(
+            icon: category.icon,
+            color: category.color,
+            parentIcon: category.parentIcon,
+            parentColor: category.parentColor,
+            size: 32,
+          ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              category.name,
-              style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  category.displayName,
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                ),
+                if (category.description != null &&
+                    category.description!.trim().isNotEmpty)
+                  Text(
+                    category.description!.trim(),
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+              ],
             ),
           ),
           if (onEdit != null || onDelete != null)

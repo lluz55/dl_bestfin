@@ -9,6 +9,7 @@ class DefaultCategory {
   final String color;
   final CategoryType type;
   final String? parentId;
+  final String? description;
 
   const DefaultCategory({
     required this.id,
@@ -17,6 +18,7 @@ class DefaultCategory {
     required this.color,
     required this.type,
     this.parentId,
+    this.description,
   });
 }
 
@@ -41,6 +43,8 @@ class SeedDataConstants {
       icon: 'account_balance_wallet',
       color: '#9E9E9E',
       type: CategoryType.income,
+      description:
+          'Saldo inicial inserido ao criar uma conta ou ajustar saldo manual.',
     ),
     DefaultCategory(
       id: 'cat_salary',
@@ -48,6 +52,8 @@ class SeedDataConstants {
       icon: 'money',
       color: '#4CAF50',
       type: CategoryType.income,
+      description:
+          'Receitas provenientes de salário recorrente, remuneração fixa ou pagamentos trabalhistas.',
     ),
     DefaultCategory(
       id: 'cat_freelance',
@@ -55,6 +61,7 @@ class SeedDataConstants {
       icon: 'work',
       color: '#8BC34A',
       type: CategoryType.income,
+      description: 'Rendas extras, serviços autônomos ou projetos esporádicos.',
     ),
     DefaultCategory(
       id: 'cat_investments_yield',
@@ -62,6 +69,8 @@ class SeedDataConstants {
       icon: 'trending_up',
       color: '#009688',
       type: CategoryType.income,
+      description:
+          'Rendimentos de investimentos, dividendos, juros de poupança ou outras aplicações.',
     ),
     // Expenses
     DefaultCategory(
@@ -70,6 +79,8 @@ class SeedDataConstants {
       icon: 'home',
       color: '#F44336',
       type: CategoryType.expense,
+      description:
+          'Despesas gerais relacionadas à moradia, condomínio, taxas, reformas ou utilidades.',
     ),
     DefaultCategory(
       id: 'cat_rent',
@@ -78,6 +89,8 @@ class SeedDataConstants {
       color: '#E53935',
       type: CategoryType.expense,
       parentId: 'cat_housing',
+      description:
+          'Pagamento mensal de aluguel ou financiamento imobiliário residencial.',
     ),
     DefaultCategory(
       id: 'cat_food',
@@ -85,6 +98,8 @@ class SeedDataConstants {
       icon: 'restaurant',
       color: '#FF9800',
       type: CategoryType.expense,
+      description:
+          'Gastos com supermercado, restaurantes, feiras, delivery ou lanches rápidos.',
     ),
     DefaultCategory(
       id: 'cat_transport',
@@ -92,6 +107,8 @@ class SeedDataConstants {
       icon: 'directions_car',
       color: '#2196F3',
       type: CategoryType.expense,
+      description:
+          'Gastos com combustível, transporte público, carros por aplicativo, pedágio ou manutenção de veículos.',
     ),
     DefaultCategory(
       id: 'cat_health',
@@ -99,6 +116,8 @@ class SeedDataConstants {
       icon: 'favorite',
       color: '#E91E63',
       type: CategoryType.expense,
+      description:
+          'Despesas com planos de saúde, farmácia, consultas médicas, dentistas ou exames.',
     ),
     DefaultCategory(
       id: 'cat_education',
@@ -106,6 +125,8 @@ class SeedDataConstants {
       icon: 'school',
       color: '#9C27B0',
       type: CategoryType.expense,
+      description:
+          'Gastos com mensalidades escolares, faculdade, cursos, livros ou materiais educativos.',
     ),
     DefaultCategory(
       id: 'cat_leisure',
@@ -113,6 +134,8 @@ class SeedDataConstants {
       icon: 'movie',
       color: '#FFC107',
       type: CategoryType.expense,
+      description:
+          'Despesas com cinema, viagens, shows, festas, hobbies ou entretenimento em geral.',
     ),
     DefaultCategory(
       id: 'cat_clothing',
@@ -120,6 +143,8 @@ class SeedDataConstants {
       icon: 'checkroom',
       color: '#795548',
       type: CategoryType.expense,
+      description:
+          'Gastos com roupas, sapatos, acessórios ou itens de vestuário.',
     ),
     // Transfers
     DefaultCategory(
@@ -128,6 +153,8 @@ class SeedDataConstants {
       icon: 'swap_horiz',
       color: '#9E9E9E',
       type: CategoryType.transfer,
+      description:
+          'Movimentação de fundos entre contas próprias ou ajustes de transferência interna.',
     ),
   ];
 

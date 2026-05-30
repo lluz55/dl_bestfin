@@ -11,8 +11,12 @@ class CategoryModel {
   final bool isSystem;
   final String? parentId;
   final bool isArchived;
+  final String? description;
   final List<CategoryModel> children;
   final DateTime createdAt;
+  final String? parentName;
+  final String? parentIcon;
+  final String? parentColor;
 
   const CategoryModel({
     required this.id,
@@ -23,8 +27,12 @@ class CategoryModel {
     required this.isSystem,
     this.parentId,
     required this.isArchived,
+    this.description,
     this.children = const [],
     required this.createdAt,
+    this.parentName,
+    this.parentIcon,
+    this.parentColor,
   });
 
   factory CategoryModel.fromDb(
@@ -40,6 +48,7 @@ class CategoryModel {
       isSystem: entity.isSystem,
       parentId: entity.parentId,
       isArchived: entity.isArchived,
+      description: entity.description,
       children: children,
       createdAt: entity.createdAt,
     );
@@ -54,8 +63,12 @@ class CategoryModel {
     bool? isSystem,
     Object? parentId = _sentinel,
     bool? isArchived,
+    Object? description = _sentinel,
     List<CategoryModel>? children,
     DateTime? createdAt,
+    String? parentName,
+    String? parentIcon,
+    String? parentColor,
   }) {
     return CategoryModel(
       id: id ?? this.id,
@@ -66,13 +79,21 @@ class CategoryModel {
       isSystem: isSystem ?? this.isSystem,
       parentId: parentId == _sentinel ? this.parentId : parentId as String?,
       isArchived: isArchived ?? this.isArchived,
+      description: description == _sentinel
+          ? this.description
+          : description as String?,
       children: children ?? this.children,
       createdAt: createdAt ?? this.createdAt,
+      parentName: parentName ?? this.parentName,
+      parentIcon: parentIcon ?? this.parentIcon,
+      parentColor: parentColor ?? this.parentColor,
     );
   }
 
   bool get isRoot => parentId == null;
   bool get hasChildren => children.isNotEmpty;
+
+  String get displayName => parentName != null ? '$parentName › $name' : name;
 
   Color get parsedColor {
     final hex = color.replaceFirst('#', '');

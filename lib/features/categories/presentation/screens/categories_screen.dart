@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/domain/usecases/delete_category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
-import 'package:bestfin/features/categories/presentation/screens/category_form_screen.dart';
 import 'package:bestfin/features/categories/presentation/widgets/category_tree.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
@@ -59,11 +59,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     WidgetRef ref, {
     CategoryModel? categoryToEdit,
   }) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CategoryFormScreen(categoryToEdit: categoryToEdit),
-      ),
-    );
+    if (categoryToEdit != null) {
+      context.push('/categories/edit', extra: categoryToEdit);
+    } else {
+      context.push('/categories/new');
+    }
   }
 
   Future<void> _confirmDelete(

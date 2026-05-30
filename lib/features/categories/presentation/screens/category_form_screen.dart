@@ -26,6 +26,7 @@ class CategoryFormScreen extends ConsumerStatefulWidget {
 class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
   late String _icon;
   late String _color;
@@ -45,6 +46,8 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
       _color = c.color;
       _type = c.type;
       _parentId = c.parentId;
+      _descriptionController.text = c.description ?? '';
+      _selectedSubcategoryIds.addAll(c.children.map((child) => child.id));
     } else {
       _icon = 'category';
       _color = '#2196F3';
@@ -56,21 +59,89 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     try {
+      final descriptionVal = _descriptionController.text.trim().isEmpty
+          ? null
+          : _descriptionController.text.trim();
+
       if (_isEditing) {
+        final categoryId = widget.categoryToEdit!.id;
         await ref.read(updateCategoryProvider)(
-          id: widget.categoryToEdit!.id,
+          id: categoryId,
           name: _nameController.text.trim(),
           icon: _icon,
           color: _color,
           type: _type,
           parentId: _parentId,
+          description: descriptionVal,
         );
+
+        final allCategories = ref.read(allFlatCategoriesProvider);
+
+        if (_parentId != null) {
+          // If this category became a subcategory, it cannot have children anymore.
+          // Set parentId to null for all its previous children.
+          final previousChildren = allCategories.where(
+            (c) => c.parentId == categoryId,
+          );
+          for (final child in previousChildren) {
+            await ref.read(updateCategoryProvider)(
+              id: child.id,
+              name: child.name,
+              icon: child.icon,
+              color: child.color,
+              type: child.type,
+              parentId: null,
+              description: child.description,
+            );
+          }
+        } else {
+          // It is a root category. Sync selected subcategories.
+          final previousChildrenIds = allCategories
+              .where((c) => c.parentId == categoryId)
+              .map((c) => c.id)
+              .toSet();
+
+          // 1. Add new subcategories
+          for (final subcatId in _selectedSubcategoryIds) {
+            if (!previousChildrenIds.contains(subcatId)) {
+              final subcat = allCategories.firstWhere((c) => c.id == subcatId);
+              await ref.read(updateCategoryProvider)(
+                id: subcat.id,
+                name: subcat.name,
+                icon: subcat.icon,
+                color: subcat.color,
+                type: subcat.type,
+                parentId: categoryId,
+                description: subcat.description,
+              );
+            }
+          }
+
+          // 2. Remove unselected subcategories
+          for (final oldChildId in previousChildrenIds) {
+            if (!_selectedSubcategoryIds.contains(oldChildId)) {
+              final subcat = allCategories.firstWhere(
+                (c) => c.id == oldChildId,
+              );
+              await ref.read(updateCategoryProvider)(
+                id: subcat.id,
+                name: subcat.name,
+                icon: subcat.icon,
+                color: subcat.color,
+                type: subcat.type,
+                parentId: null,
+                description: subcat.description,
+              );
+            }
+          }
+        }
       } else {
         final newCategoryId = await ref.read(createCategoryProvider)(
           name: _nameController.text.trim(),
@@ -78,6 +149,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           color: _color,
           type: _type,
           parentId: _parentId,
+          description: descriptionVal,
         );
 
         if (_parentId == null && _selectedSubcategoryIds.isNotEmpty) {
@@ -91,6 +163,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
               color: subcat.color,
               type: subcat.type,
               parentId: newCategoryId,
+              description: subcat.description,
             );
           }
         }
@@ -188,6 +261,24 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Descrição
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'Descrição',
+                  hintText:
+                      'Breve descrição da categoria (ajuda a IA a classificar transações)',
+                  filled: true,
+                  fillColor: cs.surfaceContainerHigh,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Tipo
               Text(
                 'Tipo',
@@ -254,28 +345,36 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
               const SizedBox(height: 16),
 
               // Subcategoria de (parent selector) — only for non-system and if there are root categories
-              if (!_isEditing || widget.categoryToEdit?.isRoot == true)
+              if (!_isEditing || widget.categoryToEdit?.isSystem == false)
                 _ParentSelector(
                   selectedParentId: _parentId,
                   rootCategories: rootCategories
                       .where((c) => c.id != widget.categoryToEdit?.id)
                       .toList(),
-                  onChanged: (id) => setState(() => _parentId = id),
+                  onChanged: (id) => setState(() {
+                    _parentId = id;
+                    if (id != null) {
+                      _selectedSubcategoryIds.clear();
+                    }
+                  }),
                   cs: cs,
                   tt: tt,
                 ),
               const SizedBox(height: 16),
 
               // Subcategorias a adotar
-              if (!_isEditing && _parentId == null) ...[
+              if (_parentId == null) ...[
                 (() {
                   final candidates = allCategories
-                      .where((c) =>
-                          c.type == _type &&
-                          !c.isSystem &&
-                          !c.isArchived &&
-                          c.children.isEmpty &&
-                          c.id != widget.categoryToEdit?.id)
+                      .where(
+                        (c) =>
+                            c.type == _type &&
+                            !c.isSystem &&
+                            !c.isArchived &&
+                            (c.children.isEmpty ||
+                                c.parentId == widget.categoryToEdit?.id) &&
+                            c.id != widget.categoryToEdit?.id,
+                      )
                       .toList();
                   if (candidates.isEmpty) return const SizedBox.shrink();
 
@@ -284,7 +383,9 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                     children: [
                       Text(
                         'Usar outras categorias como subcategoria desta',
-                        style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                        style: tt.labelLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -298,20 +399,23 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Selecione as categorias existentes que passarão a ser subcategorias desta nova categoria:',
-                              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                              'Selecione as categorias existentes que passarão a ser subcategorias desta categoria:',
+                              style: tt.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
                               children: candidates.map((c) {
-                                final isSelected =
-                                    _selectedSubcategoryIds.contains(c.id);
+                                final isSelected = _selectedSubcategoryIds
+                                    .contains(c.id);
                                 return FilterChip(
                                   avatar: CircleAvatar(
-                                    backgroundColor:
-                                        c.parsedColor.withValues(alpha: 0.2),
+                                    backgroundColor: c.parsedColor.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     child: Icon(
                                       c.iconData,
                                       size: 14,

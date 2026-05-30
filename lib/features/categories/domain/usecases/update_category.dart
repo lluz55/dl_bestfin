@@ -11,6 +11,7 @@ class UpdateCategory {
     required String color,
     required String type,
     String? parentId,
+    String? description,
   }) => _repository.updateCategory(
     id: id,
     name: name,
@@ -18,5 +19,6 @@ class UpdateCategory {
     color: color,
     type: type,
     parentId: parentId,
+    description: description,
   );
 }
