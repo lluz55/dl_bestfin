@@ -15,11 +15,15 @@ class StreaksDao extends DatabaseAccessor<AppDatabase> with _$StreaksDaoMixin {
   }
 
   Future<Streak?> getStreakByType(String type) {
-    return (select(streaks)..where((s) => s.type.equals(type))).getSingleOrNull();
+    return (select(
+      streaks,
+    )..where((s) => s.type.equals(type))).getSingleOrNull();
   }
 
   Stream<Streak?> watchStreakByType(String type) {
-    return (select(streaks)..where((s) => s.type.equals(type))).watchSingleOrNull();
+    return (select(
+      streaks,
+    )..where((s) => s.type.equals(type))).watchSingleOrNull();
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
@@ -28,7 +32,13 @@ class StreaksDao extends DatabaseAccessor<AppDatabase> with _$StreaksDaoMixin {
     return into(streaks).insertOnConflictUpdate(streak);
   }
 
-  Future<void> updateStreakCount(String id, int current, int longest, DateTime? lastDate, bool isActive) {
+  Future<void> updateStreakCount(
+    String id,
+    int current,
+    int longest,
+    DateTime? lastDate,
+    bool isActive,
+  ) {
     return (update(streaks)..where((s) => s.id.equals(id))).write(
       StreaksCompanion(
         currentCount: Value(current),

@@ -77,6 +77,30 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
     return (delete(recurringRules)..where((r) => r.id.equals(id))).go();
   }
 
+  Future<RecurringRule?> findByBaseTransactionId(String txId) {
+    return (select(
+      recurringRules,
+    )..where((r) => r.baseTransactionId.equals(txId))).getSingleOrNull();
+  }
+
+  Future<List<Transaction>> getGeneratedTransactions(String ruleId) {
+    return (select(
+      transactions,
+    )..where((t) => t.recurringRuleId.equals(ruleId))).get();
+  }
+
+  Future<List<Transaction>> getFutureGeneratedTransactions(
+    String ruleId,
+    DateTime after,
+  ) {
+    return (select(transactions)..where(
+          (t) =>
+              t.recurringRuleId.equals(ruleId) &
+              t.date.isBiggerThanValue(after),
+        ))
+        .get();
+  }
+
   // ── Generation ─────────────────────────────────────────────────────────────
 
   /// Gera transações pendentes para todas as regras ativas até [limit].
@@ -102,14 +126,11 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
 
     await db.transaction(() async {
       while (!current.isAfter(limit)) {
-        // Evita duplicatas: verifica se já existe uma transação nessa data com
-        // a mesma descrição e tipo gerada por essa regra.
+        // Evita duplicatas: verifica se já existe uma ocorrência gerada por essa
+        // regra nessa data exata.
         final existingQuery = select(transactions)
           ..where(
-            (t) =>
-                t.description.equals(baseTx.description) &
-                t.type.equals(baseTx.type) &
-                t.date.equals(current),
+            (t) => t.recurringRuleId.equals(rule.id) & t.date.equals(current),
           );
         final existing = await existingQuery.getSingleOrNull();
 
@@ -126,6 +147,7 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
               notes: Value(baseTx.notes),
               sentiment: Value(baseTx.sentiment),
               isCompleted: Value(rule.autoConfirm),
+              recurringRuleId: Value(rule.id),
             ),
           );
 

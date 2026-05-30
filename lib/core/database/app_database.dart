@@ -99,7 +99,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration {
@@ -121,6 +121,9 @@ class AppDatabase extends _$AppDatabase {
                 isSystem: const Value(true),
                 parentId: c.parentId != null
                     ? Value(c.parentId)
+                    : const Value.absent(),
+                description: c.description != null
+                    ? Value(c.description)
                     : const Value.absent(),
               );
             }).toList(),
@@ -187,9 +190,77 @@ class AppDatabase extends _$AppDatabase {
         if (from < 9) {
           await m.addColumn(entities, entities.category);
         }
+        if (from < 11) {
+          await m.addColumn(transactions, transactions.recurringRuleId);
+        }
+        if (from < 12) {
+          await m.addColumn(creditCards, creditCards.minPaymentPercent);
+        }
+        if (from < 10) {
+          await m.createIndex(attachmentsTransactionIdx);
+          await m.createIndex(categoriesParentIdx);
+          await m.createIndex(creditCardsAccountIdx);
+          await m.createIndex(entriesTransactionIdx);
+          await m.createIndex(entriesAccountIdx);
+          await m.createIndex(financingInstallmentsFinancingIdx);
+          await m.createIndex(goalsAccountIdx);
+          await m.createIndex(installmentPlansOriginTransactionIdx);
+          await m.createIndex(invoicesCreditCardIdx);
+          await m.createIndex(notificationPatternsCategoryIdx);
+          await m.createIndex(notificationPatternsAccountIdx);
+          await m.createIndex(recurringRulesBaseTransactionIdx);
+          await m.createIndex(transactionsConfirmedDateIdx);
+          await m.createIndex(transactionsCategoryIdx);
+          await m.createIndex(transactionsEntityIdx);
+          await m.createIndex(transactionsGoalIdx);
+          await m.createIndex(householdMembersHouseholdIdx);
+        }
+        if (from < 14) {
+          await m.addColumn(transactions, transactions.creditCardId);
+          await m.addColumn(transactions, transactions.rawAmount);
+          await m.addColumn(transactions, transactions.invoiceId);
+        }
+        if (from < 13) {
+          await m.addColumn(categories, categories.description);
+          // Update default descriptions for existing system categories
+          final systemCategories = {
+            'cat_opening_balance':
+                'Saldo inicial inserido ao criar uma conta ou ajustar saldo manual.',
+            'cat_salary':
+                'Receitas provenientes de salário recorrente, remuneração fixa ou pagamentos trabalhistas.',
+            'cat_freelance':
+                'Rendas extras, serviços autônomos ou projetos esporádicos.',
+            'cat_investments_yield':
+                'Rendimentos de investimentos, dividendos, juros de poupança ou outras aplicações.',
+            'cat_housing':
+                'Despesas gerais relacionadas à moradia, condomínio, taxas, reformas ou utilidades.',
+            'cat_rent':
+                'Pagamento mensal de aluguel ou financiamento imobiliário residencial.',
+            'cat_food':
+                'Gastos com supermercado, restaurantes, feiras, delivery ou lanches rápidos.',
+            'cat_transport':
+                'Gastos com combustível, transporte público, carros por aplicativo, pedágio ou manutenção de veículos.',
+            'cat_health':
+                'Despesas com planos de saúde, farmácia, consultas médicas, dentistas ou exames.',
+            'cat_education':
+                'Gastos com mensalidades escolares, faculdade, cursos, livros ou materiais educativos.',
+            'cat_leisure':
+                'Despesas com cinema, viagens, shows, festas, hobbies ou entretenimento em geral.',
+            'cat_clothing':
+                'Gastos com roupas, sapatos, acessórios ou itens de vestuário.',
+            'cat_transfer':
+                'Movimentação de fundos entre contas próprias ou ajustes de transferência interna.',
+          };
+          for (final entry in systemCategories.entries) {
+            await (update(categories)..where((t) => t.id.equals(entry.key)))
+                .write(CategoriesCompanion(description: Value(entry.value)));
+          }
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
+        await customStatement('PRAGMA journal_mode = WAL');
+        await customStatement('PRAGMA synchronous = NORMAL');
 
         // Ensure system opening balance category exists
         final openingBalanceExists = await (select(
@@ -303,54 +374,56 @@ class AppDatabase extends _$AppDatabase {
         'first_transaction',
         'Primeiro registro',
         'Registre sua primeira transação no aplicativo',
-        'first_transaction'
+        'first_transaction',
       ),
       (
         'seven_days_streak',
         'Mão na massa',
         'Complete uma sequência de 7 dias registrando transações',
-        'seven_days_streak'
+        'seven_days_streak',
       ),
       (
         'emergency_fund',
         'Fundo de emergência',
         'Crie um objetivo com o nome "Emergência"',
-        'emergency_fund'
+        'emergency_fund',
       ),
       (
         'debt_free',
         'Livre de dívidas',
         'Mantenha o sistema livre de qualquer financiamento ativo',
-        'debt_free'
+        'debt_free',
       ),
       (
         'goal_reached',
         'Meta atingida',
         'Conclua com sucesso seu primeiro objetivo financeiro',
-        'goal_reached'
+        'goal_reached',
       ),
       (
         'finance_master',
         'Mestre das finanças',
         'Mantenha-se sob o orçamento diário por 30 dias consecutivos',
-        'finance_master'
+        'finance_master',
       ),
       (
         'investor',
         'Investidor',
         'Registre seu primeiro investimento no aplicativo',
-        'investor'
+        'investor',
       ),
       (
         'installment_completed',
         'Parcelamento quitado',
         'Pague todas as parcelas de um parcelamento ou financiamento',
-        'installment_completed'
+        'installment_completed',
       ),
     ];
 
     for (final (key, title, description, icon) in badgesToSeed) {
-      final exists = await (select(badges)..where((t) => t.badgeKey.equals(key))).getSingleOrNull();
+      final exists = await (select(
+        badges,
+      )..where((t) => t.badgeKey.equals(key))).getSingleOrNull();
       if (exists == null) {
         await into(badges).insert(
           BadgesCompanion.insert(
@@ -373,7 +446,9 @@ class AppDatabase extends _$AppDatabase {
     ];
 
     for (final (id, type) in streaksToSeed) {
-      final exists = await (select(streaks)..where((t) => t.id.equals(id))).getSingleOrNull();
+      final exists = await (select(
+        streaks,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (exists == null) {
         await into(streaks).insert(
           StreaksCompanion.insert(

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'credit_cards.dart';
 
+@TableIndex(name: 'invoices_credit_card_idx', columns: {#creditCardId})
 @DataClassName('Invoice')
 class Invoices extends Table {
   TextColumn get id => text()();

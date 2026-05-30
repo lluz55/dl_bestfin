@@ -4,7 +4,8 @@ import 'package:drift/drift.dart';
 @DataClassName('Badge')
 class Badges extends Table {
   TextColumn get id => text()();
-  TextColumn get badgeKey => text().customConstraint('UNIQUE')(); // ex: 'first_transaction'
+  TextColumn get badgeKey =>
+      text().customConstraint('UNIQUE')(); // ex: 'first_transaction'
   TextColumn get title => text().withLength(min: 1, max: 100)();
   TextColumn get description => text()();
   DateTimeColumn get unlockedAt => dateTime().nullable()();

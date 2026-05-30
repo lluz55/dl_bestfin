@@ -1,6 +1,10 @@
 import 'package:drift/drift.dart';
 import 'transactions.dart';
 
+@TableIndex(
+  name: 'recurring_rules_base_transaction_idx',
+  columns: {#baseTransactionId},
+)
 @DataClassName('RecurringRule')
 class RecurringRules extends Table {
   TextColumn get id => text()();

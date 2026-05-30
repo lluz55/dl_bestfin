@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'transactions.dart';
 
+@TableIndex(name: 'attachments_transaction_idx', columns: {#transactionId})
 @DataClassName('Attachment')
 class Attachments extends Table {
   TextColumn get id => text()();

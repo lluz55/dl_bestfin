@@ -19,11 +19,15 @@ class BadgesDao extends DatabaseAccessor<AppDatabase> with _$BadgesDaoMixin {
   }
 
   Future<Badge?> getBadgeByKey(String key) {
-    return (select(badges)..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
+    return (select(
+      badges,
+    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
   }
 
   Stream<Badge?> watchBadgeByKey(String key) {
-    return (select(badges)..where((b) => b.badgeKey.equals(key))).watchSingleOrNull();
+    return (select(
+      badges,
+    )..where((b) => b.badgeKey.equals(key))).watchSingleOrNull();
   }
 
   Future<int> getUnlockedBadgesCount() async {
@@ -42,18 +46,14 @@ class BadgesDao extends DatabaseAccessor<AppDatabase> with _$BadgesDaoMixin {
     final badge = await getBadgeByKey(key);
     if (badge != null && badge.unlockedAt == null) {
       await (update(badges)..where((b) => b.badgeKey.equals(key))).write(
-        BadgesCompanion(
-          unlockedAt: Value(DateTime.now()),
-        ),
+        BadgesCompanion(unlockedAt: Value(DateTime.now())),
       );
     }
   }
 
   Future<void> resetAllBadges() {
-    return update(badges).write(
-      const BadgesCompanion(
-        unlockedAt: Value.absent(),
-      ),
-    );
+    return update(
+      badges,
+    ).write(const BadgesCompanion(unlockedAt: Value.absent()));
   }
 }

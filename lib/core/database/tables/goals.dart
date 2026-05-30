@@ -3,6 +3,7 @@ import 'package:bestfin/core/database/tables/accounts.dart';
 
 /// Tabela de Objetivos Financeiros.
 /// [status]: 'active' | 'completed' | 'archived'
+@TableIndex(name: 'goals_account_idx', columns: {#accountId})
 @DataClassName('Goal')
 class Goals extends Table {
   TextColumn get id => text()();
@@ -19,9 +20,8 @@ class Goals extends Table {
   )();
   TextColumn get color => text().nullable()();
   TextColumn get icon => text().nullable()();
-  TextColumn get type => text().withDefault(
-    const Constant('saving'),
-  )(); // saving | spending
+  TextColumn get type =>
+      text().withDefault(const Constant('saving'))(); // saving | spending
   TextColumn get status => text().withDefault(
     const Constant('active'),
   )(); // active | completed | archived

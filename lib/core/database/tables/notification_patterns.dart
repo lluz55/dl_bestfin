@@ -2,6 +2,14 @@ import 'package:drift/drift.dart';
 import 'categories.dart';
 import 'accounts.dart';
 
+@TableIndex(
+  name: 'notification_patterns_category_idx',
+  columns: {#defaultCategoryId},
+)
+@TableIndex(
+  name: 'notification_patterns_account_idx',
+  columns: {#defaultAccountId},
+)
 @DataClassName('NotificationPattern')
 class NotificationPatterns extends Table {
   TextColumn get id => text()();

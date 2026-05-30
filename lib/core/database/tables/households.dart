@@ -12,6 +12,7 @@ class Households extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'household_members_household_idx', columns: {#householdId})
 @DataClassName('HouseholdMember')
 class HouseholdMembers extends Table {
   TextColumn get id => text()();

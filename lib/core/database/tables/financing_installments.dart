@@ -1,6 +1,10 @@
 import 'package:drift/drift.dart';
 import 'financings.dart';
 
+@TableIndex(
+  name: 'financing_installments_financing_idx',
+  columns: {#financingId},
+)
 @DataClassName('FinancingInstallment')
 class FinancingInstallments extends Table {
   TextColumn get id => text()();

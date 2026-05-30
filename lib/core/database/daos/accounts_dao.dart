@@ -2,10 +2,11 @@ import 'package:drift/drift.dart';
 import '../app_database.dart';
 import '../tables/accounts.dart';
 import '../tables/entries.dart';
+import '../tables/transactions.dart';
 
 part 'accounts_dao.g.dart';
 
-@DriftAccessor(tables: [Accounts, Entries])
+@DriftAccessor(tables: [Accounts, Entries, Transactions])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
   AccountsDao(AppDatabase db) : super(db);
@@ -26,8 +27,24 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     return update(accounts).replace(account);
   }
 
-  Future<int> deleteAccount(String id) {
-    return (delete(accounts)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteAccount(String id) async {
+    await db.transaction(() async {
+      // Find all transactions with entries linked to this account
+      final transactionIds = await (selectOnly(entries)
+            ..addColumns([entries.transactionId])
+            ..where(entries.accountId.equals(id)))
+          .map((row) => row.read(entries.transactionId)!)
+          .get();
+
+      // Delete those transactions (cascade removes their entries)
+      if (transactionIds.isNotEmpty) {
+        await (delete(transactions)
+              ..where((t) => t.id.isIn(transactionIds)))
+            .go();
+      }
+
+      await (delete(accounts)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   /// Calculates the current balance of an account by summing its entries
