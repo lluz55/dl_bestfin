@@ -396,7 +396,8 @@ class _AccountSelectorState extends ConsumerState<AccountSelector> {
                         ),
                         ...creditCards.map((card) {
                           final cardColor = hexToColor(card.color ?? '#2196F3');
-                          final isSelected = card.id == widget.selectedCreditCardId;
+                          final isSelected =
+                              card.id == widget.selectedCreditCardId;
                           return Column(
                             children: [
                               ListTile(

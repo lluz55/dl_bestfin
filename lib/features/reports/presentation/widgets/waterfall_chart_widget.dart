@@ -49,15 +49,17 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
     final double expenseDouble = widget.expense.toDouble();
 
     final double minYVal = net < 0 ? net.toDouble() : 0.0;
-    final double maxYVal = incomeDouble > expenseDouble ? incomeDouble : expenseDouble;
+    final double maxYVal = incomeDouble > expenseDouble
+        ? incomeDouble
+        : expenseDouble;
 
     // Calculate range to apply a nice padding
     final double range = maxYVal - minYVal;
-    
+
     // If there are values, add 15% padding at the top and bottom to prevent the bars from touching the edges of the chart.
     // If range is 0 (i.e. both income and expense are 0), use a default scale.
     final double padding = range > 0 ? range * 0.15 : 100.0;
-    
+
     final double finalMinY = minYVal - (minYVal < 0 ? padding : 0.0);
     final double finalMaxY = maxYVal + padding;
 

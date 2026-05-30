@@ -117,7 +117,8 @@ class AccountsListScreen extends ConsumerWidget {
                         childrenPadding: EdgeInsets.zero,
                         children: inactiveAccounts.map((account) {
                           return ListTile(
-                            onTap: () => context.push('/accounts/${account.id}'),
+                            onTap: () =>
+                                context.push('/accounts/${account.id}'),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 24,
                               vertical: 4,

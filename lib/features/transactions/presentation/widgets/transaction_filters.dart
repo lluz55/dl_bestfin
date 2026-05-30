@@ -111,11 +111,13 @@ class TransactionFiltersWidget extends ConsumerWidget {
                               ref
                                   .read(transactionFiltersProvider.notifier)
                                   .update((state) {
-                                final updated = state.accountIds
-                                    .where((id) => !accountIdSet.contains(id))
-                                    .toList();
-                                return state.copyWith(accountIds: updated);
-                              });
+                                    final updated = state.accountIds
+                                        .where(
+                                          (id) => !accountIdSet.contains(id),
+                                        )
+                                        .toList();
+                                    return state.copyWith(accountIds: updated);
+                                  });
                             },
                             child: const Text('Limpar'),
                           ),
@@ -212,11 +214,13 @@ class TransactionFiltersWidget extends ConsumerWidget {
                               ref
                                   .read(transactionFiltersProvider.notifier)
                                   .update((state) {
-                                final updated = state.creditCardIds
-                                    .where((id) => !cardIdSet.contains(id))
-                                    .toList();
-                                return state.copyWith(creditCardIds: updated);
-                              });
+                                    final updated = state.creditCardIds
+                                        .where((id) => !cardIdSet.contains(id))
+                                        .toList();
+                                    return state.copyWith(
+                                      creditCardIds: updated,
+                                    );
+                                  });
                             },
                             child: const Text('Limpar'),
                           ),
@@ -238,8 +242,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
                                   ),
                                 ),
                                 isSelected: selectedIds.contains(card.id),
-                                onTap: () =>
-                                    _toggleCreditCard(ref, card.id),
+                                onTap: () => _toggleCreditCard(ref, card.id),
                               ),
                           ],
                         ),
@@ -423,8 +426,9 @@ class TransactionFiltersWidget extends ConsumerWidget {
         .toList();
     String accountLabel = 'Contas';
     if (selectedAccountIds.length == 1) {
-      final acc =
-          accounts.where((a) => a.id == selectedAccountIds.first).firstOrNull;
+      final acc = accounts
+          .where((a) => a.id == selectedAccountIds.first)
+          .firstOrNull;
       accountLabel = acc?.name ?? '1 Conta';
     } else if (selectedAccountIds.length > 1) {
       accountLabel = '${selectedAccountIds.length} Contas';

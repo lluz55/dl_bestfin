@@ -65,7 +65,9 @@ class TransactionFilters {
     return TransactionFilters(
       type: clearType ? null : (type ?? this.type),
       accountIds: clearAccounts ? const [] : (accountIds ?? this.accountIds),
-      creditCardIds: clearCreditCards ? const [] : (creditCardIds ?? this.creditCardIds),
+      creditCardIds: clearCreditCards
+          ? const []
+          : (creditCardIds ?? this.creditCardIds),
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       startDate: clearDate ? null : (startDate ?? this.startDate),
       endDate: clearDate ? null : (endDate ?? this.endDate),

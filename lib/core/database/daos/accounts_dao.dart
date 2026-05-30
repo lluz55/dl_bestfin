@@ -30,17 +30,18 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteAccount(String id) async {
     await db.transaction(() async {
       // Find all transactions with entries linked to this account
-      final transactionIds = await (selectOnly(entries)
-            ..addColumns([entries.transactionId])
-            ..where(entries.accountId.equals(id)))
-          .map((row) => row.read(entries.transactionId)!)
-          .get();
+      final transactionIds =
+          await (selectOnly(entries)
+                ..addColumns([entries.transactionId])
+                ..where(entries.accountId.equals(id)))
+              .map((row) => row.read(entries.transactionId)!)
+              .get();
 
       // Delete those transactions (cascade removes their entries)
       if (transactionIds.isNotEmpty) {
-        await (delete(transactions)
-              ..where((t) => t.id.isIn(transactionIds)))
-            .go();
+        await (delete(
+          transactions,
+        )..where((t) => t.id.isIn(transactionIds))).go();
       }
 
       await (delete(accounts)..where((t) => t.id.equals(id))).go();

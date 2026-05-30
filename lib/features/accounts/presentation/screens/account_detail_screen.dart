@@ -112,7 +112,8 @@ class AccountDetailScreen extends ConsumerWidget {
               menuChildren: [
                 MenuItemButton(
                   leadingIcon: const Icon(Icons.edit_outlined),
-                  onPressed: () => context.push('/accounts/edit', extra: account),
+                  onPressed: () =>
+                      context.push('/accounts/edit', extra: account),
                   child: const Text('Editar'),
                 ),
                 MenuItemButton(

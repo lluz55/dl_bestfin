@@ -81,7 +81,9 @@ class ReportFilters {
       customStart: customStart ?? this.customStart,
       customEnd: customEnd ?? this.customEnd,
       accountIds: clearAccounts ? const [] : (accountIds ?? this.accountIds),
-      creditCardIds: clearCreditCards ? const [] : (creditCardIds ?? this.creditCardIds),
+      creditCardIds: clearCreditCards
+          ? const []
+          : (creditCardIds ?? this.creditCardIds),
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       type: clearType ? null : (type ?? this.type),
     );

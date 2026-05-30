@@ -40,7 +40,9 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
     final query = _database.select(_database.creditCards).join([
       leftOuterJoin(
         _database.transactions,
-        _database.transactions.creditCardId.equalsExp(_database.creditCards.id) &
+        _database.transactions.creditCardId.equalsExp(
+              _database.creditCards.id,
+            ) &
             _database.transactions.type.equals('expense') &
             _database.transactions.invoiceId.isNull(),
       ),
@@ -76,7 +78,9 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
     final query = _database.select(_database.creditCards).join([
       leftOuterJoin(
         _database.transactions,
-        _database.transactions.creditCardId.equalsExp(_database.creditCards.id) &
+        _database.transactions.creditCardId.equalsExp(
+              _database.creditCards.id,
+            ) &
             _database.transactions.type.equals('expense') &
             _database.transactions.invoiceId.isNull(),
       ),
