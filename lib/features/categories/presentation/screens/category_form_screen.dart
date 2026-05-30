@@ -111,10 +111,14 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     final allCategories = ref.watch(allFlatCategoriesProvider);
     final editingId = widget.categoryToEdit?.id;
 
-    // All leaf categories (no children) that aren't this category
+    // All leaf categories of the same type that aren't this category
     final candidates = allCategories
         .where(
-          (c) => !c.isArchived && !c.hasChildren && c.id != editingId,
+          (c) =>
+              !c.isArchived &&
+              !c.hasChildren &&
+              c.id != editingId &&
+              c.type == _type,
         )
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));

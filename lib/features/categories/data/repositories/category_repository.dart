@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:drift/drift.dart';
@@ -37,15 +39,76 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
   CategoryRepositoryImpl(this._database);
 
+  // Emits whenever categories OR category_parents changes so that parent-child
+  // relationship updates (setCategoryChildren) are immediately reflected.
+  Stream<void> _changesStream() {
+    StreamSubscription? s1, s2;
+    late StreamController<void> ctrl;
+    ctrl = StreamController<void>(
+      onListen: () {
+        s1 = _database.categoriesDao
+            .watchAllCategories()
+            .listen((_) => ctrl.add(null), onError: ctrl.addError);
+        s2 = _database.categoriesDao
+            .watchAllRelationships()
+            .listen((_) => ctrl.add(null), onError: ctrl.addError);
+      },
+      onCancel: () {
+        s1?.cancel();
+        s2?.cancel();
+      },
+    );
+    return ctrl.stream;
+  }
+
   @override
   Stream<List<CategoryModel>> watchCategoriesTree() {
-    return _database.categoriesDao.watchAllCategories().asyncMap(_buildTree);
+    return _changesStream().asyncMap((_) async {
+      final cats = await _database.categoriesDao.watchAllCategories().first;
+      return _buildTree(cats);
+    });
   }
 
   @override
   Stream<List<CategoryModel>> watchCategoriesTreeByType(String type) {
-    return _database.categoriesDao.watchAllCategories().asyncMap(
-      (list) => _buildTree(list, typeFilter: type),
+    return _changesStream().asyncMap((_) async {
+      final cats = await _database.categoriesDao.watchAllCategories().first;
+      return _buildTree(cats, typeFilter: type);
+    });
+  }
+
+  CategoryModel _nestCategory(
+    String id,
+    Map<String, CategoryModel> allModels,
+    Map<String, List<String>> parentToChildIds,
+    Set<String> filteredIds, {
+    String? parentName,
+    String? parentIcon,
+    String? parentColor,
+  }) {
+    final base = allModels[id]!;
+    final childIds =
+        (parentToChildIds[id] ?? []).where(filteredIds.contains).toList();
+    final children =
+        childIds
+            .map(
+              (cid) => _nestCategory(
+                cid,
+                allModels,
+                parentToChildIds,
+                filteredIds,
+                parentName: base.name,
+                parentIcon: base.icon,
+                parentColor: base.color,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+    return base.copyWith(
+      children: children,
+      parentName: parentName,
+      parentIcon: parentIcon,
+      parentColor: parentColor,
     );
   }
 
@@ -95,19 +158,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     final roots = <CategoryModel>[];
     for (final model in allModels.values) {
       if (model.isRoot) {
-        final childIds = parentToChildIds[model.id] ?? [];
-        final children = childIds
-            .where(filteredIds.contains)
-            .map(
-              (id) => allModels[id]!.copyWith(
-                parentName: model.name,
-                parentIcon: model.icon,
-                parentColor: model.color,
-              ),
-            )
-            .toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
-        roots.add(model.copyWith(children: children));
+        roots.add(
+          _nestCategory(model.id, allModels, parentToChildIds, filteredIds),
+        );
       }
     }
 

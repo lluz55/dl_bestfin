@@ -28,11 +28,14 @@ final allFlatCategoriesProvider = Provider<List<CategoryModel>>((ref) {
   final tree = ref.watch(categoriesTreeProvider).value ?? [];
   // Deduplicate by ID — a subcategory can appear under multiple parents
   final Map<String, CategoryModel> byId = {};
-  for (final root in tree) {
-    byId[root.id] = root;
-    for (final child in root.children) {
-      byId[child.id] = child;
+  void visit(CategoryModel cat) {
+    byId[cat.id] = cat;
+    for (final child in cat.children) {
+      visit(child);
     }
+  }
+  for (final root in tree) {
+    visit(root);
   }
   return byId.values.toList();
 });
