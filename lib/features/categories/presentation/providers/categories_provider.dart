@@ -4,6 +4,7 @@ import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/domain/usecases/create_category.dart';
 import 'package:bestfin/features/categories/domain/usecases/delete_category.dart';
 import 'package:bestfin/features/categories/domain/usecases/reorder_categories.dart';
+import 'package:bestfin/features/categories/domain/usecases/set_category_children.dart';
 import 'package:bestfin/features/categories/domain/usecases/update_category.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,12 +26,15 @@ final categoriesByTypeProvider =
 
 final allFlatCategoriesProvider = Provider<List<CategoryModel>>((ref) {
   final tree = ref.watch(categoriesTreeProvider).value ?? [];
-  final List<CategoryModel> flat = [];
+  // Deduplicate by ID — a subcategory can appear under multiple parents
+  final Map<String, CategoryModel> byId = {};
   for (final root in tree) {
-    flat.add(root);
-    flat.addAll(root.children);
+    byId[root.id] = root;
+    for (final child in root.children) {
+      byId[child.id] = child;
+    }
   }
-  return flat;
+  return byId.values.toList();
 });
 
 final createCategoryProvider = Provider<CreateCategory>((ref) {
@@ -39,6 +43,10 @@ final createCategoryProvider = Provider<CreateCategory>((ref) {
 
 final updateCategoryProvider = Provider<UpdateCategory>((ref) {
   return UpdateCategory(ref.watch(categoryRepositoryProvider));
+});
+
+final setCategoryChildrenProvider = Provider<SetCategoryChildren>((ref) {
+  return SetCategoryChildren(ref.watch(categoryRepositoryProvider));
 });
 
 final deleteCategoryProvider = Provider<DeleteCategory>((ref) {

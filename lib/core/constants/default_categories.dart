@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 enum CategoryType { income, expense, transfer }
 
 class DefaultCategory {
@@ -8,7 +6,6 @@ class DefaultCategory {
   final String icon;
   final String color;
   final CategoryType type;
-  final String? parentId;
   final String? description;
 
   const DefaultCategory({
@@ -17,7 +14,6 @@ class DefaultCategory {
     required this.icon,
     required this.color,
     required this.type,
-    this.parentId,
     this.description,
   });
 }
@@ -88,7 +84,6 @@ class SeedDataConstants {
       icon: 'house',
       color: '#E53935',
       type: CategoryType.expense,
-      parentId: 'cat_housing',
       description:
           'Pagamento mensal de aluguel ou financiamento imobiliário residencial.',
     ),
@@ -156,6 +151,11 @@ class SeedDataConstants {
       description:
           'Movimentação de fundos entre contas próprias ou ajustes de transferência interna.',
     ),
+  ];
+
+  // (parentId, childId) pairs for the many-to-many junction table
+  static const List<(String, String)> defaultCategoryRelationships = [
+    ('cat_housing', 'cat_rent'),
   ];
 
   static const List<DefaultHoliday> nationalHolidays = [

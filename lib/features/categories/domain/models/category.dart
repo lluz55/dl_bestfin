@@ -9,7 +9,7 @@ class CategoryModel {
   final String color;
   final String type; // 'income', 'expense', 'transfer'
   final bool isSystem;
-  final String? parentId;
+  final List<String> parentIds;
   final bool isArchived;
   final String? description;
   final List<CategoryModel> children;
@@ -25,7 +25,7 @@ class CategoryModel {
     required this.color,
     required this.type,
     required this.isSystem,
-    this.parentId,
+    this.parentIds = const [],
     required this.isArchived,
     this.description,
     this.children = const [],
@@ -37,6 +37,7 @@ class CategoryModel {
 
   factory CategoryModel.fromDb(
     db.Category entity, {
+    List<String> parentIds = const [],
     List<CategoryModel> children = const [],
   }) {
     return CategoryModel(
@@ -46,7 +47,7 @@ class CategoryModel {
       color: entity.color,
       type: entity.type,
       isSystem: entity.isSystem,
-      parentId: entity.parentId,
+      parentIds: parentIds,
       isArchived: entity.isArchived,
       description: entity.description,
       children: children,
@@ -61,7 +62,7 @@ class CategoryModel {
     String? color,
     String? type,
     bool? isSystem,
-    Object? parentId = _sentinel,
+    List<String>? parentIds,
     bool? isArchived,
     Object? description = _sentinel,
     List<CategoryModel>? children,
@@ -77,7 +78,7 @@ class CategoryModel {
       color: color ?? this.color,
       type: type ?? this.type,
       isSystem: isSystem ?? this.isSystem,
-      parentId: parentId == _sentinel ? this.parentId : parentId as String?,
+      parentIds: parentIds ?? this.parentIds,
       isArchived: isArchived ?? this.isArchived,
       description: description == _sentinel
           ? this.description
@@ -90,7 +91,7 @@ class CategoryModel {
     );
   }
 
-  bool get isRoot => parentId == null;
+  bool get isRoot => parentIds.isEmpty;
   bool get hasChildren => children.isNotEmpty;
 
   String get displayName => parentName != null ? '$parentName › $name' : name;

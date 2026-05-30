@@ -3,9 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
-import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
-import 'package:bestfin/core/widgets/color_picker.dart';
+import 'package:bestfin/core/widgets/category_multi_select_button.dart';
+import 'package:bestfin/core/widgets/icon_color_picker_button.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 
@@ -13,11 +13,9 @@ class CategoryFormScreen extends ConsumerStatefulWidget {
   const CategoryFormScreen({
     super.key,
     this.categoryToEdit,
-    this.initialParentId,
   });
 
   final CategoryModel? categoryToEdit;
-  final String? initialParentId;
 
   @override
   ConsumerState<CategoryFormScreen> createState() => _CategoryFormScreenState();
@@ -31,7 +29,6 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   late String _icon;
   late String _color;
   late String _type;
-  String? _parentId;
   final Set<String> _selectedSubcategoryIds = {};
 
   bool get _isEditing => widget.categoryToEdit != null;
@@ -45,14 +42,12 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
       _icon = c.icon;
       _color = c.color;
       _type = c.type;
-      _parentId = c.parentId;
       _descriptionController.text = c.description ?? '';
       _selectedSubcategoryIds.addAll(c.children.map((child) => child.id));
     } else {
       _icon = 'category';
       _color = '#2196F3';
       _type = 'expense';
-      _parentId = widget.initialParentId;
     }
   }
 
@@ -70,104 +65,32 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           ? null
           : _descriptionController.text.trim();
 
+      final String categoryId;
       if (_isEditing) {
-        final categoryId = widget.categoryToEdit!.id;
+        categoryId = widget.categoryToEdit!.id;
         await ref.read(updateCategoryProvider)(
           id: categoryId,
           name: _nameController.text.trim(),
           icon: _icon,
           color: _color,
           type: _type,
-          parentId: _parentId,
           description: descriptionVal,
         );
-
-        final allCategories = ref.read(allFlatCategoriesProvider);
-
-        if (_parentId != null) {
-          // If this category became a subcategory, it cannot have children anymore.
-          // Set parentId to null for all its previous children.
-          final previousChildren = allCategories.where(
-            (c) => c.parentId == categoryId,
-          );
-          for (final child in previousChildren) {
-            await ref.read(updateCategoryProvider)(
-              id: child.id,
-              name: child.name,
-              icon: child.icon,
-              color: child.color,
-              type: child.type,
-              parentId: null,
-              description: child.description,
-            );
-          }
-        } else {
-          // It is a root category. Sync selected subcategories.
-          final previousChildrenIds = allCategories
-              .where((c) => c.parentId == categoryId)
-              .map((c) => c.id)
-              .toSet();
-
-          // 1. Add new subcategories
-          for (final subcatId in _selectedSubcategoryIds) {
-            if (!previousChildrenIds.contains(subcatId)) {
-              final subcat = allCategories.firstWhere((c) => c.id == subcatId);
-              await ref.read(updateCategoryProvider)(
-                id: subcat.id,
-                name: subcat.name,
-                icon: subcat.icon,
-                color: subcat.color,
-                type: subcat.type,
-                parentId: categoryId,
-                description: subcat.description,
-              );
-            }
-          }
-
-          // 2. Remove unselected subcategories
-          for (final oldChildId in previousChildrenIds) {
-            if (!_selectedSubcategoryIds.contains(oldChildId)) {
-              final subcat = allCategories.firstWhere(
-                (c) => c.id == oldChildId,
-              );
-              await ref.read(updateCategoryProvider)(
-                id: subcat.id,
-                name: subcat.name,
-                icon: subcat.icon,
-                color: subcat.color,
-                type: subcat.type,
-                parentId: null,
-                description: subcat.description,
-              );
-            }
-          }
-        }
       } else {
-        final newCategoryId = await ref.read(createCategoryProvider)(
+        categoryId = await ref.read(createCategoryProvider)(
           name: _nameController.text.trim(),
           icon: _icon,
           color: _color,
           type: _type,
-          parentId: _parentId,
           description: descriptionVal,
         );
-
-        if (_parentId == null && _selectedSubcategoryIds.isNotEmpty) {
-          final allCategories = ref.read(allFlatCategoriesProvider);
-          for (final subcatId in _selectedSubcategoryIds) {
-            final subcat = allCategories.firstWhere((c) => c.id == subcatId);
-            await ref.read(updateCategoryProvider)(
-              id: subcat.id,
-              name: subcat.name,
-              icon: subcat.icon,
-              color: subcat.color,
-              type: subcat.type,
-              parentId: newCategoryId,
-              description: subcat.description,
-            );
-          }
-        }
       }
+
+      await ref.read(setCategoryChildrenProvider)(
+        categoryId,
+        _selectedSubcategoryIds.toList(),
+      );
+
       ref.invalidate(categoriesTreeProvider);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -179,18 +102,6 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     }
   }
 
-  void _showIconPicker() {
-    showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _IconPickerSheet(
-        selectedIcon: _icon,
-        onSelected: (name) => setState(() => _icon = name),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
@@ -198,9 +109,15 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     final shapes = context.shapes;
 
     final allCategories = ref.watch(allFlatCategoriesProvider);
-    final rootCategories = allCategories
-        .where((c) => c.isRoot && !c.isArchived)
-        .toList();
+    final editingId = widget.categoryToEdit?.id;
+
+    // All leaf categories (no children) that aren't this category
+    final candidates = allCategories
+        .where(
+          (c) => !c.isArchived && !c.hasChildren && c.id != editingId,
+        )
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -304,165 +221,42 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                   ),
                 ],
                 selected: {_type},
-                onSelectionChanged: (s) => setState(() {
-                  _type = s.first;
-                  _selectedSubcategoryIds.clear();
-                  _parentId = null;
+                onSelectionChanged: (s) => setState(() => _type = s.first),
+              ),
+              const SizedBox(height: 16),
+
+              // Ícone e Cor (combinados)
+              IconColorPickerButton(
+                selectedIcon: _icon,
+                selectedColorHex: _color,
+                onChanged: (icon, color) => setState(() {
+                  _icon = icon;
+                  _color = color;
                 }),
               ),
               const SizedBox(height: 16),
 
-              // Ícone
-              InkWell(
-                onTap: _showIconPicker,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(IconMapper.fromString(_icon), color: cs.primary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Ícone',
-                          style: tt.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-                    ],
-                  ),
+              // Subcategorias
+              if (candidates.isNotEmpty) ...[
+                Text(
+                  'Subcategorias',
+                  style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Subcategoria de (parent selector) — only for non-system and if there are root categories
-              if (!_isEditing || widget.categoryToEdit?.isSystem == false)
-                _ParentSelector(
-                  selectedParentId: _parentId,
-                  rootCategories: rootCategories
-                      .where((c) => c.id != widget.categoryToEdit?.id)
-                      .toList(),
-                  onChanged: (id) => setState(() {
-                    _parentId = id;
-                    if (id != null) {
-                      _selectedSubcategoryIds.clear();
-                    }
+                const SizedBox(height: 8),
+                CategoryMultiSelectButton(
+                  selectedIds: _selectedSubcategoryIds.toList(),
+                  onChanged: (ids) => setState(() {
+                    _selectedSubcategoryIds
+                      ..clear()
+                      ..addAll(ids);
                   }),
-                  cs: cs,
-                  tt: tt,
+                  candidates: candidates,
+                  label: 'Usar como subcategorias',
                 ),
-              const SizedBox(height: 16),
-
-              // Subcategorias a adotar
-              if (_parentId == null) ...[
-                (() {
-                  final candidates = allCategories
-                      .where(
-                        (c) =>
-                            c.type == _type &&
-                            !c.isSystem &&
-                            !c.isArchived &&
-                            (c.children.isEmpty ||
-                                c.parentId == widget.categoryToEdit?.id) &&
-                            c.id != widget.categoryToEdit?.id,
-                      )
-                      .toList();
-                  if (candidates.isEmpty) return const SizedBox.shrink();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Usar outras categorias como subcategoria desta',
-                        style: tt.labelLarge?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Selecione as categorias existentes que passarão a ser subcategorias desta categoria:',
-                              style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: candidates.map((c) {
-                                final isSelected = _selectedSubcategoryIds
-                                    .contains(c.id);
-                                return FilterChip(
-                                  avatar: CircleAvatar(
-                                    backgroundColor: c.parsedColor.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    child: Icon(
-                                      c.iconData,
-                                      size: 14,
-                                      color: c.parsedColor,
-                                    ),
-                                  ),
-                                  label: Text(c.name),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      if (selected) {
-                                        _selectedSubcategoryIds.add(c.id);
-                                      } else {
-                                        _selectedSubcategoryIds.remove(c.id);
-                                      }
-                                    });
-                                  },
-                                  selectedColor: cs.primaryContainer,
-                                  checkmarkColor: cs.primary,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(
-                                      color: isSelected
-                                          ? cs.primary
-                                          : Colors.transparent,
-                                      width: 1,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  );
-                })(),
+                const SizedBox(height: 16),
               ],
 
-              // Cor
-              AppColorPicker(
-                selectedColorHex: _color,
-                previewIcon: IconMapper.fromString(_icon),
-                onColorSelected: (hex) => setState(() => _color = hex),
-              ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
               // Save button
               SizedBox(
@@ -492,211 +286,3 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   }
 }
 
-class _ParentSelector extends StatelessWidget {
-  const _ParentSelector({
-    required this.selectedParentId,
-    required this.rootCategories,
-    required this.onChanged,
-    required this.cs,
-    required this.tt,
-  });
-
-  final String? selectedParentId;
-  final List<CategoryModel> rootCategories;
-  final ValueChanged<String?> onChanged;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  @override
-  Widget build(BuildContext context) {
-    if (rootCategories.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DropdownButtonFormField<String?>(
-          value: selectedParentId,
-          decoration: InputDecoration(
-            labelText: 'Subcategoria de (opcional)',
-            filled: true,
-            fillColor: cs.surfaceContainerHigh,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          items: [
-            const DropdownMenuItem(
-              value: null,
-              child: Text('Nenhuma (categoria raiz)'),
-            ),
-            ...rootCategories.map(
-              (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
-            ),
-          ],
-          onChanged: onChanged,
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-}
-
-// Icon picker bottom sheet using IconMapper string names
-class _IconPickerSheet extends StatefulWidget {
-  const _IconPickerSheet({
-    required this.selectedIcon,
-    required this.onSelected,
-  });
-  final String selectedIcon;
-  final ValueChanged<String> onSelected;
-
-  @override
-  State<_IconPickerSheet> createState() => _IconPickerSheetState();
-}
-
-class _IconPickerSheetState extends State<_IconPickerSheet> {
-  String _query = '';
-  late String _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.selectedIcon;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colorScheme;
-    final shapes = context.shapes;
-    final tt = context.textTheme;
-
-    final categorized = IconMapper.categorized;
-    final Map<String, List<MapEntry<String, IconData>>> displayMap;
-
-    if (_query.isEmpty) {
-      displayMap = categorized;
-    } else {
-      final q = _query.toLowerCase();
-      final filtered = IconMapper.all.entries
-          .where((e) => e.key.contains(q))
-          .toList();
-      displayMap = {'Resultados': filtered};
-    }
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: shapes.bottomSheet,
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 4),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Escolher ícone',
-                      style: tt.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SearchBar(
-                      hintText: 'Buscar ícone...',
-                      leading: const Icon(Icons.search),
-                      onChanged: (v) => setState(() => _query = v),
-                      elevation: const WidgetStatePropertyAll(0),
-                      backgroundColor: WidgetStatePropertyAll(
-                        cs.surfaceContainerHighest,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  children: [
-                    for (final entry in displayMap.entries)
-                      if (entry.value.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16, bottom: 8),
-                          child: Text(
-                            entry.key,
-                            style: tt.labelLarge?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 6,
-                                mainAxisSpacing: 8,
-                                crossAxisSpacing: 8,
-                              ),
-                          itemCount: entry.value.length,
-                          itemBuilder: (context, i) {
-                            final iconEntry = entry.value[i];
-                            final isSelected = _selected == iconEntry.key;
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() => _selected = iconEntry.key);
-                                widget.onSelected(iconEntry.key);
-                                Navigator.of(context).pop();
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? cs.primaryContainer
-                                      : cs.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: isSelected
-                                      ? Border.all(color: cs.primary, width: 2)
-                                      : null,
-                                ),
-                                child: Icon(
-                                  iconEntry.value,
-                                  size: 22,
-                                  color: isSelected
-                                      ? cs.primary
-                                      : cs.onSurfaceVariant,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}

@@ -38,7 +38,7 @@ class SelectCategoriesStep extends ConsumerWidget {
             child: categoriesAsync.when(
               data: (categories) {
                 final rootCategories = categories
-                    .where((c) => c.parentId == null)
+                    .where((c) => c.isRoot)
                     .toList();
                 return ListView.separated(
                   itemCount: rootCategories.length,

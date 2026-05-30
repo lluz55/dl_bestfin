@@ -15,7 +15,6 @@ abstract class CategoryRepository {
     required String icon,
     required String color,
     required String type,
-    String? parentId,
     String? description,
   });
   Future<void> updateCategory({
@@ -24,9 +23,9 @@ abstract class CategoryRepository {
     required String icon,
     required String color,
     required String type,
-    String? parentId,
     String? description,
   });
+  Future<void> setCategoryChildren(String parentId, List<String> childIds);
   Future<void> archiveCategory(String id);
   Future<void> deleteCategory(String id);
   Future<bool> hasTransactions(String id);
@@ -63,23 +62,51 @@ class CategoryRepositoryImpl implements CategoryRepository {
       filtered = active;
     }
 
-    final allModels = filtered.map((c) => CategoryModel.fromDb(c)).toList();
+    final filteredIds = filtered.map((c) => c.id).toSet();
 
+    // Load all parent-child relationships from junction table
+    final relationships = await _database.categoriesDao.getAllRelationships();
+
+    // Build maps: childId → parentIds, parentId → childIds
+    final childToParentIds = <String, List<String>>{};
+    final parentToChildIds = <String, List<String>>{};
+    for (final rel in relationships) {
+      if (filteredIds.contains(rel.parentCategoryId) &&
+          filteredIds.contains(rel.childCategoryId)) {
+        childToParentIds
+            .putIfAbsent(rel.childCategoryId, () => [])
+            .add(rel.parentCategoryId);
+        parentToChildIds
+            .putIfAbsent(rel.parentCategoryId, () => [])
+            .add(rel.childCategoryId);
+      }
+    }
+
+    // Build base models with parentIds populated
+    final allModels = <String, CategoryModel>{
+      for (final c in filtered)
+        c.id: CategoryModel.fromDb(
+          c,
+          parentIds: childToParentIds[c.id] ?? [],
+        ),
+    };
+
+    // Identify roots (no parents within filtered set)
     final roots = <CategoryModel>[];
-    for (final model in allModels) {
-      if (model.parentId == null) {
-        final children =
-            allModels
-                .where((m) => m.parentId == model.id)
-                .map(
-                  (c) => c.copyWith(
-                    parentName: model.name,
-                    parentIcon: model.icon,
-                    parentColor: model.color,
-                  ),
-                )
-                .toList()
-              ..sort((a, b) => a.name.compareTo(b.name));
+    for (final model in allModels.values) {
+      if (model.isRoot) {
+        final childIds = parentToChildIds[model.id] ?? [];
+        final children = childIds
+            .where(filteredIds.contains)
+            .map(
+              (id) => allModels[id]!.copyWith(
+                parentName: model.name,
+                parentIcon: model.icon,
+                parentColor: model.color,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
         roots.add(model.copyWith(children: children));
       }
     }
@@ -118,7 +145,6 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required String icon,
     required String color,
     required String type,
-    String? parentId,
     String? description,
   }) async {
     final id = const Uuid().v4();
@@ -130,7 +156,6 @@ class CategoryRepositoryImpl implements CategoryRepository {
         color: color,
         type: type,
         isSystem: const Value(false),
-        parentId: parentId != null ? Value(parentId) : const Value.absent(),
         description: description != null
             ? Value(description)
             : const Value.absent(),
@@ -146,7 +171,6 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required String icon,
     required String color,
     required String type,
-    String? parentId,
     String? description,
   }) async {
     await (_database.update(
@@ -157,11 +181,21 @@ class CategoryRepositoryImpl implements CategoryRepository {
         icon: Value(icon),
         color: Value(color),
         type: Value(type),
-        parentId: Value(parentId),
         description: Value(description),
         updatedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  @override
+  Future<void> setCategoryChildren(
+    String parentId,
+    List<String> childIds,
+  ) async {
+    await _database.categoriesDao.deleteChildrenForParent(parentId);
+    if (childIds.isNotEmpty) {
+      await _database.categoriesDao.insertChildrenForParent(parentId, childIds);
+    }
   }
 
   @override
