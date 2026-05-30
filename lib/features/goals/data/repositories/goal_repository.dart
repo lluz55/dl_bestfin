@@ -18,6 +18,9 @@ abstract class GoalRepository {
     String? color,
     String? icon,
     GoalType type = GoalType.saving,
+    bool isRecurring = false,
+    GoalRecurrenceFrequency? recurrenceFrequency,
+    List<String> categoryIds = const [],
   });
   Future<void> updateGoal({
     required String id,
@@ -29,6 +32,9 @@ abstract class GoalRepository {
     String? color,
     String? icon,
     GoalType? type,
+    bool isRecurring = false,
+    GoalRecurrenceFrequency? recurrenceFrequency,
+    List<String> categoryIds = const [],
   });
   Future<void> addContribution({
     required String goalId,
@@ -38,6 +44,7 @@ abstract class GoalRepository {
   });
   Future<void> archiveGoal(String id);
   Future<void> deleteGoal(String id);
+  Future<void> checkAndResetExpiredGoals();
 }
 
 class GoalRepositoryImpl implements GoalRepository {
@@ -47,34 +54,40 @@ class GoalRepositoryImpl implements GoalRepository {
 
   GoalsDao get _dao => _database.goalsDao;
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  Future<GoalModel> _toModel(db.Goal g) async {
+    final catIds = await _dao.getGoalCategoryIds(g.id);
+    return GoalModel.fromDb(g, categoryIds: catIds);
+  }
+
+  Future<List<GoalModel>> _toModels(List<db.Goal> list) async {
+    final futures = list.map(_toModel);
+    return Future.wait(futures);
+  }
+
   // ── Reads ──────────────────────────────────────────────────────────────────
 
   @override
   Stream<List<GoalModel>> watchAllGoals() {
-    return _dao.watchAllGoals().map(
-      (list) => list.map(GoalModel.fromDb).toList(),
-    );
+    return _dao.watchAllGoals().asyncMap(_toModels);
   }
 
   @override
   Stream<List<GoalModel>> watchActiveGoals() {
-    return _dao
-        .watchByStatus('active')
-        .map((list) => list.map(GoalModel.fromDb).toList());
+    return _dao.watchByStatus('active').asyncMap(_toModels);
   }
 
   @override
   Stream<List<GoalModel>> watchCompletedGoals() {
-    return _dao
-        .watchByStatus('completed')
-        .map((list) => list.map(GoalModel.fromDb).toList());
+    return _dao.watchByStatus('completed').asyncMap(_toModels);
   }
 
   @override
   Stream<GoalModel?> watchGoalById(String id) {
-    return _dao
-        .watchGoalById(id)
-        .map((g) => g != null ? GoalModel.fromDb(g) : null);
+    return _dao.watchGoalById(id).asyncMap(
+      (g) => g != null ? _toModel(g) : null,
+    );
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
@@ -89,8 +102,12 @@ class GoalRepositoryImpl implements GoalRepository {
     String? color,
     String? icon,
     GoalType type = GoalType.saving,
+    bool isRecurring = false,
+    GoalRecurrenceFrequency? recurrenceFrequency,
+    List<String> categoryIds = const [],
   }) async {
     final id = const Uuid().v4();
+    final now = DateTime.now();
     await _dao.insertGoal(
       db.GoalsCompanion.insert(
         id: id,
@@ -103,8 +120,14 @@ class GoalRepositoryImpl implements GoalRepository {
         icon: Value(icon),
         type: Value(type.value),
         status: const Value('active'),
+        isRecurring: Value(isRecurring),
+        recurrenceFrequency: Value(recurrenceFrequency?.value),
+        periodStartDate: isRecurring ? Value(now) : const Value.absent(),
       ),
     );
+    if (categoryIds.isNotEmpty) {
+      await _dao.setGoalCategories(id, categoryIds);
+    }
     return id;
   }
 
@@ -119,7 +142,19 @@ class GoalRepositoryImpl implements GoalRepository {
     String? color,
     String? icon,
     GoalType? type,
+    bool isRecurring = false,
+    GoalRecurrenceFrequency? recurrenceFrequency,
+    List<String> categoryIds = const [],
   }) async {
+    final existing = await _dao.getGoalById(id);
+    // Preserve periodStartDate if already set and goal remains recurring
+    DateTime? periodStart;
+    if (isRecurring) {
+      periodStart = (existing?.isRecurring == true && existing?.periodStartDate != null)
+          ? existing!.periodStartDate
+          : DateTime.now();
+    }
+
     await _dao.patchGoal(
       id,
       db.GoalsCompanion(
@@ -131,9 +166,13 @@ class GoalRepositoryImpl implements GoalRepository {
         color: Value(color),
         icon: Value(icon),
         type: type != null ? Value(type.value) : const Value.absent(),
+        isRecurring: Value(isRecurring),
+        recurrenceFrequency: Value(recurrenceFrequency?.value),
+        periodStartDate: Value(periodStart),
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _dao.setGoalCategories(id, categoryIds);
   }
 
   @override
@@ -143,12 +182,10 @@ class GoalRepositoryImpl implements GoalRepository {
     required String fromAccountId,
     String? notes,
   }) async {
-    // Busca o goal para obter a conta vinculada (destino da transferência)
     final goal = await _dao.getGoalById(goalId);
     if (goal == null) return;
 
     await _database.transaction(() async {
-      // 1. Registra transferência real se a conta de destino do goal existe
       if (goal.accountId != null) {
         final txId = const Uuid().v4();
         await _database
@@ -163,7 +200,6 @@ class GoalRepositoryImpl implements GoalRepository {
                 isCompleted: const Value(true),
               ),
             );
-        // Entry de saída (crédito na conta origem)
         await _database
             .into(_database.entries)
             .insert(
@@ -175,7 +211,6 @@ class GoalRepositoryImpl implements GoalRepository {
                 type: 'credit',
               ),
             );
-        // Entry de entrada (débito na conta do objetivo)
         await _database
             .into(_database.entries)
             .insert(
@@ -189,14 +224,13 @@ class GoalRepositoryImpl implements GoalRepository {
             );
       }
 
-      // 2. Atualiza currentAmount no goal
       await _dao.addContribution(goalId, amountInCents);
 
-      // 3. Marca como completo se atingiu a meta
       final updated = await _dao.getGoalById(goalId);
       if (updated != null &&
           updated.currentAmount >= updated.targetAmount &&
-          updated.status == 'active') {
+          updated.status == 'active' &&
+          !updated.isRecurring) {
         await _dao.markCompleted(goalId);
       }
     });
@@ -207,4 +241,17 @@ class GoalRepositoryImpl implements GoalRepository {
 
   @override
   Future<void> deleteGoal(String id) => _dao.deleteGoal(id);
+
+  /// Verifica todos os goals recorrentes ativos e reseta os que expiraram.
+  @override
+  Future<void> checkAndResetExpiredGoals() async {
+    final activeGoals = await _dao.getAllActiveGoals();
+    for (final g in activeGoals) {
+      final model = GoalModel.fromDb(g);
+      if (model.isPeriodExpired) {
+        final next = model.nextPeriodStart ?? DateTime.now();
+        await _dao.resetPeriod(g.id, next);
+      }
+    }
+  }
 }

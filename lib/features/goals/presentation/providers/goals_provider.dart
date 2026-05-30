@@ -47,12 +47,15 @@ final calculateMonthlyTargetProvider = Provider<CalculateMonthlyTarget>((ref) {
 
 // ── Action Providers ────────────────────────────────────────────────────────
 
-/// Arquiva um objetivo.
 final archiveGoalProvider = Provider<Future<void> Function(String)>((ref) {
   return (id) => ref.read(goalRepositoryProvider).archiveGoal(id);
 });
 
-/// Exclui um objetivo.
 final deleteGoalProvider = Provider<Future<void> Function(String)>((ref) {
   return (id) => ref.read(goalRepositoryProvider).deleteGoal(id);
+});
+
+/// Verifica e reseta goals recorrentes expirados. Chame no app startup.
+final resetExpiredGoalsProvider = Provider<Future<void> Function()>((ref) {
+  return () => ref.read(goalRepositoryProvider).checkAndResetExpiredGoals();
 });

@@ -117,10 +117,22 @@ class GoalCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Prazo
+                    // Prazo / recorrência / categorias
                     Row(
                       children: [
-                        if (goal.targetDate != null) ...[
+                        if (goal.isRecurring) ...[
+                          Icon(
+                            Icons.repeat_rounded,
+                            size: 11,
+                            color: goalColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            goal.recurrenceFrequency?.label ?? 'Recorrente',
+                            style: tt.labelSmall?.copyWith(color: goalColor),
+                          ),
+                          const SizedBox(width: 8),
+                        ] else if (goal.targetDate != null) ...[
                           Icon(
                             Icons.calendar_today_rounded,
                             size: 11,
@@ -135,7 +147,8 @@ class GoalCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                         ],
-                        if (goal.monthlyTargetInCents != null &&
+                        if (!goal.isRecurring &&
+                            goal.monthlyTargetInCents != null &&
                             !goal.isCompleted) ...[
                           Icon(
                             Icons.trending_up_rounded,
@@ -146,6 +159,21 @@ class GoalCard extends StatelessWidget {
                           Text(
                             '${CurrencyFormatter.formatCents(goal.monthlyTargetInCents!)}/mês',
                             style: tt.labelSmall?.copyWith(color: goalColor),
+                          ),
+                        ],
+                        if (goal.categoryIds.isNotEmpty) ...[
+                          const Spacer(),
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 11,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Auto',
+                            style: tt.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ],

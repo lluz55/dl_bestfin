@@ -14,6 +14,9 @@ class CreateGoal {
     String? color,
     String? icon,
     GoalType type = GoalType.saving,
+    bool isRecurring = false,
+    GoalRecurrenceFrequency? recurrenceFrequency,
+    List<String> categoryIds = const [],
   }) {
     return repository.createGoal(
       name: name,
@@ -24,6 +27,9 @@ class CreateGoal {
       color: color,
       icon: icon,
       type: type,
+      isRecurring: isRecurring,
+      recurrenceFrequency: recurrenceFrequency,
+      categoryIds: categoryIds,
     );
   }
 }

@@ -29,6 +29,10 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // Reseta goals recorrentes cujo período expirou
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(resetExpiredGoalsProvider)();
+    });
   }
 
   @override

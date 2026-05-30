@@ -1,6 +1,5 @@
 import 'package:bestfin/core/database/app_database.dart' as db;
 
-/// Status de um objetivo financeiro.
 enum GoalStatus {
   active('active', 'Ativo'),
   completed('completed', 'Concluído'),
@@ -18,7 +17,6 @@ enum GoalStatus {
   }
 }
 
-/// Tipo de objetivo financeiro.
 enum GoalType {
   saving('saving', 'Economia'),
   spending('spending', 'Orçamento/Gasto');
@@ -35,7 +33,24 @@ enum GoalType {
   }
 }
 
-/// Modelo de domínio de um Objetivo Financeiro.
+enum GoalRecurrenceFrequency {
+  monthly('monthly', 'Mensal'),
+  quarterly('quarterly', 'Trimestral'),
+  yearly('yearly', 'Anual');
+
+  const GoalRecurrenceFrequency(this.value, this.label);
+  final String value;
+  final String label;
+
+  static GoalRecurrenceFrequency? fromString(String? value) {
+    if (value == null) return null;
+    return GoalRecurrenceFrequency.values.firstWhere(
+      (f) => f.value == value,
+      orElse: () => GoalRecurrenceFrequency.monthly,
+    );
+  }
+}
+
 class GoalModel {
   final String id;
   final String name;
@@ -48,6 +63,10 @@ class GoalModel {
   final String? icon;
   final GoalType type;
   final GoalStatus status;
+  final bool isRecurring;
+  final GoalRecurrenceFrequency? recurrenceFrequency;
+  final DateTime? periodStartDate;
+  final List<String> categoryIds;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -63,30 +82,29 @@ class GoalModel {
     this.icon,
     this.type = GoalType.saving,
     required this.status,
+    this.isRecurring = false,
+    this.recurrenceFrequency,
+    this.periodStartDate,
+    this.categoryIds = const [],
     required this.createdAt,
     required this.updatedAt,
   });
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
-  /// Progresso de 0.0 a 1.0 (pode ultrapassar 1.0 se overshoot).
   double get progressFraction {
     if (targetAmountInCents <= 0) return 0;
     return currentAmountInCents / targetAmountInCents;
   }
 
-  /// Progresso em percentual (0 – 100+).
   double get progressPercent => progressFraction * 100;
 
-  /// Valor restante para atingir a meta (pode ser negativo se já superou).
   int get remainingInCents => targetAmountInCents - currentAmountInCents;
 
-  /// Objetivo está concluído (current >= target).
   bool get isCompleted =>
       status == GoalStatus.completed ||
       currentAmountInCents >= targetAmountInCents;
 
-  /// Meses restantes até [targetDate]. Retorna `null` se sem prazo.
   int? get monthsRemaining {
     if (targetDate == null) return null;
     final now = DateTime.now();
@@ -94,7 +112,6 @@ class GoalModel {
     return (targetDate!.year - now.year) * 12 + (targetDate!.month - now.month);
   }
 
-  /// Valor mensal ideal para atingir a meta no prazo.
   int? get monthlyTargetInCents {
     final months = monthsRemaining;
     if (months == null || months <= 0) return null;
@@ -103,9 +120,43 @@ class GoalModel {
     return (remaining / months).ceil();
   }
 
+  /// Verifica se o período recorrente atual expirou e precisa resetar.
+  bool get isPeriodExpired {
+    if (!isRecurring || recurrenceFrequency == null || periodStartDate == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    final start = periodStartDate!;
+    final end = switch (recurrenceFrequency!) {
+      GoalRecurrenceFrequency.monthly =>
+        DateTime(start.year, start.month + 1, start.day),
+      GoalRecurrenceFrequency.quarterly =>
+        DateTime(start.year, start.month + 3, start.day),
+      GoalRecurrenceFrequency.yearly =>
+        DateTime(start.year + 1, start.month, start.day),
+    };
+    return now.isAfter(end);
+  }
+
+  /// Calcula o início do próximo período com base no atual.
+  DateTime? get nextPeriodStart {
+    if (!isRecurring || recurrenceFrequency == null || periodStartDate == null) {
+      return null;
+    }
+    final start = periodStartDate!;
+    return switch (recurrenceFrequency!) {
+      GoalRecurrenceFrequency.monthly =>
+        DateTime(start.year, start.month + 1, start.day),
+      GoalRecurrenceFrequency.quarterly =>
+        DateTime(start.year, start.month + 3, start.day),
+      GoalRecurrenceFrequency.yearly =>
+        DateTime(start.year + 1, start.month, start.day),
+    };
+  }
+
   // ── Factory ─────────────────────────────────────────────────────────────────
 
-  factory GoalModel.fromDb(db.Goal g) {
+  factory GoalModel.fromDb(db.Goal g, {List<String> categoryIds = const []}) {
     return GoalModel(
       id: g.id,
       name: g.name,
@@ -118,6 +169,10 @@ class GoalModel {
       icon: g.icon,
       type: GoalType.fromString(g.type),
       status: GoalStatus.fromString(g.status),
+      isRecurring: g.isRecurring,
+      recurrenceFrequency: GoalRecurrenceFrequency.fromString(g.recurrenceFrequency),
+      periodStartDate: g.periodStartDate,
+      categoryIds: categoryIds,
       createdAt: g.createdAt,
       updatedAt: g.updatedAt,
     );
@@ -135,6 +190,10 @@ class GoalModel {
     String? icon,
     GoalType? type,
     GoalStatus? status,
+    bool? isRecurring,
+    GoalRecurrenceFrequency? recurrenceFrequency,
+    DateTime? periodStartDate,
+    List<String>? categoryIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -150,24 +209,20 @@ class GoalModel {
       icon: icon ?? this.icon,
       type: type ?? this.type,
       status: status ?? this.status,
+      isRecurring: isRecurring ?? this.isRecurring,
+      recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
+      periodStartDate: periodStartDate ?? this.periodStartDate,
+      categoryIds: categoryIds ?? this.categoryIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
 
-/// Resultado do simulador mensal com 3 cenários.
 class MonthlySimulation {
-  /// Valor mensal otimista (20% a menos que o ideal).
   final int optimisticInCents;
-
-  /// Valor mensal ideal (exato para atingir no prazo).
   final int idealInCents;
-
-  /// Valor mensal pessimista (20% a mais que o ideal).
   final int pessimisticInCents;
-
-  /// Meses usados no cálculo.
   final int months;
 
   const MonthlySimulation({
