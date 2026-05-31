@@ -679,7 +679,9 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                               }
 
                               return InkWell(
-                                onTap: isLinux ? null : () => onSelected(option),
+                                onTap: isLinux
+                                    ? null
+                                    : () => onSelected(option),
                                 onTapDown: isLinux
                                     ? (_) => onSelected(option)
                                     : null,

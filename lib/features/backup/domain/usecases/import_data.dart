@@ -414,9 +414,9 @@ class ImportDataUseCase {
       // Restore category parent-child relationships if present in backup
       final categoryParentsList = decoded['category_parents'] as List? ?? [];
       for (final item in categoryParentsList) {
-        await _db.into(_db.categoryParents).insert(
-          CategoryParent.fromJson(item),
-        );
+        await _db
+            .into(_db.categoryParents)
+            .insert(CategoryParent.fromJson(item));
       }
 
       for (final item in accountsList) {

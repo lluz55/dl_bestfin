@@ -22,8 +22,10 @@ class CategoryMultiSelectButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final count = selectedIds.length;
-    final preview =
-        candidates.where((c) => selectedIds.contains(c.id)).take(3).toList();
+    final preview = candidates
+        .where((c) => selectedIds.contains(c.id))
+        .take(3)
+        .toList();
 
     return InkWell(
       onTap: () => _openSheet(context),
@@ -42,7 +44,10 @@ class CategoryMultiSelectButton extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: tt.bodyMedium?.copyWith(color: cs.onSurface)),
+                  Text(
+                    label,
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                  ),
                   Text(
                     count == 0
                         ? 'Nenhuma selecionada'
@@ -60,7 +65,11 @@ class CategoryMultiSelectButton extends StatelessWidget {
                   for (final cat in preview)
                     Padding(
                       padding: const EdgeInsets.only(left: 4),
-                      child: CategoryIcon(icon: cat.icon, color: cat.color, size: 26),
+                      child: CategoryIcon(
+                        icon: cat.icon,
+                        color: cat.color,
+                        size: 26,
+                      ),
                     ),
                   if (count > 3)
                     Padding(
@@ -155,7 +164,9 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                     Expanded(
                       child: Text(
                         'Selecionar Categorias',
-                        style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     TextButton(
@@ -175,8 +186,9 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                   leading: const Icon(Icons.search_rounded),
                   onChanged: (v) => setState(() => _query = v),
                   elevation: const WidgetStatePropertyAll(0),
-                  backgroundColor:
-                      WidgetStatePropertyAll(cs.surfaceContainerHighest),
+                  backgroundColor: WidgetStatePropertyAll(
+                    cs.surfaceContainerHighest,
+                  ),
                 ),
               ),
               Expanded(
@@ -184,8 +196,9 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                     ? Center(
                         child: Text(
                           'Nenhuma categoria encontrada',
-                          style:
-                              tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                          style: tt.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -235,14 +248,14 @@ class _Handle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Container(
-          margin: const EdgeInsets.only(top: 12, bottom: 4),
-          width: 36,
-          height: 4,
-          decoration: BoxDecoration(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      );
+    child: Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      width: 36,
+      height: 4,
+      decoration: BoxDecoration(
+        color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(2),
+      ),
+    ),
+  );
 }

@@ -27,8 +27,7 @@ class Goals extends Table {
   )(); // active | completed | archived
 
   /// Se true, a meta reseta automaticamente ao final de cada período.
-  BoolColumn get isRecurring =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isRecurring => boolean().withDefault(const Constant(false))();
 
   /// Frequência de recorrência: monthly | quarterly | yearly
   TextColumn get recurrenceFrequency => text().nullable()();

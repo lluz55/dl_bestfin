@@ -34,6 +34,7 @@ final allFlatCategoriesProvider = Provider<List<CategoryModel>>((ref) {
       visit(child);
     }
   }
+
   for (final root in tree) {
     visit(root);
   }

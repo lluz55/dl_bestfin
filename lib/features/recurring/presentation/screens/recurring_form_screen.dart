@@ -274,7 +274,9 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
           AccountSelector(
             selectedAccountId: _accountId,
             onAccountSelected: (acc) => setState(() => _accountId = acc?.id),
-            hint: _type == TransactionType.transfer ? 'Conta de origem' : 'Selecione uma conta',
+            hint: _type == TransactionType.transfer
+                ? 'Conta de origem'
+                : 'Selecione uma conta',
           ),
           const SizedBox(height: 16),
 

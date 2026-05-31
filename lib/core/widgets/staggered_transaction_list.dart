@@ -90,10 +90,7 @@ class _TransactionTileState extends State<_TransactionTile> {
     final baseIcon = Container(
       width: 44,
       height: 44,
-      decoration: BoxDecoration(
-        color: iconBg,
-        borderRadius: shapes.chip,
-      ),
+      decoration: BoxDecoration(color: iconBg, borderRadius: shapes.chip),
       child: Icon(widget.item.icon, color: iconColor, size: 20),
     );
 

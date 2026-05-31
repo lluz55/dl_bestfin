@@ -10,10 +10,7 @@ import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 
 class CategoryFormScreen extends ConsumerStatefulWidget {
-  const CategoryFormScreen({
-    super.key,
-    this.categoryToEdit,
-  });
+  const CategoryFormScreen({super.key, this.categoryToEdit});
 
   final CategoryModel? categoryToEdit;
 
@@ -112,16 +109,17 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     final editingId = widget.categoryToEdit?.id;
 
     // All leaf categories of the same type that aren't this category
-    final candidates = allCategories
-        .where(
-          (c) =>
-              !c.isArchived &&
-              !c.hasChildren &&
-              c.id != editingId &&
-              c.type == _type,
-        )
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final candidates =
+        allCategories
+            .where(
+              (c) =>
+                  !c.isArchived &&
+                  !c.hasChildren &&
+                  c.id != editingId &&
+                  c.type == _type,
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -289,4 +287,3 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     );
   }
 }
-

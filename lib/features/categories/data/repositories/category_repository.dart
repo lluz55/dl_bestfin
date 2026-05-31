@@ -46,12 +46,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
     late StreamController<void> ctrl;
     ctrl = StreamController<void>(
       onListen: () {
-        s1 = _database.categoriesDao
-            .watchAllCategories()
-            .listen((_) => ctrl.add(null), onError: ctrl.addError);
-        s2 = _database.categoriesDao
-            .watchAllRelationships()
-            .listen((_) => ctrl.add(null), onError: ctrl.addError);
+        s1 = _database.categoriesDao.watchAllCategories().listen(
+          (_) => ctrl.add(null),
+          onError: ctrl.addError,
+        );
+        s2 = _database.categoriesDao.watchAllRelationships().listen(
+          (_) => ctrl.add(null),
+          onError: ctrl.addError,
+        );
       },
       onCancel: () {
         s1?.cancel();
@@ -87,8 +89,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     String? parentColor,
   }) {
     final base = allModels[id]!;
-    final childIds =
-        (parentToChildIds[id] ?? []).where(filteredIds.contains).toList();
+    final childIds = (parentToChildIds[id] ?? [])
+        .where(filteredIds.contains)
+        .toList();
     final children =
         childIds
             .map(
@@ -148,10 +151,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     // Build base models with parentIds populated
     final allModels = <String, CategoryModel>{
       for (final c in filtered)
-        c.id: CategoryModel.fromDb(
-          c,
-          parentIds: childToParentIds[c.id] ?? [],
-        ),
+        c.id: CategoryModel.fromDb(c, parentIds: childToParentIds[c.id] ?? []),
     };
 
     // Identify roots (no parents within filtered set)

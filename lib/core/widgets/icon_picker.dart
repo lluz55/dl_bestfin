@@ -67,7 +67,9 @@ class _AppIconPickerState extends State<AppIconPicker> {
 
   List<(IconData icon, String name)> get _filteredIcons {
     if (_searchQuery.isEmpty) {
-      return AppIconPicker.categorizedIcons.values.expand((list) => list).toList();
+      return AppIconPicker.categorizedIcons.values
+          .expand((list) => list)
+          .toList();
     }
 
     final query = _searchQuery.toLowerCase();
@@ -149,7 +151,9 @@ class _AppIconPickerState extends State<AppIconPicker> {
                     ? _buildGrid(_filteredIcons, scrollController)
                     : ListView(
                         controller: scrollController,
-                        children: AppIconPicker.categorizedIcons.entries.map((entry) {
+                        children: AppIconPicker.categorizedIcons.entries.map((
+                          entry,
+                        ) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

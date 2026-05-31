@@ -519,8 +519,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     int amount,
     String type,
   ) async {
-    final matchingGoals =
-        await _database.goalsDao.getActiveGoalsForCategory(categoryId);
+    final matchingGoals = await _database.goalsDao.getActiveGoalsForCategory(
+      categoryId,
+    );
     if (matchingGoals.isEmpty) return;
 
     final goal = matchingGoals.first;

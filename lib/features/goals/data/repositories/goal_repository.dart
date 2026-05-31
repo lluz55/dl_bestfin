@@ -85,9 +85,9 @@ class GoalRepositoryImpl implements GoalRepository {
 
   @override
   Stream<GoalModel?> watchGoalById(String id) {
-    return _dao.watchGoalById(id).asyncMap(
-      (g) => g != null ? _toModel(g) : null,
-    );
+    return _dao
+        .watchGoalById(id)
+        .asyncMap((g) => g != null ? _toModel(g) : null);
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
@@ -150,7 +150,8 @@ class GoalRepositoryImpl implements GoalRepository {
     // Preserve periodStartDate if already set and goal remains recurring
     DateTime? periodStart;
     if (isRecurring) {
-      periodStart = (existing?.isRecurring == true && existing?.periodStartDate != null)
+      periodStart =
+          (existing?.isRecurring == true && existing?.periodStartDate != null)
           ? existing!.periodStartDate
           : DateTime.now();
     }

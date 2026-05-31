@@ -29,7 +29,9 @@ class InstallmentWizardSheet extends StatefulWidget {
 
 class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
   int _installments = 2;
-  final TextEditingController _installmentsController = TextEditingController(text: '2');
+  final TextEditingController _installmentsController = TextEditingController(
+    text: '2',
+  );
   final TextEditingController _interestController = TextEditingController();
 
   @override
@@ -39,7 +41,8 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
     super.dispose();
   }
 
-  double get _rate => double.tryParse(_interestController.text.replaceAll(',', '.')) ?? 0.0;
+  double get _rate =>
+      double.tryParse(_interestController.text.replaceAll(',', '.')) ?? 0.0;
 
   int get _calculatedTotal {
     final rate = _rate;
@@ -149,7 +152,9 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
                               decoration: InputDecoration(
-                                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -176,10 +181,15 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _interestController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: InputDecoration(
                           hintText: '0,00',
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

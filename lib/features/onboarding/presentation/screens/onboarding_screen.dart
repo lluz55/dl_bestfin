@@ -7,6 +7,7 @@ import 'package:bestfin/features/onboarding/presentation/widgets/notification_pe
 import 'package:bestfin/features/onboarding/presentation/widgets/security_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/select_categories_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/welcome_step.dart';
+import 'package:bestfin/features/onboarding/presentation/widgets/ai_step.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -18,7 +19,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _currentPage = 0;
-  static const _totalPages = 5;
+  static const _totalPages = 6;
 
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
@@ -83,6 +84,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   CreateAccountStep(onNext: _nextPage),
                   SelectCategoriesStep(onNext: _nextPage),
                   NotificationPermissionStep(onNext: _nextPage),
+                  AiStep(onNext: _nextPage),
                   SecurityStep(onFinish: _finish),
                 ],
               ),

@@ -34,7 +34,8 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
   String _icon = 'flag';
   GoalType _type = GoalType.saving;
   bool _isRecurring = false;
-  GoalRecurrenceFrequency? _recurrenceFrequency = GoalRecurrenceFrequency.monthly;
+  GoalRecurrenceFrequency? _recurrenceFrequency =
+      GoalRecurrenceFrequency.monthly;
   List<String> _categoryIds = [];
   bool _saving = false;
 
@@ -52,7 +53,8 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
       _icon = g.icon ?? 'flag';
       _type = g.type;
       _isRecurring = g.isRecurring;
-      _recurrenceFrequency = g.recurrenceFrequency ?? GoalRecurrenceFrequency.monthly;
+      _recurrenceFrequency =
+          g.recurrenceFrequency ?? GoalRecurrenceFrequency.monthly;
       _categoryIds = List<String>.from(g.categoryIds);
     }
   }
@@ -378,7 +380,9 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
             const SizedBox(height: 24),
 
             // Simulador mensal (somente se tem prazo, valor e não é recorrente)
-            if (_targetAmountInCents > 0 && _targetDate != null && !_isRecurring) ...[
+            if (_targetAmountInCents > 0 &&
+                _targetDate != null &&
+                !_isRecurring) ...[
               MonthlySimulatorWidget(
                 remainingInCents: _targetAmountInCents,
                 initialMonths: _monthsToTarget(),
@@ -596,8 +600,9 @@ class _IconColorPickerState extends State<_IconColorPicker> {
   Map<String, List<MapEntry<String, IconData>>> get _displayMap {
     if (_query.isEmpty) return IconMapper.categorized;
     final q = _query.toLowerCase();
-    final filtered =
-        IconMapper.all.entries.where((e) => e.key.contains(q)).toList();
+    final filtered = IconMapper.all.entries
+        .where((e) => e.key.contains(q))
+        .toList();
     return {'Resultados': filtered};
   }
 
@@ -654,8 +659,9 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                     Expanded(
                       child: Text(
                         'Personalizar',
-                        style: tt.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     FilledButton(
@@ -680,8 +686,9 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                   leading: const Icon(Icons.search_rounded),
                   onChanged: (v) => setState(() => _query = v),
                   elevation: const WidgetStatePropertyAll(0),
-                  backgroundColor:
-                      WidgetStatePropertyAll(cs.surfaceContainerHighest),
+                  backgroundColor: WidgetStatePropertyAll(
+                    cs.surfaceContainerHighest,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -696,8 +703,9 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                           padding: const EdgeInsets.only(top: 16, bottom: 8),
                           child: Text(
                             entry.key,
-                            style: tt.labelLarge
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            style: tt.labelLarge?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         ),
                         GridView.builder(
@@ -705,10 +713,10 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 6,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                          ),
+                                crossAxisCount: 6,
+                                mainAxisSpacing: 8,
+                                crossAxisSpacing: 8,
+                              ),
                           itemCount: entry.value.length,
                           itemBuilder: (ctx, i) {
                             final e = entry.value[i];
@@ -741,7 +749,9 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                     const SizedBox(height: 20),
                     Text(
                       'Cor',
-                      style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                      style: tt.labelLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Wrap(

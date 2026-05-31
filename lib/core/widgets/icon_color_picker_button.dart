@@ -108,8 +108,9 @@ class _IconColorSheetState extends State<_IconColorSheet> {
   Map<String, List<MapEntry<String, IconData>>> get _displayMap {
     if (_query.isEmpty) return IconMapper.categorized;
     final q = _query.toLowerCase();
-    final filtered =
-        IconMapper.all.entries.where((e) => e.key.contains(q)).toList();
+    final filtered = IconMapper.all.entries
+        .where((e) => e.key.contains(q))
+        .toList();
     return {'Resultados': filtered};
   }
 
@@ -161,8 +162,9 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                     Expanded(
                       child: Text(
                         'Personalizar',
-                        style:
-                            tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     FilledButton(
@@ -183,8 +185,9 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                   leading: const Icon(Icons.search_rounded),
                   onChanged: (v) => setState(() => _query = v),
                   elevation: const WidgetStatePropertyAll(0),
-                  backgroundColor:
-                      WidgetStatePropertyAll(cs.surfaceContainerHighest),
+                  backgroundColor: WidgetStatePropertyAll(
+                    cs.surfaceContainerHighest,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -199,8 +202,9 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                           padding: const EdgeInsets.only(top: 16, bottom: 8),
                           child: Text(
                             entry.key,
-                            style: tt.labelLarge
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            style: tt.labelLarge?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         ),
                         GridView.builder(
@@ -208,10 +212,10 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 6,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                          ),
+                                crossAxisCount: 6,
+                                mainAxisSpacing: 8,
+                                crossAxisSpacing: 8,
+                              ),
                           itemCount: entry.value.length,
                           itemBuilder: (ctx, i) {
                             final e = entry.value[i];
@@ -247,7 +251,9 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                     const SizedBox(height: 20),
                     Text(
                       'Cor',
-                      style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                      style: tt.labelLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -306,14 +312,14 @@ class _Handle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Container(
-          margin: const EdgeInsets.only(top: 12, bottom: 4),
-          width: 36,
-          height: 4,
-          decoration: BoxDecoration(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      );
+    child: Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      width: 36,
+      height: 4,
+      decoration: BoxDecoration(
+        color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(2),
+      ),
+    ),
+  );
 }

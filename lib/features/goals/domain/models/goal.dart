@@ -122,35 +122,57 @@ class GoalModel {
 
   /// Verifica se o período recorrente atual expirou e precisa resetar.
   bool get isPeriodExpired {
-    if (!isRecurring || recurrenceFrequency == null || periodStartDate == null) {
+    if (!isRecurring ||
+        recurrenceFrequency == null ||
+        periodStartDate == null) {
       return false;
     }
     final now = DateTime.now();
     final start = periodStartDate!;
     final end = switch (recurrenceFrequency!) {
-      GoalRecurrenceFrequency.monthly =>
-        DateTime(start.year, start.month + 1, start.day),
-      GoalRecurrenceFrequency.quarterly =>
-        DateTime(start.year, start.month + 3, start.day),
-      GoalRecurrenceFrequency.yearly =>
-        DateTime(start.year + 1, start.month, start.day),
+      GoalRecurrenceFrequency.monthly => DateTime(
+        start.year,
+        start.month + 1,
+        start.day,
+      ),
+      GoalRecurrenceFrequency.quarterly => DateTime(
+        start.year,
+        start.month + 3,
+        start.day,
+      ),
+      GoalRecurrenceFrequency.yearly => DateTime(
+        start.year + 1,
+        start.month,
+        start.day,
+      ),
     };
     return now.isAfter(end);
   }
 
   /// Calcula o início do próximo período com base no atual.
   DateTime? get nextPeriodStart {
-    if (!isRecurring || recurrenceFrequency == null || periodStartDate == null) {
+    if (!isRecurring ||
+        recurrenceFrequency == null ||
+        periodStartDate == null) {
       return null;
     }
     final start = periodStartDate!;
     return switch (recurrenceFrequency!) {
-      GoalRecurrenceFrequency.monthly =>
-        DateTime(start.year, start.month + 1, start.day),
-      GoalRecurrenceFrequency.quarterly =>
-        DateTime(start.year, start.month + 3, start.day),
-      GoalRecurrenceFrequency.yearly =>
-        DateTime(start.year + 1, start.month, start.day),
+      GoalRecurrenceFrequency.monthly => DateTime(
+        start.year,
+        start.month + 1,
+        start.day,
+      ),
+      GoalRecurrenceFrequency.quarterly => DateTime(
+        start.year,
+        start.month + 3,
+        start.day,
+      ),
+      GoalRecurrenceFrequency.yearly => DateTime(
+        start.year + 1,
+        start.month,
+        start.day,
+      ),
     };
   }
 
@@ -170,7 +192,9 @@ class GoalModel {
       type: GoalType.fromString(g.type),
       status: GoalStatus.fromString(g.status),
       isRecurring: g.isRecurring,
-      recurrenceFrequency: GoalRecurrenceFrequency.fromString(g.recurrenceFrequency),
+      recurrenceFrequency: GoalRecurrenceFrequency.fromString(
+        g.recurrenceFrequency,
+      ),
       periodStartDate: g.periodStartDate,
       categoryIds: categoryIds,
       createdAt: g.createdAt,

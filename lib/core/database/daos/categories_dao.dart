@@ -43,9 +43,9 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> deleteChildrenForParent(String parentId) {
-    return (delete(categoryParents)
-          ..where((t) => t.parentCategoryId.equals(parentId)))
-        .go();
+    return (delete(
+      categoryParents,
+    )..where((t) => t.parentCategoryId.equals(parentId))).go();
   }
 
   Future<void> insertChildrenForParent(

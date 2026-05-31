@@ -425,8 +425,9 @@ class _PersonalizarSheetState extends State<_PersonalizarSheet> {
                     Expanded(
                       child: Text(
                         'Personalizar',
-                        style: tt.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     FilledButton(
@@ -447,7 +448,9 @@ class _PersonalizarSheetState extends State<_PersonalizarSheet> {
                   children: [
                     Text(
                       'Ícone',
-                      style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                      style: tt.labelLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     for (final entry in AppIconPicker.categorizedIcons.entries)
@@ -456,8 +459,9 @@ class _PersonalizarSheetState extends State<_PersonalizarSheet> {
                           padding: const EdgeInsets.only(top: 8, bottom: 8),
                           child: Text(
                             entry.key,
-                            style: tt.labelMedium
-                                ?.copyWith(color: cs.onSurfaceVariant),
+                            style: tt.labelMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         ),
                         GridView.builder(
@@ -465,17 +469,18 @@ class _PersonalizarSheetState extends State<_PersonalizarSheet> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 5,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                          ),
+                                crossAxisCount: 5,
+                                mainAxisSpacing: 10,
+                                crossAxisSpacing: 10,
+                              ),
                           itemCount: entry.value.length,
                           itemBuilder: (ctx, i) {
                             final item = entry.value[i];
                             final code = item.$1.codePoint.toString();
                             final isSelected = code == _iconCodePoint;
                             return GestureDetector(
-                              onTap: () => setState(() => _iconCodePoint = code),
+                              onTap: () =>
+                                  setState(() => _iconCodePoint = code),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 decoration: BoxDecoration(
@@ -524,7 +529,9 @@ class _PersonalizarSheetState extends State<_PersonalizarSheet> {
                     const SizedBox(height: 16),
                     Text(
                       'Cor',
-                      style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+                      style: tt.labelLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Wrap(

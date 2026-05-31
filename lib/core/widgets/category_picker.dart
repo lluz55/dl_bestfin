@@ -33,6 +33,49 @@ class _CategoryPickerSheet extends ConsumerStatefulWidget {
 
 class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
   String _query = '';
+  final Set<String> _expandedIds = {};
+
+  void _toggleExpand(String id) => setState(
+    () => _expandedIds.contains(id)
+        ? _expandedIds.remove(id)
+        : _expandedIds.add(id),
+  );
+
+  // Builds the visible list:
+  //  - no query  → roots always visible; children visible only if parent is expanded
+  //  - with query → all categories that match are shown (collapse state ignored)
+  List<CategoryModel> _buildItems(List<CategoryModel> roots) {
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      final result = <CategoryModel>[];
+      void collect(CategoryModel cat) {
+        if (cat.name.toLowerCase().contains(q)) result.add(cat);
+        for (final child in cat.children) {
+          collect(child);
+        }
+      }
+
+      for (final root in roots) {
+        collect(root);
+      }
+      return result;
+    }
+
+    final result = <CategoryModel>[];
+    void addWithExpansion(CategoryModel cat) {
+      result.add(cat);
+      if (cat.hasChildren && _expandedIds.contains(cat.id)) {
+        for (final child in cat.children) {
+          addWithExpansion(child);
+        }
+      }
+    }
+
+    for (final root in roots) {
+      addWithExpansion(root);
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,18 +141,9 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Erro: $e')),
                   data: (roots) {
-                    final flat = _flatten(roots);
-                    final filtered = _query.isEmpty
-                        ? flat
-                        : flat
-                              .where(
-                                (c) => c.name.toLowerCase().contains(
-                                  _query.toLowerCase(),
-                                ),
-                              )
-                              .toList();
+                    final items = _buildItems(roots);
 
-                    if (filtered.isEmpty) {
+                    if (items.isEmpty) {
                       return const Center(
                         child: Text('Nenhuma categoria encontrada'),
                       );
@@ -118,16 +152,21 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                     return ListView.builder(
                       controller: scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      itemCount: filtered.length,
+                      itemCount: items.length,
                       itemBuilder: (context, i) {
-                        final category = filtered[i];
+                        final category = items[i];
                         final isSelected =
                             category.id == widget.selectedCategoryId;
+                        final isExpanded = _expandedIds.contains(category.id);
 
                         return _CategoryPickerTile(
                           category: category,
                           isSelected: isSelected,
+                          isExpanded: isExpanded,
                           onTap: () => Navigator.of(context).pop(category),
+                          onExpandToggle: category.hasChildren
+                              ? () => _toggleExpand(category.id)
+                              : null,
                           cs: cs,
                           tt: tt,
                         );
@@ -142,39 +181,60 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
       },
     );
   }
-
-  List<CategoryModel> _flatten(List<CategoryModel> roots) {
-    final result = <CategoryModel>[];
-    void visit(CategoryModel cat) {
-      result.add(cat);
-      for (final child in cat.children) {
-        visit(child);
-      }
-    }
-    for (final root in roots) {
-      visit(root);
-    }
-    return result;
-  }
 }
 
 class _CategoryPickerTile extends StatelessWidget {
   const _CategoryPickerTile({
     required this.category,
     required this.isSelected,
+    required this.isExpanded,
     required this.onTap,
+    this.onExpandToggle,
     required this.cs,
     required this.tt,
   });
 
   final CategoryModel category;
   final bool isSelected;
+  final bool isExpanded;
   final VoidCallback onTap;
+  final VoidCallback? onExpandToggle;
   final ColorScheme cs;
   final TextTheme tt;
 
   @override
   Widget build(BuildContext context) {
+    final Widget? trailing;
+    if (onExpandToggle != null) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isSelected)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.check_circle_rounded,
+                color: cs.primary,
+                size: 20,
+              ),
+            ),
+          IconButton(
+            icon: Icon(
+              isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: cs.onSurfaceVariant,
+            ),
+            onPressed: onExpandToggle,
+          ),
+        ],
+      );
+    } else {
+      trailing = isSelected
+          ? Icon(Icons.check_circle_rounded, color: cs.primary)
+          : null;
+    }
+
     return ListTile(
       contentPadding: EdgeInsets.only(
         left: category.parentIds.length * 32.0,
@@ -198,9 +258,7 @@ class _CategoryPickerTile extends StatelessWidget {
         category.typeLabel,
         style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
       ),
-      trailing: isSelected
-          ? Icon(Icons.check_circle_rounded, color: cs.primary)
-          : null,
+      trailing: trailing,
       onTap: onTap,
     );
   }

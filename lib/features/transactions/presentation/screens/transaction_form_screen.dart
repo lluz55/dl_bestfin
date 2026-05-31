@@ -538,17 +538,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     if (_isInstallmentEdit) {
       try {
-        await ref.read(installmentRepositoryProvider).updateInstallmentPlan(
-          planId: widget.transaction!.installmentPlanId!,
-          totalAmount: _amountInCents,
-          description: description,
-          categoryId: _categoryId,
-          entityId: _type == TransactionType.transfer ? null : _entityId,
-          notes: _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-          sentiment: _sentiment?.name,
-        );
+        await ref
+            .read(installmentRepositoryProvider)
+            .updateInstallmentPlan(
+              planId: widget.transaction!.installmentPlanId!,
+              totalAmount: _amountInCents,
+              description: description,
+              categoryId: _categoryId,
+              entityId: _type == TransactionType.transfer ? null : _entityId,
+              notes: _notesController.text.trim().isEmpty
+                  ? null
+                  : _notesController.text.trim(),
+              sentiment: _sentiment?.name,
+            );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -659,7 +661,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           interval: 1,
           startDate: _recurringStartDate ?? _date,
           endDate: _recurringEndDate,
-          autoConfirm: _type == TransactionType.transfer ? false : _recurringAutoConfirm,
+          autoConfirm: _type == TransactionType.transfer
+              ? false
+              : _recurringAutoConfirm,
         );
 
         await ref.read(gamificationServiceProvider).onTransactionCreated();
@@ -798,68 +802,68 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       child: Scaffold(
         backgroundColor: cs.surface,
         appBar: AppPageAppBar(
-        title: _isEditing
-            ? 'Editar Transação'
-            : (_isCloningState ? 'Duplicar Transação' : 'Nova Transação'),
-        actions: [
-          if (_isEditing) ...[
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded),
-              tooltip: 'Excluir transação',
-              onPressed: () async {
-                final deleted = await showDeleteTransactionSheet(
-                  context,
-                  ref,
-                  widget.transaction!,
-                );
-                if (deleted && context.mounted) context.pop();
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.copy_rounded),
-              tooltip: 'Duplicar transação',
-              onPressed: () {
-                setState(() {
-                  _isCloningState = true;
-                  _date = DateTime.now();
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Modo de duplicação ativado. Salve para criar uma nova transação.',
+          title: _isEditing
+              ? 'Editar Transação'
+              : (_isCloningState ? 'Duplicar Transação' : 'Nova Transação'),
+          actions: [
+            if (_isEditing) ...[
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: 'Excluir transação',
+                onPressed: () async {
+                  final deleted = await showDeleteTransactionSheet(
+                    context,
+                    ref,
+                    widget.transaction!,
+                  );
+                  if (deleted && context.mounted) context.pop();
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded),
+                tooltip: 'Duplicar transação',
+                onPressed: () {
+                  setState(() {
+                    _isCloningState = true;
+                    _date = DateTime.now();
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Modo de duplicação ativado. Salve para criar uma nova transação.',
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(cs, tt),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.3),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildPageAmount(cs, tt),
+                  _buildPageOQue(cs, tt),
+                  _buildPageComo(cs, tt),
+                  _buildPageExtras(cs, tt),
+                  _buildPageResumo(cs, tt),
+                ],
+              ),
             ),
           ],
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeader(cs, tt),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.3),
-          ),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildPageAmount(cs, tt),
-                _buildPageOQue(cs, tt),
-                _buildPageComo(cs, tt),
-                _buildPageExtras(cs, tt),
-                _buildPageResumo(cs, tt),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: _buildFooter(cs, tt),
+        ),
+        bottomNavigationBar: _buildFooter(cs, tt),
       ),
     );
   }
@@ -1525,7 +1529,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ),
 
       // Extras card (shown only if any extra is set)
-      if (_notesController.text.isNotEmpty || _installmentCount != null || _recurringFrequency != null) ...[
+      if (_notesController.text.isNotEmpty ||
+          _installmentCount != null ||
+          _recurringFrequency != null) ...[
         const SizedBox(height: 12),
         Card(
           margin: EdgeInsets.zero,

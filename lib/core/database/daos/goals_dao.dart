@@ -40,13 +40,16 @@ class GoalsDao extends DatabaseAccessor<AppDatabase> with _$GoalsDaoMixin {
   // ── GoalCategories ─────────────────────────────────────────────────────────
 
   Future<List<String>> getGoalCategoryIds(String goalId) async {
-    final rows = await (select(goalCategories)
-          ..where((g) => g.goalId.equals(goalId)))
-        .get();
+    final rows = await (select(
+      goalCategories,
+    )..where((g) => g.goalId.equals(goalId))).get();
     return rows.map((r) => r.categoryId).toList();
   }
 
-  Future<void> setGoalCategories(String goalId, List<String> categoryIds) async {
+  Future<void> setGoalCategories(
+    String goalId,
+    List<String> categoryIds,
+  ) async {
     await (delete(goalCategories)..where((g) => g.goalId.equals(goalId))).go();
     if (categoryIds.isEmpty) return;
     await batch((b) {
@@ -68,23 +71,26 @@ class GoalsDao extends DatabaseAccessor<AppDatabase> with _$GoalsDaoMixin {
   /// na sua lista de categorias absorvidas.
   Future<List<Goal>> getActiveGoalsForCategory(String categoryId) async {
     // Coleta o próprio categoryId + todos os seus pais
-    final parentRows = await (select(categoryParents)
-          ..where((r) => r.childCategoryId.equals(categoryId)))
-        .get();
-    final candidateIds = {categoryId, ...parentRows.map((r) => r.parentCategoryId)};
+    final parentRows = await (select(
+      categoryParents,
+    )..where((r) => r.childCategoryId.equals(categoryId))).get();
+    final candidateIds = {
+      categoryId,
+      ...parentRows.map((r) => r.parentCategoryId),
+    };
 
     if (candidateIds.isEmpty) return [];
 
-    final matched = await (select(goalCategories)
-          ..where((g) => g.categoryId.isIn(candidateIds)))
-        .get();
+    final matched = await (select(
+      goalCategories,
+    )..where((g) => g.categoryId.isIn(candidateIds))).get();
 
     if (matched.isEmpty) return [];
     final goalIds = matched.map((m) => m.goalId).toSet().toList();
 
-    return (select(goals)
-          ..where((g) => g.id.isIn(goalIds) & g.status.equals('active')))
-        .get();
+    return (select(
+      goals,
+    )..where((g) => g.id.isIn(goalIds) & g.status.equals('active'))).get();
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
