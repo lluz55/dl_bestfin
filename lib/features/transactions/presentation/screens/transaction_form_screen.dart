@@ -22,6 +22,7 @@ import 'package:bestfin/features/installments/presentation/screens/installment_w
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
 import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_categorize_provider.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
@@ -1034,10 +1035,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Widget _buildPageOQue(ColorScheme cs, TextTheme tt) {
     final activeColor = _activeColor;
 
-    // AI auto-categorize
-    final suggestion = ref.watch(
+    // AI auto-categorize: heuristic first, LLM fallback when model is ready
+    final heuristic = ref.watch(
       autoCategorizeProvider(_descriptionController.text),
     );
+    final suggestion = ref
+        .watch(llmEnhancedCategorizeProvider(_descriptionController.text))
+        .when(
+          data: (s) => s ?? heuristic,
+          loading: () => heuristic,
+          error: (_, _) => heuristic,
+        );
     if (suggestion != null &&
         suggestion.confidence >= 0.80 &&
         _categoryId == null) {

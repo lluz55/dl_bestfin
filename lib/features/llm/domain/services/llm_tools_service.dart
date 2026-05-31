@@ -138,7 +138,10 @@ class LlmToolsService {
     final buf = StringBuffer();
     buf.writeln('Categorias cadastradas:');
     for (final cat in categories) {
-      buf.writeln('- ${cat.name} (${cat.type})');
+      final typeLabel = cat.type == 'income'
+          ? 'Receita / Entrada'
+          : (cat.type == 'expense' ? 'Despesa / Saída' : 'Transferência / Interna');
+      buf.writeln('- ${cat.name} (Tipo: $typeLabel)');
     }
     return buf.toString();
   }
@@ -218,6 +221,9 @@ class LlmToolsService {
       return 'Nenhuma transação confirmada foi encontrada com os filtros especificados.';
     }
 
+    final accounts = ref.read(activeAccountsProvider);
+    final accountMap = {for (final a in accounts) a.id: a.name};
+
     final buf = StringBuffer();
     buf.writeln('Resultados da busca de transações (máximo 20 mais recentes):');
 
@@ -237,17 +243,50 @@ class LlmToolsService {
           ? entries.first.amount
           : (tx.rawAmount ?? 0);
       final dateStr = DateFormat('dd/MM/yyyy').format(tx.date);
-      final typeLabel = tx.type == 'income'
-          ? 'Receita'
-          : (tx.type == 'expense' ? 'Despesa' : 'Transferência');
-      final catName = cat?.name ?? 'Sem categoria';
       
-      final entityName = entity?.name != null
-          ? ' (${entity!.type == 'payee' ? 'Recebedor' : 'Pagador'}: ${entity.name})'
-          : '';
+      final String typeLabel;
+      final String payer;
+      final String payee;
+
+      if (tx.type == 'income') {
+        typeLabel = 'Receita (Entrada)';
+        payer = entity?.name ?? 'Não especificado (Outros)';
+        final destAccountId = entries.isNotEmpty ? entries.first.accountId : null;
+        payee = (destAccountId != null ? accountMap[destAccountId] : null) ?? 'Usuário (Minha Conta)';
+      } else if (tx.type == 'expense') {
+        typeLabel = 'Despesa (Saída)';
+        final sourceAccountId = entries.isNotEmpty ? entries.first.accountId : null;
+        payer = (sourceAccountId != null ? accountMap[sourceAccountId] : null) ?? 'Usuário (Minha Conta)';
+        payee = entity?.name ?? 'Não especificado';
+      } else {
+        typeLabel = 'Transferência (Movimentação Interna)';
+        if (entries.length >= 2) {
+          final creditEntry = entries.firstWhere((e) => e.type == 'credit', orElse: () => entries.first);
+          final debitEntry = entries.firstWhere((e) => e.type == 'debit', orElse: () => entries.last);
+          payer = accountMap[creditEntry.accountId] ?? 'Conta de Origem';
+          payee = accountMap[debitEntry.accountId] ?? 'Conta de Destino';
+        } else if (entries.isNotEmpty) {
+          final singleEntry = entries.first;
+          if (singleEntry.type == 'credit') {
+            payer = accountMap[singleEntry.accountId] ?? 'Conta de Origem';
+            payee = 'Conta de Destino';
+          } else {
+            payer = 'Conta de Origem';
+            payee = accountMap[singleEntry.accountId] ?? 'Conta de Destino';
+          }
+        } else {
+          payer = 'Conta de Origem';
+          payee = 'Conta de Destino';
+        }
+      }
+
+      final catName = cat?.name ?? 'Sem categoria';
 
       buf.writeln(
-        '- $dateStr: R\$ ${fmt.format(amount / 100)} - "${tx.description}"$entityName [$catName] ($typeLabel)',
+        '- $dateStr: R\$ ${fmt.format(amount / 100)} - "${tx.description}" [$catName]\n'
+        '  Tipo: $typeLabel\n'
+        '  Pagador: $payer\n'
+        '  Recebedor: $payee',
       );
 
       if (tx.type == 'income') {
@@ -258,10 +297,8 @@ class LlmToolsService {
     }
 
     buf.writeln('\nResumo dos resultados listados:');
-    buf.writeln('- Soma total de Receitas: R\$ ${fmt.format(sumIncome / 100)}');
-    buf.writeln(
-      '- Soma total de Despesas: R\$ ${fmt.format(sumExpense / 100)}',
-    );
+    buf.writeln('- Soma total de Receitas (Entradas): R\$ ${fmt.format(sumIncome / 100)}');
+    buf.writeln('- Soma total de Despesas (Saídas): R\$ ${fmt.format(sumExpense / 100)}');
 
     return buf.toString();
   }
@@ -312,7 +349,11 @@ class LlmToolsService {
       final amount = r.amountInCents != null
           ? 'R\$ ${fmt.format(r.amountInCents! / 100)}'
           : 'valor variável';
-      buf.writeln('- "$desc": $amount — $freq — próxima: $next');
+      final typeLabel = r.type == 'income'
+          ? 'Receita (Entrada)'
+          : (r.type == 'expense' ? 'Despesa (Saída)' : 'Transferência (Interna)');
+      final catLabel = r.categoryName != null ? ' [${r.categoryName}]' : '';
+      buf.writeln('- "$desc"$catLabel: $amount — $freq — próxima: $next ($typeLabel)');
     }
     return buf.toString();
   }
@@ -381,14 +422,14 @@ class LlmToolsService {
     final endStr = DateFormat('dd/MM/yyyy').format(end);
 
     final buf = StringBuffer();
-    buf.writeln('Resumo de gastos por categoria ($startStr a $endStr):');
+    buf.writeln('Resumo de despesas (gastos) por categoria ($startStr a $endStr):');
     for (final entry in sorted) {
       final name = categoryNames[entry.key]!;
       final amount = fmt.format(entry.value / 100);
       final pct = (entry.value / total * 100).toStringAsFixed(1);
       buf.writeln('- $name: R\$ $amount ($pct%)');
     }
-    buf.writeln('Total gasto no período: R\$ ${fmt.format(total / 100)}');
+    buf.writeln('Total despendido (gasto) no período: R\$ ${fmt.format(total / 100)}');
     return buf.toString();
   }
 }

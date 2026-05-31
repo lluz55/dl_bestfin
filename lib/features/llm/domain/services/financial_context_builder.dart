@@ -29,6 +29,8 @@ class FinancialContextBuilder {
     buf.writeln('=== DIRETRIZES DE RESPOSTA ===');
     buf.writeln('- Responda de forma extremamente concisa, direta, curta e objetiva.');
     buf.writeln('- Responda SEMPRE no mesmo idioma/linguagem que o usuário utilizou na pergunta (se ele perguntar em inglês, responda em inglês; se em português, responda em português, etc.).');
+    buf.writeln('- Você deve se manter estritamente dentro do escopo do aplicativo BestFin (finanças pessoais, controle de gastos, planejamento, economia e orçamento).');
+    buf.writeln('- Se o usuário perguntar sobre assuntos não relacionados ao tema (como receitas culinárias, programação de software, piadas, curiosidades históricas, esportes, etc.), recuse-se de forma educada, direta e concisa a responder, orientando-o a perguntar sobre suas finanças pessoais ou economia doméstica.');
     buf.writeln('');
     buf.writeln('FORMATO OBRIGATÓRIO (use : dois-pontos, nunca parênteses):');
     buf.writeln('');
@@ -131,12 +133,39 @@ class FinancialContextBuilder {
     if (txs != null && txs.isNotEmpty) {
       final recent = txs.where((t) => t.isCompleted).take(20).toList();
       if (recent.isNotEmpty) {
+        final accounts = ref.read(activeAccountsProvider);
+        final accountMap = {for (final a in accounts) a.id: a.name};
+
         buf.writeln('Últimas ${recent.length} transações confirmadas:');
         for (final tx in recent) {
           final sign = tx.type == TransactionType.income ? '+' : '-';
-          final cat = tx.category?.name ?? '';
+          
+          final String typeLabel;
+          final String payer;
+          final String payee;
+
+          if (tx.type == TransactionType.income) {
+            typeLabel = 'Receita (Entrada)';
+            payer = tx.entity?.name ?? 'Não especificado (Outros)';
+            final destAccountId = tx.accountId;
+            payee = (destAccountId != null ? accountMap[destAccountId] : null) ?? 'Usuário (Minha Conta)';
+          } else if (tx.type == TransactionType.expense) {
+            typeLabel = 'Despesa (Saída)';
+            final sourceAccountId = tx.accountId;
+            payer = (sourceAccountId != null ? accountMap[sourceAccountId] : null) ?? 'Usuário (Minha Conta)';
+            payee = tx.entity?.name ?? 'Não especificado';
+          } else {
+            typeLabel = 'Transferência (Movimentação Interna)';
+            final fromAcc = tx.fromAccountId;
+            final toAcc = tx.toAccountId;
+            payer = (fromAcc != null ? accountMap[fromAcc] : null) ?? 'Conta Origem';
+            payee = (toAcc != null ? accountMap[toAcc] : null) ?? 'Conta Destino';
+          }
+
+          final cat = tx.category?.name ?? 'Sem categoria';
           buf.writeln(
-            '  ${DateFormat('dd/MM').format(tx.date)} $sign${brl(tx.amount)} "${tx.description}"${cat.isNotEmpty ? " [$cat]" : ""}',
+            '  - ${DateFormat('dd/MM/yyyy').format(tx.date)}: $sign${brl(tx.amount)} - "${tx.description}" [$cat]\n'
+            '    Tipo: $typeLabel | Pagador: $payer | Recebedor: $payee',
           );
         }
       }
