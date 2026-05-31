@@ -18,6 +18,10 @@ import 'package:bestfin/features/accounts/presentation/providers/accounts_provid
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
+import 'package:bestfin/features/llm/data/services/model_download_service.dart';
+import 'package:bestfin/features/llm/domain/models/llm_state.dart';
+import 'package:bestfin/features/llm/domain/models/ai_model_type.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -303,6 +307,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: _clearAllData,
           ),
           const SizedBox(height: 8),
+          _SectionHeader(title: 'Inteligência Artificial', tt: tt, cs: cs),
+          _AiModelTile(cs: cs, tt: tt),
+          const SizedBox(height: 8),
           _SectionHeader(title: 'Sobre', tt: tt, cs: cs),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
@@ -574,6 +581,308 @@ class _SettingsTile extends StatelessWidget {
           (onTap != null ? const Icon(Icons.chevron_right_rounded) : null),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+}
+
+class _AiModelTile extends ConsumerStatefulWidget {
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  const _AiModelTile({required this.cs, required this.tt});
+
+  @override
+  ConsumerState<_AiModelTile> createState() => _AiModelTileState();
+}
+
+class _AiModelTileState extends ConsumerState<_AiModelTile> {
+  bool _modelPresent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkModel();
+  }
+
+  Future<void> _checkModel() async {
+    final selectedModel = ref.read(selectedModelProvider);
+    final present = await ModelDownloadService.isModelPresent(selectedModel);
+    if (mounted) setState(() => _modelPresent = present);
+  }
+
+  Future<void> _removeModel() async {
+    final selectedModel = ref.read(selectedModelProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Remover modelo?'),
+        content: Text(
+          'O modelo ${selectedModel.displayName} (~${selectedModel.sizeMb} MB) será excluído do dispositivo. '
+          'Você poderá baixá-lo novamente a qualquer momento.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await ModelDownloadService.deleteModel(selectedModel);
+    ref.read(llmStateProvider.notifier).clearError();
+    await _checkModel();
+  }
+
+  Future<void> _changeModel() async {
+    final selectedModel = ref.read(selectedModelProvider);
+    
+    final presenceMap = <AiModelType, bool>{};
+    for (final type in AiModelType.values) {
+      presenceMap[type] = await ModelDownloadService.isModelPresent(type);
+    }
+
+    if (!mounted) return;
+
+    final newModel = await showDialog<AiModelType>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final tt = Theme.of(ctx).textTheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            'Selecione o Modelo de IA',
+            style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: AiModelType.values.map((model) {
+              final isCurrent = model == selectedModel;
+              final isPresent = presenceMap[model] ?? false;
+              
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isCurrent ? cs.primary : cs.outlineVariant,
+                    width: isCurrent ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  color: isCurrent 
+                      ? cs.primaryContainer.withValues(alpha: 0.15)
+                      : cs.surfaceContainerLow,
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          model.displayName,
+                          style: tt.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isCurrent ? cs.primary : cs.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (isPresent)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cs.secondaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Baixado',
+                            style: tt.labelSmall?.copyWith(
+                              color: cs.onSecondaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${model.description}\nTamanho: ~${model.sizeMb} MB',
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                  trailing: Radio<AiModelType>(
+                    value: model,
+                    groupValue: selectedModel,
+                    onChanged: (val) {
+                      Navigator.pop(ctx, val);
+                    },
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx, model);
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newModel != null && newModel != selectedModel) {
+      await ref.read(selectedModelProvider.notifier).setModel(newModel);
+      await _checkModel();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final tt = widget.tt;
+    final llmState = ref.watch(llmStateProvider);
+    final selectedModel = ref.watch(selectedModelProvider);
+
+    // Keep the model presence state in sync dynamically when model selection changes.
+    ref.listen<AiModelType>(selectedModelProvider, (previous, next) {
+      _checkModel();
+    });
+
+    final (statusLabel, statusColor) = switch (llmState.status) {
+      LlmStatus.ready => ('Modelo ativo', cs.primary),
+      LlmStatus.loading => ('Carregando…', cs.secondary),
+      LlmStatus.downloading => ('Baixando…', cs.secondary),
+      LlmStatus.error => ('Erro', cs.error),
+      _ =>
+        _modelPresent
+            ? ('Instalado (inativo)', cs.onSurfaceVariant)
+            : ('Não instalado', cs.onSurfaceVariant),
+    };
+
+    return Column(
+      children: [
+        // Current model
+        ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: cs.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.psychology_outlined,
+              size: 20,
+              color: cs.onTertiaryContainer,
+            ),
+          ),
+          title: Text(
+            'Modelo atual',
+            style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            '${selectedModel.displayName} · Q4_K_M · ${selectedModel.sizeMb} MB',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              statusLabel,
+              style: tt.labelSmall?.copyWith(
+                color: statusColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+
+        // Change model
+        ListTile(
+          enabled: true,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.swap_horiz_rounded,
+              size: 20,
+              color: cs.primary,
+            ),
+          ),
+          title: Text(
+            'Alterar modelo',
+            style: tt.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            'Escolha outro modelo GGUF local',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: _changeModel,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+
+        // Remove model (only if installed)
+        if (_modelPresent)
+          ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: cs.errorContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.delete_outline_rounded,
+                size: 20,
+                color: cs.error,
+              ),
+            ),
+            title: Text(
+              'Remover modelo',
+              style: tt.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: cs.error,
+              ),
+            ),
+            subtitle: Text(
+              'Libera ~${selectedModel.sizeMb} MB de armazenamento',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _removeModel,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+      ],
     );
   }
 }

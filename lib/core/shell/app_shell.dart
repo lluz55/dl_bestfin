@@ -7,6 +7,9 @@ import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/motion.dart';
 import 'package:bestfin/core/widgets/global_fab.dart';
+import 'package:bestfin/features/llm/domain/models/llm_state.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
+import 'package:bestfin/features/llm/presentation/widgets/model_setup_sheet.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -48,6 +51,8 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final currentIndex = navigationShell.currentIndex;
+    final llmState = ref.watch(llmStateProvider);
+    final selectedModel = ref.watch(selectedModelProvider);
 
     return Scaffold(
       extendBody: true,
@@ -63,11 +68,89 @@ class AppShell extends ConsumerWidget {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: Padding(
-        padding: EdgeInsets.only(
-          bottom: 96 + MediaQuery.paddingOf(context).bottom,
-        ),
-        child: navigationShell,
+      body: Stack(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: 96 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: navigationShell,
+          ),
+          if (llmState.status == LlmStatus.downloading)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 104 + MediaQuery.paddingOf(context).bottom,
+              child: GestureDetector(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (_) => const ModelSetupSheet(),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(
+                          value: llmState.downloadProgress,
+                          strokeWidth: 3,
+                          color: cs.primary,
+                          backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Baixando modelo em segundo plano...',
+                              style: context.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${selectedModel.displayName} · ${(llmState.downloadProgress * 100).toStringAsFixed(1)}%',
+                              style: context.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ).animate().slideY(
+                  begin: 0.5,
+                  end: 0,
+                  curve: Curves.easeOutCubic,
+                  duration: const Duration(milliseconds: 300),
+                ),
+        ],
       ),
       bottomNavigationBar: _AnimatedNavigationBar(
         selectedIndex: currentIndex,

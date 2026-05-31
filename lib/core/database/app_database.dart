@@ -32,6 +32,7 @@ import 'tables/streaks.dart';
 import 'tables/badges.dart';
 import 'tables/category_parents.dart';
 import 'tables/goal_categories.dart';
+import 'tables/chat_messages.dart';
 
 // DAOs (To be added later)
 import 'daos/accounts_dao.dart';
@@ -78,6 +79,7 @@ part 'app_database.g.dart';
     Badges,
     CategoryParents,
     GoalCategories,
+    ChatMessages,
   ],
   daos: [
     AccountsDao,
@@ -103,7 +105,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration {
@@ -285,6 +287,9 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(goals, goals.isRecurring);
           await m.addColumn(goals, goals.recurrenceFrequency);
           await m.addColumn(goals, goals.periodStartDate);
+        }
+        if (from < 17) {
+          await m.createTable(chatMessages);
         }
       },
       beforeOpen: (details) async {

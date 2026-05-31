@@ -7,6 +7,10 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
+import 'package:bestfin/features/llm/domain/models/llm_state.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_insights_provider.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_narrative_provider.dart';
 
 class AiDashboardScreen extends ConsumerStatefulWidget {
   const AiDashboardScreen({super.key});
@@ -46,8 +50,15 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildOcrBanner(context),
+              const SizedBox(height: 12),
+
+              _buildChatBanner(context),
+              const SizedBox(height: 12),
+
+              _buildSuggestionsCard(context),
               const SizedBox(height: 20),
 
+              _buildLlmInsightsCard(context),
               _buildHealthScoreCard(context, healthScore),
               const SizedBox(height: 20),
 
@@ -75,6 +86,96 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  List<String> _buildSuggestedPrompts() {
+    final anomalies = ref.read(anomalyDetectionProvider);
+    final goals = ref.read(goalAchievabilityProvider);
+    final trends = ref.read(spendingTrendsProvider);
+    final health = ref.read(financialHealthScoreProvider);
+    final result = <String>[];
+
+    if (anomalies.isNotEmpty) {
+      result.add('Explique meu gasto anormal em "${anomalies.first.title}"');
+    }
+    final offTrack = goals.where((g) => !g.isOnTrack).toList();
+    if (offTrack.isNotEmpty) {
+      result.add('Como atingir "${offTrack.first.goalName}" mais rápido?');
+    }
+    final increasing = trends.where((t) => t.trend == 'increasing').toList();
+    if (increasing.isNotEmpty) {
+      result.add('Gastos com ${increasing.first.categoryName} subiram — o que fazer?');
+    }
+    if (health.score < 60) result.add('Como melhorar minha saúde financeira?');
+
+    const generic = [
+      'Quanto gastei este mês?',
+      'Qual meu maior gasto?',
+      'Quais são minhas metas?',
+      'Liste minhas contas e saldos',
+    ];
+    for (final g in generic) {
+      if (result.length >= 4) break;
+      if (!result.contains(g)) result.add(g);
+    }
+    return result.take(4).toList();
+  }
+
+  Widget _buildSuggestionsCard(BuildContext context) {
+    final llmState = ref.watch(llmStateProvider);
+    if (llmState.status != LlmStatus.ready &&
+        llmState.status != LlmStatus.generating) {
+      return const SizedBox.shrink();
+    }
+
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final prompts = _buildSuggestedPrompts();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.chat_bubble_outline_rounded, size: 16, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Pergunte ao Assistente',
+                style: tt.labelLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: prompts.map((prompt) {
+              return ActionChip(
+                label: Text(
+                  prompt,
+                  style: tt.labelSmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: () {
+                  context.push('/ai/chat', extra: prompt);
+                },
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -160,6 +261,151 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildChatBanner(BuildContext context) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final llmState = ref.watch(llmStateProvider);
+
+    final isReady = llmState.status == LlmStatus.ready;
+    final accentColor = isReady ? cs.tertiary : cs.secondary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push('/ai/chat'),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.psychology_outlined,
+                    color: accentColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Assistente Financeiro IA',
+                        style: tt.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      Text(
+                        isReady
+                            ? 'Modelo pronto — pergunte sobre suas finanças'
+                            : 'Converse com IA sobre suas finanças (offline)',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLlmInsightsCard(BuildContext context) {
+    final llmState = ref.watch(llmStateProvider);
+    if (llmState.status != LlmStatus.ready &&
+        llmState.status != LlmStatus.generating) {
+      return const SizedBox.shrink();
+    }
+
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final insights = ref.watch(llmInsightsProvider);
+
+    return insights.when(
+      loading: () => AnimatedCard(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Gerando análise com IA…',
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        final card = AnimatedCard(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 18, color: cs.tertiary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Análise do Assistente IA',
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () {
+                        ref.read(llmInsightsCacheInvalidatorProvider).call();
+                      },
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 18,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...list.map(
+                  (insight) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(insight, style: tt.bodyMedium),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        return Column(children: [card, const SizedBox(height: 20)]);
+      },
     );
   }
 
@@ -603,6 +849,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
   ) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    final llmSentimentInsights = ref.watch(llmSentimentNarrativeProvider);
 
     return AnimatedCard(
       child: Padding(
@@ -713,72 +960,102 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
             const SizedBox(height: 24),
 
             // Insights Title
-            Text(
-              'Insights e Recomendações',
-              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Text(
+                  'Insights e Recomendações',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 6),
+                if (llmSentimentInsights.hasValue &&
+                    llmSentimentInsights.value!.isNotEmpty)
+                  Icon(Icons.auto_awesome, size: 14, color: cs.tertiary),
+              ],
             ),
             const SizedBox(height: 12),
 
-            if (report.psychologicalInsights.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Continue cadastrando transações e classificando seus sentimentos para liberar insights comportamentais avançados.',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: report.psychologicalInsights.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, idx) {
-                  final insight = report.psychologicalInsights[idx];
-
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHigh.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: cs.primary.withValues(alpha: 0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline_rounded,
-                          color: cs.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            insight,
-                            style: tt.bodySmall?.copyWith(
-                              color: cs.onSurface,
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+            llmSentimentInsights.when(
+              loading: () => _buildSentimentInsightsList(
+                context, report.psychologicalInsights,
               ),
+              error: (_, __) => _buildSentimentInsightsList(
+                context, report.psychologicalInsights,
+              ),
+              data: (llmInsights) => _buildSentimentInsightsList(
+                context,
+                llmInsights.isNotEmpty
+                    ? llmInsights
+                    : report.psychologicalInsights,
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSentimentInsightsList(
+    BuildContext context,
+    List<String> insights,
+  ) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+
+    if (insights.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          'Continue cadastrando transações e classificando seus sentimentos para liberar insights comportamentais avançados.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: insights.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, idx) {
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: cs.primary.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                color: cs.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  insights[idx],
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -838,6 +1115,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final gradeColor = _gradeColor(cs, health.grade);
+    final llmNarrative = ref.watch(llmHealthNarrativeProvider);
 
     return AnimatedCard(
       child: Padding(
@@ -947,17 +1225,35 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.tips_and_updates_outlined,
+                    llmNarrative.hasValue && llmNarrative.value!.isNotEmpty
+                        ? Icons.auto_awesome
+                        : Icons.tips_and_updates_outlined,
                     color: gradeColor,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      health.primaryRecommendation,
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w500,
+                    child: llmNarrative.when(
+                      loading: () => Text(
+                        health.primaryRecommendation,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      error: (_, __) => Text(
+                        health.primaryRecommendation,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      data: (narrative) => Text(
+                        narrative.isNotEmpty ? narrative : health.primaryRecommendation,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),

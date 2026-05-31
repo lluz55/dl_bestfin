@@ -34,6 +34,8 @@
           cmake-3-22-1
         ]);
 
+        llama-cpp-vulkan = pkgs.llama-cpp.override { vulkanSupport = true; };
+
         backend = pkgs.buildGoModule {
           pname = "bestfin-backend";
           version = "0.1.0";
@@ -49,6 +51,28 @@
           program = "${backend}/bin/bestfin-backend";
         };
 
+        apps.llm-server = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "llm-server" ''
+            MODEL_DIR="/home/lluz/Documents/llm"
+            MODEL_PATH="$MODEL_DIR/MiniCPM-V-4_6-Q4_K_M.gguf"
+            MODEL_URL="https://huggingface.co/openbmb/MiniCPM-V-4.6-gguf/resolve/main/MiniCPM-V-4_6-Q4_K_M.gguf"
+
+            mkdir -p "$MODEL_DIR"
+
+            if [ ! -f "$MODEL_PATH" ] || [ $(stat -c%s "$MODEL_PATH" 2>/dev/null || echo 0) -lt 500000000 ]; then
+              echo "🤖 Modelo nao encontrado ou incompleto. Iniciando download do MiniCPM-V 4.6 (Q4_K_M) do Hugging Face..."
+              ${pkgs.curl}/bin/curl -L -C - -o "$MODEL_PATH" "$MODEL_URL"
+            fi
+
+            echo "🚀 Iniciando Llama-Server na porta 8087 com o modelo: $MODEL_PATH"
+            exec ${llama-cpp-vulkan}/bin/llama-server \
+              -m "$MODEL_PATH" \
+              --port 8087 \
+              -c 4096
+          ''}/bin/llm-server";
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             flutter
@@ -61,6 +85,7 @@
             pcre2
             libepoxy
             libsecret
+            llama-cpp-vulkan
             # Backend development
             go
             # Scripting
@@ -81,6 +106,8 @@
             export GRADLE_USER_HOME="$HOME/.gradle"
             export PATH="$HOME/.pub-cache/bin:$PATH"
             export LD_LIBRARY_PATH="${pkgs.sqlite.out}/lib:$LD_LIBRARY_PATH"
+            export LLAMA_LIBRARY_PATH="${llama-cpp-vulkan}/lib/libllama.so"
+            export LLAMA_SERVER_BIN="${llama-cpp-vulkan}/bin/llama-server"
             export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
             echo "🏦 BestFin dev environment ready"
           '';

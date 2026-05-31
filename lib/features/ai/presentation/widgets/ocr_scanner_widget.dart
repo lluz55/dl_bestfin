@@ -1,10 +1,10 @@
-import 'dart:async';
-import 'dart:math';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:intl/intl.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -12,32 +12,19 @@ import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/entry.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
+import 'package:bestfin/features/llm/domain/models/llm_state.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
+import 'package:bestfin/features/llm/domain/models/ai_model_type.dart';
 
-class OcrReceiptTemplate {
-  final String name;
-  final int amountInCents;
-  final TransactionType type;
-  final String description;
-  final String categoryId;
-  final String categoryName;
-  final String categoryColor;
-  final String categoryIcon;
-  final List<String> items;
-  final IconData icon;
-
-  const OcrReceiptTemplate({
-    required this.name,
-    required this.amountInCents,
-    required this.type,
-    required this.description,
-    required this.categoryId,
-    required this.categoryName,
-    required this.categoryColor,
-    required this.categoryIcon,
-    required this.items,
-    required this.icon,
-  });
+const _ocrPrompt = '''Analise este comprovante ou recibo fiscal. Extraia EXATAMENTE um JSON válido com os seguintes campos:
+{
+  "amount": <valor total em reais como número, ex: 124.50>,
+  "date": "<data no formato YYYY-MM-DD, ou null se não encontrada>",
+  "description": "<nome do estabelecimento ou descrição resumida, máx 40 chars>",
+  "type": "<expense ou income>",
+  "category": "<uma das opções: alimentação, transporte, saúde, lazer, moradia, educação, vestuário, serviços, outros>"
 }
+Responda SOMENTE com o JSON, sem nenhum texto adicional, explicação ou markdown.''';
 
 class OcrScannerWidget extends ConsumerStatefulWidget {
   const OcrScannerWidget({super.key});
@@ -46,213 +33,186 @@ class OcrScannerWidget extends ConsumerStatefulWidget {
   ConsumerState<OcrScannerWidget> createState() => _OcrScannerWidgetState();
 }
 
-class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
-    with SingleTickerProviderStateMixin {
-  final List<OcrReceiptTemplate> _templates = [
-    const OcrReceiptTemplate(
-      name: 'Supermercado Carrefour',
-      amountInCents: 12450,
-      type: TransactionType.expense,
-      description: 'Supermercado Carrefour Express',
-      categoryId: 'cat_food',
-      categoryName: 'Alimentação',
-      categoryColor: '#FF9800',
-      categoryIcon: 'restaurant',
-      icon: Icons.local_grocery_store,
-      items: [
-        'CARREFOUR COMÉRCIO ALIMENTAR LTDA',
-        '1x PÃO INTEGRAL - R\$ 8,90',
-        '2x LEITE INTEGRAL - R\$ 12,40',
-        '1x QUEIJO PRATO 150G - R\$ 24,90',
-        '1x CAFÉ GOURMET 500G - R\$ 18,50',
-        'FRUTAS E VERDURAS - R\$ 59,80',
-        '----------------------------------',
-        'TOTAL: R\$ 124,50',
-      ],
-    ),
-    const OcrReceiptTemplate(
-      name: 'Posto Ipiranga',
-      amountInCents: 15000,
-      type: TransactionType.expense,
-      description: 'Posto Ipiranga Combustíveis',
-      categoryId: 'cat_transport',
-      categoryName: 'Transporte',
-      categoryColor: '#2196F3',
-      categoryIcon: 'directions_car',
-      icon: Icons.local_gas_station,
-      items: [
-        'AUTO POSTO MAR AZUL LTDA - IPIRANGA',
-        'GASOLINA ADITIVADA BOMBA 03',
-        'QTD: 25,86 LITROS',
-        'VALOR UNITÁRIO: R\$ 5,80',
-        '----------------------------------',
-        'TOTAL: R\$ 150,00',
-      ],
-    ),
-    const OcrReceiptTemplate(
-      name: 'Pix Recebido - Mariana Silva',
-      amountInCents: 35000,
-      type: TransactionType.income,
-      description: 'Pix Mariana Silva',
-      categoryId: 'cat_freelance',
-      categoryName: 'Freelance',
-      categoryColor: '#8BC34A',
-      categoryIcon: 'work',
-      icon: Icons.monetization_on,
-      items: [
-        'BANCO CENTRAL DO BRASIL - PIX',
-        'RECEBIDO DE: MARIANA SILVA SANTOS',
-        'BANCO ORIGINAL S.A.',
-        'DATA: HOJE',
-        'STATUS: EFETIVADO COM SUCESSO',
-        '----------------------------------',
-        'VALOR: R\$ 350,00',
-      ],
-    ),
-  ];
+class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
+  final _picker = ImagePicker();
 
-  OcrReceiptTemplate? _selectedTemplate;
-  bool _isScanning = false;
-  bool _isFinished = false;
-  double _scanProgress = 0.0;
-  String _scanStatus = '';
-  late AnimationController _laserController;
+  Uint8List? _imageBytes;
+  bool _isAnalyzing = false;
+  String? _errorMessage;
 
-  @override
-  void initState() {
-    super.initState();
-    _laserController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-  }
+  // Extracted data
+  double? _amount;
+  String? _description;
+  String? _dateStr;
+  String? _category;
+  String? _type;
 
-  @override
-  void dispose() {
-    _laserController.dispose();
-    super.dispose();
-  }
+  bool get _hasResult => _amount != null && _description != null;
 
-  void _selectTemplate(OcrReceiptTemplate template) {
+  void _reset() {
     setState(() {
-      _selectedTemplate = template;
-      _isScanning = true;
-      _isFinished = false;
-      _scanProgress = 0.0;
-      _scanStatus = 'Detectando bordas da imagem...';
+      _imageBytes = null;
+      _isAnalyzing = false;
+      _errorMessage = null;
+      _amount = null;
+      _description = null;
+      _dateStr = null;
+      _category = null;
+      _type = null;
     });
-    _laserController.repeat(reverse: true);
-    _startScanningSimulation();
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
     try {
-      final image = await picker.pickImage(source: source);
-      if (image != null) {
-        // Create a custom template for real image
-        final randomAmount =
-            (Random().nextInt(80) + 15) * 1000 +
-            (Random().nextInt(99) * 10); // R$ 15,00 to R$ 95,00
-        final customTemplate = OcrReceiptTemplate(
-          name: 'Comprovante Importado',
-          amountInCents: randomAmount,
-          type: TransactionType.expense,
-          description: 'Compra Estabelecimento Local',
-          categoryId: 'cat_food',
-          categoryName: 'Alimentação',
-          categoryColor: '#FF9800',
-          categoryIcon: 'restaurant',
-          icon: Icons.receipt_long,
-          items: [
-            'ESTABELECIMENTO LOCAL COMERCIAL',
-            'PRODUTOS DIVERSOS - R\$ ${(randomAmount / 100.0).toStringAsFixed(2)}',
-            'FORMA DE PAGAMENTO: CARTÃO DÉBITO',
-            'DATA: HOJE',
-            '----------------------------------',
-            'TOTAL: R\$ ${(randomAmount / 100.0).toStringAsFixed(2)}',
-          ],
-        );
-
-        setState(() {
-          _selectedTemplate = customTemplate;
-          _isScanning = true;
-          _isFinished = false;
-          _scanProgress = 0.0;
-          _scanStatus = 'Detectando bordas do arquivo...';
-        });
-        _laserController.repeat(reverse: true);
-        _startScanningSimulation();
-      }
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _imageBytes = bytes;
+        _errorMessage = null;
+        _amount = null;
+        _description = null;
+        _dateStr = null;
+        _category = null;
+        _type = null;
+      });
+      await _analyzeImage(bytes);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao abrir imagem: $e')));
+        setState(() => _errorMessage = 'Erro ao abrir imagem: $e');
       }
     }
   }
 
-  void _startScanningSimulation() {
-    // Stage 1: Detect borders
-    Timer(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      setState(() {
-        _scanProgress = 0.35;
-        _scanStatus = 'Lendo caracteres OCR com IA...';
-      });
+  Future<void> _analyzeImage(Uint8List bytes) async {
+    final llmService = ref.read(llmServiceProvider);
+    setState(() {
+      _isAnalyzing = true;
+      _errorMessage = null;
     });
 
-    // Stage 2: OCR Parsing
-    Timer(const Duration(milliseconds: 1700), () {
-      if (!mounted) return;
-      setState(() {
-        _scanProgress = 0.75;
-        _scanStatus = 'Identificando categoria e valores...';
-      });
-    });
+    try {
+      final response = await llmService.analyzeImage(bytes, _ocrPrompt, maxTokens: 200);
+      _parseResponse(response);
+    } on UnsupportedError catch (e) {
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      setState(() => _errorMessage = 'Erro ao analisar imagem: $e');
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
+    }
+  }
 
-    // Stage 3: Finished
-    Timer(const Duration(milliseconds: 2600), () {
-      if (!mounted) return;
+  void _parseResponse(String response) {
+    // Strip markdown fences if present
+    final cleaned = response
+        .replaceAll('```json', '')
+        .replaceAll('```', '')
+        .trim();
+
+    try {
+      final json = jsonDecode(cleaned) as Map<String, dynamic>;
+      final rawAmount = json['amount'];
+      final amount = rawAmount is num
+          ? rawAmount.toDouble()
+          : double.tryParse(rawAmount.toString().replaceAll(',', '.'));
+
       setState(() {
-        _scanProgress = 1.0;
-        _isScanning = false;
-        _isFinished = true;
-        _scanStatus = 'Escaneamento concluído!';
+        _amount = amount;
+        _description = json['description'] as String?;
+        _dateStr = json['date'] as String?;
+        _category = json['category'] as String?;
+        _type = json['type'] as String?;
+        _errorMessage = amount == null ? 'Não foi possível extrair o valor do comprovante.' : null;
       });
-      _laserController.stop();
-    });
+    } catch (_) {
+      setState(() => _errorMessage = 'O modelo não retornou um JSON válido. Tente outra imagem.');
+    }
+  }
+
+  String _mapCategoryId(String? category) {
+    return switch (category?.toLowerCase()) {
+      'alimentação' => 'cat_food',
+      'transporte' => 'cat_transport',
+      'saúde' => 'cat_health',
+      'lazer' => 'cat_leisure',
+      'moradia' => 'cat_housing',
+      'educação' => 'cat_education',
+      'vestuário' => 'cat_clothing',
+      _ => '',
+    };
+  }
+
+  String _mapCategoryName(String? category) =>
+      category != null ? category[0].toUpperCase() + category.substring(1) : 'Outros';
+
+  String _mapCategoryIcon(String? category) {
+    return switch (category?.toLowerCase()) {
+      'alimentação' => 'restaurant',
+      'transporte' => 'directions_car',
+      'saúde' => 'medical_services',
+      'lazer' => 'sports_esports',
+      'moradia' => 'home',
+      'educação' => 'school',
+      'vestuário' => 'checkroom',
+      _ => 'category',
+    };
+  }
+
+  String _mapCategoryColor(String? category) {
+    return switch (category?.toLowerCase()) {
+      'alimentação' => '#FF9800',
+      'transporte' => '#2196F3',
+      'saúde' => '#F44336',
+      'lazer' => '#E91E63',
+      'moradia' => '#4CAF50',
+      'educação' => '#9C27B0',
+      'vestuário' => '#795548',
+      _ => '#607D8B',
+    };
   }
 
   void _fillTransactionForm() {
-    if (_selectedTemplate == null) return;
-    final template = _selectedTemplate!;
-
-    // Resolve an account to prefill
+    if (!_hasResult) return;
     final accounts = ref.read(activeAccountsProvider);
-    final String defaultAccountId = accounts.isNotEmpty
-        ? accounts.first.id
-        : '';
+    final accountId = accounts.isNotEmpty ? accounts.first.id : '';
+    final txType = _type == 'income' ? TransactionType.income : TransactionType.expense;
+    final catId = _mapCategoryId(_category);
+    final catName = _mapCategoryName(_category);
+    final catColor = _mapCategoryColor(_category);
+    final catIcon = _mapCategoryIcon(_category);
+    final amountCents = ((_amount ?? 0) * 100).round();
 
-    final prefilledCategory = CategoryModel(
-      id: template.categoryId,
-      name: template.categoryName,
-      icon: template.categoryIcon,
-      color: template.categoryColor,
-      type: template.type.name,
-      isSystem: true,
-      isArchived: false,
-      createdAt: DateTime.now(),
-    );
+    DateTime date = DateTime.now();
+    if (_dateStr != null && _dateStr != 'null') {
+      date = DateTime.tryParse(_dateStr!) ?? DateTime.now();
+    }
 
-    final prefilledTx = TransactionModel(
-      id: '', // Empty ID signifies creation!
-      date: DateTime.now(),
-      description: template.description,
-      type: template.type,
-      categoryId: template.categoryId,
-      category: prefilledCategory,
+    final category = catId.isNotEmpty
+        ? CategoryModel(
+            id: catId,
+            name: catName,
+            icon: catIcon,
+            color: catColor,
+            type: txType.name,
+            isSystem: true,
+            isArchived: false,
+            createdAt: DateTime.now(),
+          )
+        : null;
+
+    final tx = TransactionModel(
+      id: '',
+      date: date,
+      description: _description ?? 'Comprovante digitalizado',
+      type: txType,
+      categoryId: catId.isNotEmpty ? catId : null,
+      category: category,
       isCompleted: true,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -260,46 +220,40 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
         EntryModel(
           id: '',
           transactionId: '',
-          accountId: defaultAccountId,
-          amount: template.amountInCents,
-          type: template.type == TransactionType.income ? 'debit' : 'credit',
+          accountId: accountId,
+          amount: amountCents,
+          type: txType == TransactionType.income ? 'debit' : 'credit',
           createdAt: DateTime.now(),
         ),
       ],
     );
 
-    // Redirect to form pre-filled
-    context.pushReplacement('/transaction/new', extra: prefilledTx);
-  }
-
-  void _reset() {
-    setState(() {
-      _selectedTemplate = null;
-      _isScanning = false;
-      _isFinished = false;
-      _scanProgress = 0.0;
-      _scanStatus = '';
-    });
-    _laserController.reset();
+    context.pushReplacement('/transaction/new', extra: tx);
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    final llmState = ref.watch(llmStateProvider);
+    final visionAsync = ref.watch(visionAvailableProvider);
+    final isVisionReady = visionAsync.value == true && llmState.status == LlmStatus.ready;
+    final isModelReady = llmState.status == LlmStatus.ready;
+    final mmProjProgress = ref.watch(mmProjDownloadProgressProvider);
+    final selectedModel = ref.watch(selectedModelProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
-        title: 'Escaneamento com IA',
+        title: 'Escanear Comprovante',
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
         actions: [
-          if (_isFinished)
+          if (_hasResult || _imageBytes != null)
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_rounded),
               onPressed: _reset,
               tooltip: 'Limpar',
             ),
@@ -311,440 +265,115 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header description card
-              Card(
-                elevation: 0,
-                color: cs.primaryContainer.withValues(alpha: 0.2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: cs.primary.withValues(alpha: 0.15),
-                    width: 1,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.security,
-                          color: cs.primary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Processamento Local e Seguro',
-                              style: tt.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: cs.onPrimaryContainer,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Seus recibos e dados financeiros nunca saem deste aparelho.',
-                              style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              // Privacy info card
+              _InfoCard(cs: cs, tt: tt),
+              const SizedBox(height: 20),
 
-              if (!_isScanning && !_isFinished) ...[
-                // Stage 0: Prompt Selection
-                Text(
-                  'Escolha um Recibo para Testar',
-                  style: tt.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
+              if (!isModelReady) ...[
+                _ModelNotReadyCard(cs: cs, tt: tt, llmState: llmState),
+              ] else if (!isVisionReady && selectedModel.hasVision) ...[
+                _VisionNotReadyCard(
+                  cs: cs,
+                  tt: tt,
+                  modelType: selectedModel,
+                  mmProjProgress: mmProjProgress,
+                  onDownload: () =>
+                      ref.read(mmProjDownloadProgressProvider.notifier).download(),
+                ),
+              ] else if (!isVisionReady && !selectedModel.hasVision) ...[
+                _TextModelOcrCard(cs: cs, tt: tt),
+              ] else ...[
+                // Vision is ready — show camera options
+                if (_imageBytes == null && !_hasResult) ...[
+                  _CameraPickerSection(
+                    cs: cs,
+                    tt: tt,
+                    onCamera: () => _pickImage(ImageSource.camera),
+                    onGallery: () => _pickImage(ImageSource.gallery),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Selecione uma demonstração abaixo para simular o motor de OCR inteligente imediatamente.',
-                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                ),
-                const SizedBox(height: 16),
+                ],
 
-                // Horizontal templates carousel
-                SizedBox(
-                  height: 190,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _templates.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final item = _templates[index];
-                      final isIncome = item.type == TransactionType.income;
-                      final amountFormatted =
-                          'R\$ ${(item.amountInCents / 100.0).toStringAsFixed(2).replaceAll('.', ',')}';
-
-                      return InkWell(
-                        onTap: () => _selectTemplate(item),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: 220,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                cs.surfaceContainerHigh,
-                                cs.surfaceContainerLowest,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: cs.outlineVariant.withValues(alpha: 0.4),
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: (isIncome ? Colors.green : cs.primary)
-                                      .withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  item.icon,
-                                  color: isIncome ? Colors.green : cs.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                item.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                isIncome ? 'Receita' : 'Despesa',
-                                style: tt.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                amountFormatted,
-                                style: tt.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: isIncome ? Colors.green : cs.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Device Camera / Gallery Option
-                Text(
-                  'Ou escolha uma foto real',
-                  style: tt.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickImage(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Tirar Foto'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
+                if (_imageBytes != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.memory(
+                      _imageBytes!,
+                      height: 280,
+                      fit: BoxFit.cover,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickImage(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Galeria'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else if (_isScanning) ...[
-                // Stage 1: Scanning Mode
-                const SizedBox(height: 24),
-                Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // receipt visual card mock
-                      Container(
-                        width: 280,
-                        height: 380,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(
-                              child: Container(
-                                width: 40,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _selectedTemplate?.name ?? 'COMPROVANTE FISCAL',
-                              style: const TextStyle(
-                                fontFamily: 'Courier',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const Divider(color: Colors.black38),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: ListView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _selectedTemplate?.items.length ?? 0,
-                                itemBuilder: (context, i) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: Text(
-                                      _selectedTemplate!.items[i],
-                                      style: TextStyle(
-                                        fontFamily: 'Courier',
-                                        color: Colors.grey[800],
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
-                      // Laser Scan Animation overlay
-                      AnimatedBuilder(
-                        animation: _laserController,
-                        builder: (context, child) {
-                          return Positioned(
-                            top: 10 + (_laserController.value * 360),
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                width: 284,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: Colors.greenAccent,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Center(
-                  child: Column(
-                    children: [
-                      Text(
-                        _scanStatus,
-                        style: tt.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: 200,
-                        child: LinearProgressIndicator(
-                          value: _scanProgress,
-                          backgroundColor: cs.outlineVariant,
-                          color: cs.primary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else if (_isFinished && _selectedTemplate != null) ...[
-                // Stage 2: Finished Extraction Result
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: cs.primary.withValues(alpha: 0.15),
-                        width: 1,
-                      ),
-                    ),
+                if (_isAnalyzing) ...[
+                  const SizedBox(height: 16),
+                  Center(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Recibo Identificado!',
-                                    style: tt.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: cs.onSurface,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Extração concluída em 2.4s',
-                                    style: tt.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 32),
-
-                        // Formatted parsed properties
-                        _buildResultRow(
-                          context,
-                          'Descrição',
-                          _selectedTemplate!.description,
-                          Icons.description,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildResultRow(
-                          context,
-                          'Valor Total',
-                          'R\$ ${(_selectedTemplate!.amountInCents / 100.0).toStringAsFixed(2).replaceAll('.', ',')}',
-                          Icons.monetization_on,
-                          valueColor:
-                              _selectedTemplate!.type == TransactionType.income
-                              ? Colors.green
-                              : cs.onSurface,
-                          isBoldValue: true,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildResultRow(
-                          context,
-                          'Tipo de Lançamento',
-                          _selectedTemplate!.type == TransactionType.income
-                              ? 'Receita (Entrada)'
-                              : 'Despesa (Saída)',
-                          Icons.swap_horiz,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildResultRow(
-                          context,
-                          'Sugestão de Categoria',
-                          '${_selectedTemplate!.categoryName} (IA Confiança: 98%)',
-                          Icons.category,
-                          valueColor: Color(
-                            int.parse(
-                              'FF${_selectedTemplate!.categoryColor.replaceAll('#', '')}',
-                              radix: 16,
-                            ),
-                          ),
-                          isBoldValue: true,
-                        ),
-                        const SizedBox(height: 32),
-
-                        FilledButton.icon(
-                          onPressed: _fillTransactionForm,
-                          icon: const Icon(Icons.edit_document),
-                          label: const Text('Confirmar e Preencher Form'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
+                        const CircularProgressIndicator(),
                         const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _reset,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
+                        Text(
+                          'Analisando comprovante com IA…',
+                          style: tt.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
-                          child: const Text('Escanear Outro Comprovante'),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Identificando valor, data e categoria',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                ],
+
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.errorContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: cs.error, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _reset,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Tentar Outra Imagem'),
+                  ),
+                ],
+
+                if (_hasResult && !_isAnalyzing) ...[
+                  const SizedBox(height: 8),
+                  _ExtractionResultCard(
+                    cs: cs,
+                    tt: tt,
+                    amount: _amount!,
+                    description: _description!,
+                    dateStr: _dateStr,
+                    category: _mapCategoryName(_category),
+                    type: _type ?? 'expense',
+                    onConfirm: _fillTransactionForm,
+                    onReset: _reset,
+                  ),
+                ],
               ],
             ],
           ),
@@ -752,18 +381,450 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
       ),
     );
   }
+}
 
-  Widget _buildResultRow(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon, {
-    Color? valueColor,
-    bool isBoldValue = false,
-  }) {
-    final cs = context.colorScheme;
-    final tt = context.textTheme;
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.cs, required this.tt});
+  final ColorScheme cs;
+  final TextTheme tt;
 
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.security, color: cs.primary, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Processamento Local e Seguro',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'A IA analisa o comprovante diretamente neste aparelho. Nenhum dado sai do dispositivo.',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModelNotReadyCard extends StatelessWidget {
+  const _ModelNotReadyCard({
+    required this.cs,
+    required this.tt,
+    required this.llmState,
+  });
+  final ColorScheme cs;
+  final TextTheme tt;
+  final LlmState llmState;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = llmState.status == LlmStatus.uninitialized
+        ? 'Modelo de IA não instalado. Instale o modelo nas configurações de IA para usar o escaneamento.'
+        : 'Aguarde o modelo de IA terminar de carregar…';
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            llmState.status == LlmStatus.uninitialized
+                ? Icons.model_training
+                : Icons.hourglass_top_rounded,
+            size: 48,
+            color: cs.onSurfaceVariant,
+          ),
+          const SizedBox(height: 12),
+          Text(label, style: tt.bodyMedium, textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+class _VisionNotReadyCard extends StatelessWidget {
+  const _VisionNotReadyCard({
+    required this.cs,
+    required this.tt,
+    required this.modelType,
+    required this.mmProjProgress,
+    required this.onDownload,
+  });
+  final ColorScheme cs;
+  final TextTheme tt;
+  final AiModelType modelType;
+  final double? mmProjProgress;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.visibility_outlined, color: cs.primary, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Módulo de Visão necessário',
+                      style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '~${modelType.mmProjSizeMb} MB adicionais',
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Para escanear comprovantes com IA, é necessário baixar o módulo de visão (mmproj) do ${modelType.displayName}.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          if (mmProjProgress != null) ...[
+            LinearProgressIndicator(
+              value: mmProjProgress,
+              backgroundColor: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Baixando módulo de visão… ${(mmProjProgress! * 100).toStringAsFixed(0)}%',
+              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ] else ...[
+            FilledButton.icon(
+              onPressed: onDownload,
+              icon: const Icon(Icons.download_rounded),
+              label: const Text('Baixar Módulo de Visão'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TextModelOcrCard extends StatelessWidget {
+  const _TextModelOcrCard({required this.cs, required this.tt});
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.image_not_supported_outlined, size: 48, color: cs.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(
+            'Escaneamento não disponível com o modelo atual',
+            style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'O modelo de texto selecionado não suporta análise de imagens. Troque para o MiniCPM-V 4.6 (Multimodal) nas configurações.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CameraPickerSection extends StatelessWidget {
+  const _CameraPickerSection({
+    required this.cs,
+    required this.tt,
+    required this.onCamera,
+    required this.onGallery,
+  });
+  final ColorScheme cs;
+  final TextTheme tt;
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Escolha uma foto do comprovante',
+          style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'A IA irá extrair automaticamente o valor, data e sugerir uma categoria.',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onCamera,
+                icon: const Icon(Icons.camera_alt_rounded),
+                label: const Text('Câmera'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onGallery,
+                icon: const Icon(Icons.photo_library_rounded),
+                label: const Text('Galeria'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.tips_and_updates_outlined, color: cs.primary, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Dica: Fotografe o comprovante com boa iluminação e na vertical para melhor resultado.',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtractionResultCard extends StatelessWidget {
+  const _ExtractionResultCard({
+    required this.cs,
+    required this.tt,
+    required this.amount,
+    required this.description,
+    required this.dateStr,
+    required this.category,
+    required this.type,
+    required this.onConfirm,
+    required this.onReset,
+  });
+  final ColorScheme cs;
+  final TextTheme tt;
+  final double amount;
+  final String description;
+  final String? dateStr;
+  final String category;
+  final String type;
+  final VoidCallback onConfirm;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final isIncome = type == 'income';
+    final typeLabel = isIncome ? 'Receita (Entrada)' : 'Despesa (Saída)';
+    String dateLabel = 'Hoje';
+    if (dateStr != null && dateStr != 'null') {
+      final d = DateTime.tryParse(dateStr!);
+      if (d != null) dateLabel = DateFormat('dd/MM/yyyy').format(d);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle, color: Colors.green, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Comprovante Identificado!',
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Verifique os dados extraídos pela IA',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Divider(height: 28),
+          _ResultRow(
+            icon: Icons.description_outlined,
+            label: 'Descrição',
+            value: description,
+            cs: cs,
+            tt: tt,
+          ),
+          const SizedBox(height: 14),
+          _ResultRow(
+            icon: Icons.monetization_on_outlined,
+            label: 'Valor Total',
+            value: fmt.format(amount),
+            cs: cs,
+            tt: tt,
+            valueColor: isIncome ? Colors.green : cs.onSurface,
+            bold: true,
+          ),
+          const SizedBox(height: 14),
+          _ResultRow(
+            icon: Icons.calendar_today_outlined,
+            label: 'Data',
+            value: dateLabel,
+            cs: cs,
+            tt: tt,
+          ),
+          const SizedBox(height: 14),
+          _ResultRow(
+            icon: Icons.swap_horiz_rounded,
+            label: 'Tipo',
+            value: typeLabel,
+            cs: cs,
+            tt: tt,
+          ),
+          const SizedBox(height: 14),
+          _ResultRow(
+            icon: Icons.category_outlined,
+            label: 'Categoria sugerida',
+            value: category,
+            cs: cs,
+            tt: tt,
+            bold: true,
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: onConfirm,
+            icon: const Icon(Icons.edit_document),
+            label: const Text('Confirmar e Preencher Formulário'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: onReset,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text('Escanear Outro Comprovante'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultRow extends StatelessWidget {
+  const _ResultRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.cs,
+    required this.tt,
+    this.valueColor,
+    this.bold = false,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final Color? valueColor;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -773,15 +834,12 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
+              Text(label, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 2),
               Text(
                 value,
                 style: tt.bodyMedium?.copyWith(
-                  fontWeight: isBoldValue ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: bold ? FontWeight.bold : FontWeight.normal,
                   color: valueColor ?? cs.onSurface,
                 ),
               ),

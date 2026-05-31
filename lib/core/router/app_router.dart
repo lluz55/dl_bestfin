@@ -40,6 +40,7 @@ import 'package:bestfin/features/sync/presentation/screens/sync_settings_screen.
 import 'package:bestfin/features/sync/presentation/screens/household_screen.dart';
 import 'package:bestfin/features/ai/presentation/screens/ai_dashboard_screen.dart';
 import 'package:bestfin/features/ai/presentation/widgets/ocr_scanner_widget.dart';
+import 'package:bestfin/features/llm/presentation/screens/ai_chat_screen.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/screens/categories_screen.dart';
 import 'package:bestfin/features/categories/presentation/screens/category_form_screen.dart';
@@ -192,6 +193,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/ai/scan',
         builder: (context, state) => const OcrScannerWidget(),
+      ),
+      GoRoute(
+        path: '/ai/chat',
+        builder: (context, state) => AiChatScreen(
+          initialMessage: state.extra is String ? state.extra as String : null,
+        ),
       ),
       GoRoute(
         path: '/backup',

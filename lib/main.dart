@@ -23,6 +23,10 @@ import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:bestfin/features/security/presentation/widgets/lock_overlay.dart';
+import 'package:bestfin/features/llm/domain/models/llm_state.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_insights_provider.dart';
+import 'package:bestfin/features/llm/presentation/providers/llm_narrative_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +94,12 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
         }
       }
       _backgroundedAt = null;
+      // Trigger insight + narrative refresh if LLM is ready and cache is stale
+      final llmStatus = ref.read(llmStateProvider).status;
+      if (llmStatus == LlmStatus.ready) {
+        ref.read(llmInsightsCacheInvalidatorProvider).call();
+        ref.read(llmNarrativeCacheInvalidatorProvider).call();
+      }
     }
   }
 
