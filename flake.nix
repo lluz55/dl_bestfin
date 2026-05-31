@@ -30,7 +30,7 @@
           platforms-android-35
           platforms-android-36
           emulator
-          ndk-27-0-12077973
+          ndk-28-2-13676358
           cmake-3-22-1
         ]);
 

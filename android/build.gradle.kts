@@ -22,7 +22,7 @@ subprojects {
 subprojects {
     val forceNdk = Action<Project> {
         val android = extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        android?.ndkVersion = "27.0.12077973"
+        android?.ndkVersion = "28.2.13676358"
     }
     if (state.executed) {
         forceNdk.execute(this)
