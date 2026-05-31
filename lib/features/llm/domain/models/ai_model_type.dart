@@ -2,6 +2,11 @@ enum AiModelType {
   minicpmV4_6,
   minicpm5_1b;
 
+  // minicpmV4_6 uses the 'qwen35' GGUF architecture, supported only in the
+  // Linux llama-server binary. The Android pre-built SOs lack qwen35 support,
+  // and vision (the model's main feature) is not available on Android anyway.
+  bool get isLinuxOnly => this == AiModelType.minicpmV4_6;
+
   String get id => name;
 
   String get displayName => switch (this) {
@@ -24,6 +29,12 @@ enum AiModelType {
   int get sizeMb => switch (this) {
         AiModelType.minicpmV4_6 => 529,
         AiModelType.minicpm5_1b => 657,
+      };
+
+  // Exact byte sizes for integrity checks (source: actual downloaded files).
+  int get sizeBytes => switch (this) {
+        AiModelType.minicpmV4_6 => 554_600_960,
+        AiModelType.minicpm5_1b => 688_065_920,
       };
 
   String get description => switch (this) {

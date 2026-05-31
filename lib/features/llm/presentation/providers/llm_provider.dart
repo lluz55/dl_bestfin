@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +24,7 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
   @override
   AiModelType build() {
     _load();
-    return AiModelType.minicpmV4_6; // Default model
+    return Platform.isLinux ? AiModelType.minicpmV4_6 : AiModelType.minicpm5_1b; // Default model
   }
 
   Future<void> _load() async {
@@ -31,6 +33,8 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
     if (savedModelId != null) {
       try {
         final model = AiModelType.values.firstWhere((e) => e.id == savedModelId);
+        // Ignore saved model if it requires Linux but we're on Android/iOS.
+        if (!Platform.isLinux && model.isLinuxOnly) return;
         state = model;
       } catch (_) {}
     }
@@ -82,6 +86,15 @@ class LlmStateNotifier extends Notifier<LlmState> {
     final modelType = ref.read(selectedModelProvider);
     final modelPresent = await ModelDownloadService.isModelPresent(modelType);
     if (!modelPresent) {
+      if (Platform.isAndroid) {
+        final activeId = await ModelDownloadService.getActiveDownloadId(
+          'active_download_id_model_${modelType.id}',
+        );
+        if (activeId != null) {
+          unawaited(downloadAndLoad());
+          return;
+        }
+      }
       state = const LlmState.initial();
       return;
     }
@@ -182,6 +195,7 @@ class _ThinkingNotifier extends Notifier<bool> {
 
 /// Whether vision (mmproj) is available for the selected model.
 final visionAvailableProvider = FutureProvider<bool>((ref) async {
+  if (!Platform.isLinux) return false;
   final modelType = ref.watch(selectedModelProvider);
   if (!modelType.hasVision) return false;
   return ModelDownloadService.isMmProjPresent(modelType);
@@ -196,7 +210,20 @@ final mmProjDownloadProgressProvider =
 
 class MmProjDownloadNotifier extends Notifier<double?> {
   @override
-  double? build() => null;
+  double? build() {
+    final modelType = ref.watch(selectedModelProvider);
+    if (Platform.isAndroid && modelType.hasVision) {
+      Future.microtask(() async {
+        final activeId = await ModelDownloadService.getActiveDownloadId(
+          'active_download_id_mmproj_${modelType.id}',
+        );
+        if (activeId != null) {
+          unawaited(download());
+        }
+      });
+    }
+    return null;
+  }
 
   Future<void> download() async {
     if (state != null) return; // Already downloading

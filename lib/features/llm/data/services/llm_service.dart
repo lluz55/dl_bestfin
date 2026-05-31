@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show max;
@@ -146,22 +147,44 @@ class LlmService {
       }
     } else {
       if (Platform.isAndroid) {
+        // libllama.so directly exports all llama_* symbols needed for text models.
+        // mtmd_* symbols (vision) are lazy-looked-up and never called for text-only models.
         ffi.Llama.libraryPath = 'libllama.so';
       } else if (Platform.isMacOS || Platform.isIOS) {
         ffi.Llama.libraryPath = 'libllama.dylib';
       }
 
-      final load = ffi.LlamaLoad(
-        path: modelPath,
-        modelParams: ffi.ModelParams(),
-        contextParams: ffi.ContextParams()..nCtx = 4096,
-        samplingParams: ffi.SamplerParams()
-          ..temp = _kChatTemp
-          ..topP = _kTopP,
-      );
+      // Try loading with GPU offload first; fall back to CPU-only if it fails.
+      // On Android, GPU availability depends on the device's OpenCL driver —
+      // the forwarding libOpenCL.so stub handles detection at runtime.
+      final gpuLayerCandidates = Platform.isAndroid ? [99, 0] : [99];
+      for (final nGpuLayers in gpuLayerCandidates) {
+        try {
+          final modelParams = ffi.ModelParams()..nGpuLayers = nGpuLayers;
+          final load = ffi.LlamaLoad(
+            path: modelPath,
+            modelParams: modelParams,
+            contextParams: ffi.ContextParams()..nCtx = 4096,
+            samplingParams: ffi.SamplerParams()
+              ..temp = _kChatTemp
+              ..topP = _kTopP,
+            mmprojPath: mmProjPath,
+            verbose: true,
+          );
 
-      _parent = ffi.LlamaParent(load, ffi.ChatMLFormat());
-      await _parent!.init();
+          _parent = ffi.LlamaParent(load, ffi.ChatMLFormat());
+          await _parent!.init();
+          debugPrint('[LLM] Modelo carregado (nGpuLayers=$nGpuLayers)');
+          break;
+        } catch (e) {
+          try {
+            await _parent?.dispose();
+          } catch (_) {}
+          _parent = null;
+          if (nGpuLayers == 0) rethrow; // CPU also failed — propagate
+          debugPrint('[LLM] GPU falhou ($e), tentando CPU puro...');
+        }
+      }
 
       if (_systemPrompt.isNotEmpty) {
         _parent!.messages = [

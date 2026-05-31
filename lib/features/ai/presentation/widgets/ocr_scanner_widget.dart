@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -269,7 +270,9 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
               _InfoCard(cs: cs, tt: tt),
               const SizedBox(height: 20),
 
-              if (!isModelReady) ...[
+              if (!Platform.isLinux) ...[
+                _PlatformUnsupportedVisionCard(cs: cs, tt: tt),
+              ] else if (!isModelReady) ...[
                 _ModelNotReadyCard(cs: cs, tt: tt, llmState: llmState),
               ] else if (!isVisionReady && selectedModel.hasVision) ...[
                 _VisionNotReadyCard(
@@ -573,6 +576,121 @@ class _TextModelOcrCard extends StatelessWidget {
             'O modelo de texto selecionado não suporta análise de imagens. Troque para o MiniCPM-V 4.6 (Multimodal) nas configurações.',
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlatformUnsupportedVisionCard extends StatelessWidget {
+  const _PlatformUnsupportedVisionCard({required this.cs, required this.tt});
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(
+            Icons.no_photography_outlined,
+            size: 48,
+            color: cs.error,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Escaneamento com IA não disponível no Android',
+            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'O processamento local de imagens por Inteligência Artificial requer alta capacidade de hardware e suporte a FFI avançado (via llama-server em segundo plano), que atualmente só está habilitado na versão de Desktop (Linux) do BestFin.\n\n'
+            'Como alternativa segura para automatizar suas finanças no Android, você pode utilizar:',
+            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          _AlternativeTile(
+            cs: cs,
+            tt: tt,
+            icon: Icons.notifications_active_outlined,
+            title: 'Importação por Notificações',
+            description: 'Capture e registre transações a partir de alertas de aplicativos bancários automaticamente.',
+          ),
+          const SizedBox(height: 12),
+          _AlternativeTile(
+            cs: cs,
+            tt: tt,
+            icon: Icons.picture_as_pdf_outlined,
+            title: 'Importação de Extratos (PDF/CSV)',
+            description: 'Importe faturas de cartão e extratos bancários de forma prática.',
+          ),
+          const SizedBox(height: 12),
+          _AlternativeTile(
+            cs: cs,
+            tt: tt,
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Assistente IA via Texto',
+            description: 'Utilize o chat com IA (usando modelos de texto offline super compactos) para planejar seus gastos.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlternativeTile extends StatelessWidget {
+  const _AlternativeTile({
+    required this.cs,
+    required this.tt,
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final ColorScheme cs;
+  final TextTheme tt;
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: cs.primary, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
           ),
         ],
       ),
