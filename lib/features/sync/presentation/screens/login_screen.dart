@@ -34,11 +34,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final supabase = ref.read(supabaseServiceProvider);
-      await supabase.signInWithEmail(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-      );
+      final backend = ref.read(backendSyncServiceProvider);
+      await backend.signInWithEmail(_emailCtrl.text.trim(), _passwordCtrl.text);
       if (mounted) context.pop();
     } catch (e) {
       setState(() => _error = _friendlyError(e));
@@ -54,6 +51,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     if (msg.contains('network') || msg.contains('connection')) {
       return 'Sem conexão com a internet.';
+    }
+    if (msg.contains('too many requests')) {
+      return 'Muitas tentativas. Aguarde alguns minutos.';
     }
     return 'Erro ao entrar. Tente novamente.';
   }
@@ -119,7 +119,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
                 validator: (v) =>
-                    (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                    (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -148,37 +148,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 onPressed: () => context.push('/sync/register'),
                 child: const Text('Criar conta'),
               ),
-              TextButton(
-                onPressed: _resetPassword,
-                child: Text(
-                  'Esqueci a senha',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _resetPassword() async {
-    final email = _emailCtrl.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe seu e-mail acima primeiro')),
-      );
-      return;
-    }
-    try {
-      await ref.read(supabaseServiceProvider).resetPassword(email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Link de redefinição enviado para o e-mail'),
-          ),
-        );
-      }
-    } catch (_) {}
   }
 }

@@ -1,77 +1,51 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/sync/data/repositories/household_repository.dart';
-import 'package:bestfin/features/sync/data/services/supabase_service.dart';
+import 'package:bestfin/features/sync/data/services/backend_sync_service.dart';
 import 'package:bestfin/features/sync/data/services/sync_service.dart';
 import 'package:bestfin/features/sync/domain/models/household.dart';
 import 'package:bestfin/features/sync/domain/models/sync_user.dart';
 
-// ── Supabase service (singleton) ──────────────────────────────────────────────
+// ── Backend service (singleton) ───────────────────────────────────────────────
 
-final supabaseServiceProvider = Provider<SupabaseService>((ref) {
-  return SupabaseService();
+final backendSyncServiceProvider = Provider<BackendSyncService>((ref) {
+  return BackendSyncService();
 });
 
 // ── Sync service ──────────────────────────────────────────────────────────────
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final db = ref.watch(databaseProvider);
-  final supabase = ref.watch(supabaseServiceProvider);
-  final service = SyncService(db, supabase);
+  final backend = ref.watch(backendSyncServiceProvider);
+  final service = SyncService(db, backend);
   ref.onDispose(service.dispose);
   return service;
 });
 
-// ── Supabase setup state ──────────────────────────────────────────────────────
+// ── Backend setup state ───────────────────────────────────────────────────────
 
-class SupabaseSetup {
-  final String url;
-  final String anonKey;
+class BackendSetup {
+  final String baseUrl;
 
-  const SupabaseSetup({required this.url, required this.anonKey});
+  const BackendSetup({required this.baseUrl});
 
-  bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;
+  bool get isConfigured => baseUrl.isNotEmpty;
 }
 
-final supabaseSetupProvider =
-    AsyncNotifierProvider<SupabaseSetupNotifier, SupabaseSetup>(
-      SupabaseSetupNotifier.new,
+final backendSetupProvider =
+    AsyncNotifierProvider<BackendSetupNotifier, BackendSetup>(
+      BackendSetupNotifier.new,
     );
 
-class SupabaseSetupNotifier extends AsyncNotifier<SupabaseSetup> {
-  static const _urlKey = 'supabase_url';
-  static const _keyKey = 'supabase_anon_key';
-
+class BackendSetupNotifier extends AsyncNotifier<BackendSetup> {
   @override
-  Future<SupabaseSetup> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    final url = prefs.getString(_urlKey) ?? '';
-    final key = prefs.getString(_keyKey) ?? '';
-    final setup = SupabaseSetup(url: url, anonKey: key);
-
-    // Auto-initialize if configured
-    if (setup.isConfigured) {
-      final service = ref.read(supabaseServiceProvider);
-      if (!service.isInitialized) {
-        await service.initialize(url: url, anonKey: key);
-      }
-    }
-
-    return setup;
+  Future<BackendSetup> build() async {
+    final config = await ref.read(backendSyncServiceProvider).loadConfig();
+    return BackendSetup(baseUrl: config.baseUrl);
   }
 
-  Future<void> save(String url, String anonKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_urlKey, url);
-    await prefs.setString(_keyKey, anonKey);
-
-    if (url.isNotEmpty && anonKey.isNotEmpty) {
-      await ref
-          .read(supabaseServiceProvider)
-          .initialize(url: url, anonKey: anonKey);
-    }
-
+  Future<void> save(String baseUrl) async {
+    await ref.read(backendSyncServiceProvider).saveConfig(baseUrl);
     ref.invalidateSelf();
   }
 }
@@ -79,12 +53,12 @@ class SupabaseSetupNotifier extends AsyncNotifier<SupabaseSetup> {
 // ── Auth state ────────────────────────────────────────────────────────────────
 
 final currentUserProvider = StreamProvider<SyncUser?>((ref) {
-  final supabase = ref.watch(supabaseServiceProvider);
-  return supabase.authStateChanges;
+  final backend = ref.watch(backendSyncServiceProvider);
+  return backend.authStateChanges;
 });
 
 final isSignedInProvider = Provider<bool>((ref) {
-  return ref.watch(supabaseServiceProvider).isSignedIn;
+  return ref.watch(backendSyncServiceProvider).isSignedIn;
 });
 
 // ── Sync status ───────────────────────────────────────────────────────────────

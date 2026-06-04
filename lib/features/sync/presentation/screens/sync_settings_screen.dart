@@ -12,7 +12,7 @@ class SyncSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final setupAsync = ref.watch(supabaseSetupProvider);
+    final setupAsync = ref.watch(backendSetupProvider);
     final userAsync = ref.watch(currentUserProvider);
     final syncState = ref.watch(syncStateProvider);
     final pendingAsync = ref.watch(pendingSyncCountProvider);
@@ -23,7 +23,7 @@ class SyncSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Supabase configuration ──────────────────────────────────────
+          // ── Backend configuration ───────────────────────────────────────
           setupAsync.when(
             data: (setup) => _ConfigSection(
               setup: setup,
@@ -32,7 +32,7 @@ class SyncSettingsScreen extends ConsumerWidget {
               onConfigure: () => _showConfigDialog(context, ref, setup),
             ),
             loading: () => const LinearProgressIndicator(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (error, stackTrace) => const SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
 
@@ -51,7 +51,7 @@ class SyncSettingsScreen extends ConsumerWidget {
               leading: CircleAvatar(child: CircularProgressIndicator()),
               title: Text('Carregando...'),
             ),
-            error: (_, __) => _SignInTile(cs: cs, tt: tt),
+            error: (error, stackTrace) => _SignInTile(cs: cs, tt: tt),
           ),
           const Divider(height: 1),
           const SizedBox(height: 16),
@@ -73,7 +73,7 @@ class SyncSettingsScreen extends ConsumerWidget {
                     value: pendingAsync.when(
                       data: (n) => '$n item${n == 1 ? '' : 's'}',
                       loading: () => '...',
-                      error: (_, __) => '?',
+                      error: (error, stackTrace) => '?',
                     ),
                     icon: Icons.pending_rounded,
                     cs: cs,
@@ -171,18 +171,18 @@ class SyncSettingsScreen extends ConsumerWidget {
       ),
     );
     if (confirmed == true) {
-      await ref.read(supabaseServiceProvider).signOut();
+      await ref.read(backendSyncServiceProvider).signOut();
     }
   }
 
   void _showConfigDialog(
     BuildContext context,
     WidgetRef ref,
-    SupabaseSetup setup,
+    BackendSetup setup,
   ) {
     showDialog(
       context: context,
-      builder: (_) => _SupabaseConfigDialog(current: setup, ref: ref),
+      builder: (_) => _BackendConfigDialog(current: setup, ref: ref),
     );
   }
 }
@@ -195,7 +195,7 @@ class _ConfigSection extends StatelessWidget {
     required this.onConfigure,
   });
 
-  final SupabaseSetup setup;
+  final BackendSetup setup;
   final ColorScheme cs;
   final TextTheme tt;
   final VoidCallback onConfigure;
@@ -215,7 +215,7 @@ class _ConfigSection extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Supabase configurado',
+                'Backend Go configurado',
                 style: tt.bodySmall?.copyWith(color: cs.primary),
               ),
             ),
@@ -236,7 +236,7 @@ class _ConfigSection extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Configure o servidor Supabase para ativar o sync',
+              'Configure o backend Go para ativar o sync',
               style: tt.bodySmall?.copyWith(color: cs.error),
             ),
           ),
@@ -372,63 +372,51 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
-class _SupabaseConfigDialog extends StatefulWidget {
-  const _SupabaseConfigDialog({required this.current, required this.ref});
+class _BackendConfigDialog extends StatefulWidget {
+  const _BackendConfigDialog({required this.current, required this.ref});
 
-  final SupabaseSetup current;
+  final BackendSetup current;
   final WidgetRef ref;
 
   @override
-  State<_SupabaseConfigDialog> createState() => _SupabaseConfigDialogState();
+  State<_BackendConfigDialog> createState() => _BackendConfigDialogState();
 }
 
-class _SupabaseConfigDialogState extends State<_SupabaseConfigDialog> {
+class _BackendConfigDialogState extends State<_BackendConfigDialog> {
   late final TextEditingController _urlCtrl;
-  late final TextEditingController _keyCtrl;
 
   @override
   void initState() {
     super.initState();
-    _urlCtrl = TextEditingController(text: widget.current.url);
-    _keyCtrl = TextEditingController(text: widget.current.anonKey);
+    _urlCtrl = TextEditingController(text: widget.current.baseUrl);
   }
 
   @override
   void dispose() {
     _urlCtrl.dispose();
-    _keyCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Configurar Supabase'),
+      title: const Text('Configurar backend'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Crie um projeto em supabase.com e cole as credenciais abaixo.',
+              'Informe a URL do servidor Go que sincroniza os dados.',
               style: TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _urlCtrl,
               decoration: const InputDecoration(
-                labelText: 'Project URL',
-                hintText: 'https://xxx.supabase.co',
+                labelText: 'URL do backend',
+                hintText: 'http://10.0.2.2:8080',
                 border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _keyCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Anon Key',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
             ),
           ],
         ),
@@ -441,9 +429,9 @@ class _SupabaseConfigDialogState extends State<_SupabaseConfigDialog> {
         FilledButton(
           onPressed: () async {
             await widget.ref
-                .read(supabaseSetupProvider.notifier)
-                .save(_urlCtrl.text.trim(), _keyCtrl.text.trim());
-            if (mounted) Navigator.pop(context);
+                .read(backendSetupProvider.notifier)
+                .save(_urlCtrl.text.trim());
+            if (context.mounted) Navigator.pop(context);
           },
           child: const Text('Salvar'),
         ),

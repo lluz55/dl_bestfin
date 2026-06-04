@@ -38,8 +38,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     try {
-      final supabase = ref.read(supabaseServiceProvider);
-      await supabase.signUpWithEmail(
+      final backend = ref.read(backendSyncServiceProvider);
+      await backend.signUpWithEmail(
         _emailCtrl.text.trim(),
         _passwordCtrl.text,
         displayName: _nameCtrl.text.trim(),
@@ -47,9 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Conta criada! Verifique seu e-mail para confirmar o cadastro.',
-            ),
+            content: Text('Conta criada. Você já pode sincronizar seus dados.'),
           ),
         );
         context.pop();
@@ -68,6 +66,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
     if (msg.contains('network') || msg.contains('connection')) {
       return 'Sem conexão com a internet.';
+    }
+    if (msg.contains('too many requests')) {
+      return 'Muitas tentativas. Aguarde alguns minutos.';
     }
     return 'Erro ao criar conta. Tente novamente.';
   }
@@ -130,7 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                 ),
                 validator: (v) =>
-                    (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                    (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(

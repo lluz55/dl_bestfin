@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:bestfin/core/database/app_database.dart';
-import 'package:bestfin/features/sync/data/services/supabase_service.dart';
+import 'package:bestfin/features/sync/data/services/backend_sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,20 +10,20 @@ import 'package:uuid/uuid.dart';
 ///
 /// Flow:
 /// 1. Local changes are enqueued in sync_queue (insert/update/delete)
-/// 2. processSyncQueue() pushes pending items to Supabase
-/// 3. pullRemoteChanges() fetches rows updated since lastSyncAt from Supabase
+/// 2. processSyncQueue() pushes pending items to the Go backend
+/// 3. pullRemoteChanges() fetches rows updated since lastSyncAt from the backend
 ///    and upserts them into the local Drift DB
 /// 4. Conflict resolution: last-write-wins based on updated_at
 class SyncService {
   final AppDatabase _db;
-  final SupabaseService _supabase;
+  final BackendSyncService _backend;
   Timer? _timer;
   bool _syncing = false;
 
   static const _lastSyncKey = 'sync_last_synced_at';
   static const _syncIntervalSeconds = 30;
 
-  SyncService(this._db, this._supabase);
+  SyncService(this._db, this._backend);
 
   // ── Queue management ──────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ class SyncService {
   // ── Push (local → remote) ─────────────────────────────────────────────────
 
   Future<SyncResult> processSyncQueue() async {
-    if (!_supabase.isInitialized || !_supabase.isSignedIn) {
+    if (!_backend.isInitialized || !_backend.isSignedIn) {
       return SyncResult.notConfigured;
     }
     if (_syncing) return SyncResult.alreadyRunning;
@@ -59,20 +59,20 @@ class SyncService {
 
       for (final item in items) {
         try {
-          final payload = jsonDecode(item.payload) as Map<String, dynamic>;
-          final table = _tableForEntity(item.entityType);
-          if (table == null) {
+          if (!_isSupportedEntity(item.entityType)) {
             await _db.syncQueueDao.markSynced(item.id);
             continue;
           }
 
-          if (item.operation == 'delete') {
-            await _supabase.softDelete(table, item.entityId);
-          } else {
-            final userId = _supabase.currentUser?.id;
-            if (userId != null) payload['user_id'] = userId;
-            await _supabase.upsertRow(table, payload);
-          }
+          await _backend.pushRecords([
+            BackendSyncRecord(
+              entityType: item.entityType,
+              entityId: item.entityId,
+              payload: item.payload,
+              updatedAt: item.createdAt.millisecondsSinceEpoch ~/ 1000,
+              isDeleted: item.operation == 'delete',
+            ),
+          ]);
 
           await _db.syncQueueDao.markSynced(item.id);
           pushed++;
@@ -94,7 +94,7 @@ class SyncService {
   // ── Pull (remote → local) ─────────────────────────────────────────────────
 
   Future<SyncResult> pullRemoteChanges() async {
-    if (!_supabase.isInitialized || !_supabase.isSignedIn) {
+    if (!_backend.isInitialized || !_backend.isSignedIn) {
       return SyncResult.notConfigured;
     }
 
@@ -102,27 +102,24 @@ class SyncService {
     int pulled = 0;
 
     try {
-      final userId = _supabase.currentUser?.id;
-
-      // Pull transactions
-      final txRows = await _supabase.fetchSince(
-        'transactions_sync',
-        since: since,
-        userId: userId,
+      final records = await _backend.pullRecords(
+        since: since.millisecondsSinceEpoch ~/ 1000,
       );
-      for (final row in txRows) {
-        await _mergeTransactionFromRemote(row);
-        pulled++;
-      }
-
-      // Pull accounts
-      final accRows = await _supabase.fetchSince(
-        'accounts_sync',
-        since: since,
-        userId: userId,
-      );
-      for (final row in accRows) {
-        await _mergeAccountFromRemote(row);
+      for (final record in records) {
+        final row = jsonDecode(record.payload) as Map<String, dynamic>;
+        row['id'] ??= record.entityId;
+        row['is_deleted'] = record.isDeleted;
+        row['updated_at'] = DateTime.fromMillisecondsSinceEpoch(
+          record.updatedAt * 1000,
+        ).toIso8601String();
+        switch (record.entityType) {
+          case 'transaction':
+            await _mergeTransactionFromRemote(row);
+          case 'account':
+            await _mergeAccountFromRemote(row);
+          default:
+            continue;
+        }
         pulled++;
       }
 
@@ -252,14 +249,15 @@ class SyncService {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  String? _tableForEntity(String entityType) {
+  bool _isSupportedEntity(String entityType) {
     switch (entityType) {
       case 'transaction':
-        return 'transactions_sync';
       case 'account':
-        return 'accounts_sync';
+      case 'category':
+      case 'goal':
+        return true;
       default:
-        return null;
+        return false;
     }
   }
 
@@ -300,7 +298,7 @@ class SyncResult {
 
   static const notConfigured = SyncResult._(
     success: false,
-    errorMessage: 'Supabase não configurado ou usuário não autenticado',
+    errorMessage: 'Backend não configurado ou usuário não autenticado',
   );
 
   static const alreadyRunning = SyncResult._(

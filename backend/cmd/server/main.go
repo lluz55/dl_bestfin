@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -32,11 +33,16 @@ func main() {
 	defer database.Close()
 
 	r := chi.NewRouter()
+	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.Logger)
 
-	r.Post("/auth/register", auth.Register(database, jwtSecret))
-	r.Post("/auth/login", auth.Login(database, jwtSecret))
-	r.Post("/auth/refresh", auth.Refresh(database, jwtSecret))
+	authLimiter := middleware.NewRateLimiter(10, time.Minute, 5*time.Minute)
+	r.Group(func(r chi.Router) {
+		r.Use(authLimiter.Middleware)
+		r.Post("/auth/register", auth.Register(database, jwtSecret))
+		r.Post("/auth/login", auth.Login(database, jwtSecret))
+		r.Post("/auth/refresh", auth.Refresh(database, jwtSecret))
+	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth(jwtSecret))
@@ -62,6 +68,10 @@ func mustEnv(key string) string {
 	v := os.Getenv(key)
 	if v == "" {
 		slog.Error("required env var not set", "key", key)
+		os.Exit(1)
+	}
+	if key == "JWT_SECRET" && len(v) < 32 {
+		slog.Error("JWT_SECRET must be at least 32 characters")
 		os.Exit(1)
 	}
 	return v

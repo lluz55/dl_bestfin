@@ -2,24 +2,28 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"bestfin-backend/internal/db"
 )
 
+const maxAuthBodyBytes = 8 * 1024
+
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Name     string `json:"name"`
 }
 
 type authResponse struct {
 	UserID       string `json:"user_id"`
+	Email        string `json:"email"`
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
 	KdfSalt      string `json:"kdf_salt"`
@@ -30,13 +34,18 @@ type refreshRequest struct {
 }
 
 type refreshResponse struct {
-	Token string `json:"token"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func Register(database *sql.DB, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" || req.Password == "" {
+		if err := decodeAuthRequest(w, r, &req); err != nil {
+			return
+		}
+		req.Email = normalizeEmail(req.Email)
+		if !validEmail(req.Email) || !validPassword(req.Password) {
 			http.Error(w, "email and password required", http.StatusBadRequest)
 			return
 		}
@@ -63,23 +72,27 @@ func Register(database *sql.DB, jwtSecret string) http.HandlerFunc {
 			return
 		}
 
-		userID := uuid.New().String()
+		userID, err := randomHex(16)
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 		if err := db.CreateUser(database, userID, req.Email, hash, kdfSalt); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
-		issueAuth(w, database, jwtSecret, userID, kdfSalt)
+		issueAuth(w, database, jwtSecret, userID, req.Email, kdfSalt)
 	}
 }
 
 func Login(database *sql.DB, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
+		if err := decodeAuthRequest(w, r, &req); err != nil {
 			return
 		}
+		req.Email = normalizeEmail(req.Email)
 
 		user, err := db.GetUserByEmail(database, req.Email)
 		if err != nil {
@@ -91,19 +104,20 @@ func Login(database *sql.DB, jwtSecret string) http.HandlerFunc {
 			return
 		}
 
-		issueAuth(w, database, jwtSecret, user.ID, user.KdfSalt)
+		issueAuth(w, database, jwtSecret, user.ID, user.Email, user.KdfSalt)
 	}
 }
 
 func Refresh(database *sql.DB, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req refreshRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxAuthBodyBytes)).Decode(&req); err != nil || req.RefreshToken == "" {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 
-		rt, err := db.GetRefreshToken(database, req.RefreshToken)
+		tokenHash := hashToken(req.RefreshToken)
+		rt, err := db.GetRefreshToken(database, tokenHash)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -115,33 +129,52 @@ func Refresh(database *sql.DB, jwtSecret string) http.HandlerFunc {
 			http.Error(w, "invalid or expired refresh token", http.StatusUnauthorized)
 			return
 		}
+		if err := db.DeleteRefreshToken(database, rt.Token); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 
 		token, err := SignToken(rt.UserID, jwtSecret, time.Hour)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
+		refreshToken, err := randomHex(32)
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		expiresAt := time.Now().Add(30 * 24 * time.Hour).Unix()
+		if err := db.StoreRefreshToken(database, hashToken(refreshToken), rt.UserID, expiresAt); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 
-		writeJSON(w, refreshResponse{Token: token})
+		writeJSON(w, refreshResponse{Token: token, RefreshToken: refreshToken})
 	}
 }
 
-func issueAuth(w http.ResponseWriter, database *sql.DB, jwtSecret, userID, kdfSalt string) {
+func issueAuth(w http.ResponseWriter, database *sql.DB, jwtSecret, userID, email, kdfSalt string) {
 	token, err := SignToken(userID, jwtSecret, time.Hour)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
-	refreshToken := uuid.New().String()
+	refreshToken, err := randomHex(32)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	expiresAt := time.Now().Add(30 * 24 * time.Hour).Unix()
-	if err := db.StoreRefreshToken(database, refreshToken, userID, expiresAt); err != nil {
+	if err := db.StoreRefreshToken(database, hashToken(refreshToken), userID, expiresAt); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	writeJSON(w, authResponse{
 		UserID:       userID,
+		Email:        email,
 		Token:        token,
 		RefreshToken: refreshToken,
 		KdfSalt:      kdfSalt,
@@ -159,4 +192,29 @@ func randomHex(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func decodeAuthRequest(w http.ResponseWriter, r *http.Request, req *loginRequest) error {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxAuthBodyBytes)).Decode(req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return err
+	}
+	return nil
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func validEmail(email string) bool {
+	return len(email) <= 254 && strings.Contains(email, "@")
+}
+
+func validPassword(password string) bool {
+	return len(password) >= 8 && len(password) <= 256
 }
