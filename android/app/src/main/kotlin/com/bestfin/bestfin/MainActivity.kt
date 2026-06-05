@@ -4,44 +4,61 @@ import android.app.DownloadManager
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import com.bestfin.bestfin.llm.LiteRtLlmBridge
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.bestfin.bestfin/download_manager"
+    private var liteRtBridge: LiteRtLlmBridge? = null
 
     companion object {
         init {
-            // Load all llama.cpp native libraries with RTLD_GLOBAL so every
-            // symbol (llama_*, ggml_*, mtmd_*) is visible to DynamicLibrary.process()
-            // in Dart FFI. Loading order must respect the dependency chain.
-            System.loadLibrary("c++_shared")
-            System.loadLibrary("ggml-base")
-            System.loadLibrary("ggml-cpu")
-            System.loadLibrary("OpenCL")
-            System.loadLibrary("ggml-opencl")
-            System.loadLibrary("ggml")
-            System.loadLibrary("llama")
-            System.loadLibrary("mtmd")
+            try {
+                // Legacy llama.cpp fallback. LiteRT-LM is the default Android
+                // backend, so missing GGML libraries must not abort startup.
+                System.loadLibrary("c++_shared")
+                System.loadLibrary("ggml-base")
+                System.loadLibrary("ggml-cpu")
+                System.loadLibrary("OpenCL")
+                System.loadLibrary("ggml-opencl")
+                System.loadLibrary("ggml")
+                System.loadLibrary("llama")
+                System.loadLibrary("mtmd")
+            } catch (_: UnsatisfiedLinkError) {
+            }
         }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        val bridge = LiteRtLlmBridge(applicationContext)
+        liteRtBridge = bridge
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.bestfin.bestfin/litert_lm"
+        ).setMethodCallHandler(bridge)
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.bestfin.bestfin/litert_lm_stream"
+        ).setStreamHandler(bridge)
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "startDownload" -> {
                     val url = call.argument<String>("url")
                     val fileName = call.argument<String>("fileName")
+                    val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                     if (url == null || fileName == null) {
                         result.error("INVALID_ARGUMENTS", "URL or fileName is null", null)
                         return@setMethodCallHandler
                     }
                     try {
-                        val downloadId = startDownload(url, fileName)
+                        val downloadId = startDownload(url, fileName, headers)
                         result.success(downloadId)
                     } catch (e: Exception) {
                         result.error("DOWNLOAD_ERROR", e.message, null)
@@ -72,7 +89,13 @@ class MainActivity: FlutterFragmentActivity() {
         }
     }
 
-    private fun startDownload(url: String, fileName: String): Long {
+    override fun onDestroy() {
+        liteRtBridge?.close()
+        liteRtBridge = null
+        super.onDestroy()
+    }
+
+    private fun startDownload(url: String, fileName: String, headers: Map<String, String>): Long {
         val extDir = getExternalFilesDir(null)
         if (extDir != null) {
             val llmDir = File(extDir, "llm")
@@ -92,6 +115,11 @@ class MainActivity: FlutterFragmentActivity() {
             setTitle("Baixando modelo de IA")
             setDescription(fileName)
             setDestinationInExternalFilesDir(this@MainActivity, null, "llm/$fileName")
+            headers.forEach { (name, value) ->
+                if (name.isNotBlank() && value.isNotBlank()) {
+                    addRequestHeader(name, value)
+                }
+            }
         }
         return downloadManager.enqueue(request)
     }
