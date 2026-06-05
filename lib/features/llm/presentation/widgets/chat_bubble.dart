@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bestfin/features/llm/domain/models/chat_message.dart';
 import 'package:bestfin/features/llm/domain/models/llm_metrics.dart';
+import 'package:bestfin/features/llm/domain/services/skill_registry.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -56,59 +57,76 @@ class ChatBubble extends StatelessWidget {
                   ? null
                   : () => _copyToClipboard(context),
               child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: borderRadius,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (message.toolCall != null) ...[
-                    if (message.isToolRunning)
-                      _ToolRunningChip(
-                        toolCall: message.toolCall!,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: borderRadius,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Routing indicator
+                    if (message.isRouting)
+                      _ThinkingIndicator(
+                        color: textColor,
+                        label: 'Identificando...',
+                        icon: Icons.route_rounded,
+                      ),
+                    // Skill chip (shown once routing is done)
+                    if (!message.isRouting &&
+                        message.activeSkill != null &&
+                        !isUser)
+                      _SkillChip(
+                        skillId: message.activeSkill!,
+                        textColor: textColor,
+                        cs: cs,
+                      ),
+                    // Tool calls — compact chip (non-debug) or full card (debug)
+                    if (message.hasToolCalls)
+                      _ToolCallsSection(
+                        toolCalls: message.toolCalls,
+                        showDebug: showDebug,
                         textColor: textColor,
                         cs: cs,
                         isUser: isUser,
-                      )
-                    else
-                      _buildToolCallCard(context, cs, isUser),
-                  ],
-                  if (!message.isToolRunning) ...[
-                    // Thinking/reasoning block shown in debug mode
-                    if (showDebug && !isUser && _hasThinking)
-                      _ThinkingBlock(
-                        content: message.thinkingContent!,
-                        isStreaming: isStreaming && message.content.isEmpty,
-                        textColor: textColor,
-                        cs: cs,
                       ),
-                    if (message.toolCall != null && message.content.isNotEmpty)
-                      const SizedBox(height: 8),
-                    if (isStreaming &&
-                        message.content.isEmpty &&
-                        message.toolCall == null &&
-                        !_hasThinking)
-                      _ThinkingIndicator(
-                        color: textColor,
-                        label: message.isPostToolStreaming
-                            ? 'Formulando resposta...'
-                            : 'Pensando...',
-                        icon: message.isPostToolStreaming
-                            ? Icons.edit_rounded
-                            : Icons.psychology_rounded,
-                      )
-                    else if (message.content.isNotEmpty)
-                      Text(
-                        message.content,
-                        style: TextStyle(color: textColor, fontSize: 14),
-                      ),
+                    if (!message.isToolRunning) ...[
+                      // Thinking/reasoning block shown in debug mode only
+                      if (showDebug && !isUser && _hasThinking)
+                        _ThinkingBlock(
+                          content: message.thinkingContent!,
+                          isStreaming: isStreaming && message.content.isEmpty,
+                          textColor: textColor,
+                          cs: cs,
+                        ),
+                      if (message.hasToolCalls && message.content.isNotEmpty)
+                        const SizedBox(height: 8),
+                      if (isStreaming &&
+                          message.content.isEmpty &&
+                          !message.hasToolCalls &&
+                          !_hasThinking)
+                        _ThinkingIndicator(
+                          color: textColor,
+                          label: message.isPostToolStreaming
+                              ? 'Formulando resposta...'
+                              : 'Pensando...',
+                          icon: message.isPostToolStreaming
+                              ? Icons.edit_rounded
+                              : Icons.psychology_rounded,
+                        )
+                      else if (message.content.isNotEmpty)
+                        Text(
+                          message.content,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                        ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
             ),
           ),
           if (isStreaming && message.content.isNotEmpty)
@@ -135,7 +153,11 @@ class ChatBubble extends StatelessWidget {
 
   String _buildCopyText() {
     final parts = <String>[];
-    if (showDebug && message.toolResult != null) parts.add(message.toolResult!);
+    if (showDebug) {
+      for (final tc in message.toolCalls) {
+        if (tc.result != null) parts.add(tc.result!);
+      }
+    }
     if (message.content.isNotEmpty) parts.add(message.content);
     return parts.join('\n\n');
   }
@@ -153,17 +175,133 @@ class ChatBubble extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildToolCallCard(BuildContext context, ColorScheme cs, bool isUser) {
+// Shows all tool calls for a message, adapting to debug mode.
+class _ToolCallsSection extends StatelessWidget {
+  final List<ToolCallRecord> toolCalls;
+  final bool showDebug;
+  final Color textColor;
+  final ColorScheme cs;
+  final bool isUser;
+
+  const _ToolCallsSection({
+    required this.toolCalls,
+    required this.showDebug,
+    required this.textColor,
+    required this.cs,
+    required this.isUser,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: toolCalls.map((tc) {
+        if (tc.isRunning) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: _ToolRunningChip(
+              toolName: tc.toolName,
+              textColor: textColor,
+              cs: cs,
+            ),
+          );
+        }
+        if (showDebug) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: _ToolCallCard(
+              record: tc,
+              textColor: textColor,
+              cs: cs,
+              isUser: isUser,
+            ),
+          );
+        }
+        // Compact chip for completed calls in non-debug mode
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: _ToolCompactChip(
+            toolName: tc.toolName,
+            textColor: textColor,
+            cs: cs,
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// Compact badge shown for completed tool calls outside debug mode.
+class _ToolCompactChip extends StatelessWidget {
+  final String toolName;
+  final Color textColor;
+  final ColorScheme cs;
+
+  const _ToolCompactChip({
+    required this.toolName,
+    required this.textColor,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = _toolIcon(toolName);
+    final label = _toolLabel(toolName);
+    final chipColor = textColor.withValues(alpha: 0.08);
+    final fgColor = textColor.withValues(alpha: 0.6);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: chipColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fgColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: fgColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.check_rounded, size: 11, color: fgColor),
+        ],
+      ),
+    );
+  }
+}
+
+// Full card shown for completed tool calls in debug mode.
+class _ToolCallCard extends StatelessWidget {
+  final ToolCallRecord record;
+  final Color textColor;
+  final ColorScheme cs;
+  final bool isUser;
+
+  const _ToolCallCard({
+    required this.record,
+    required this.textColor,
+    required this.cs,
+    required this.isUser,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final onColor = isUser ? cs.onPrimary : cs.onSurface;
     final cardBg = isUser ? cs.primaryContainer : cs.surfaceContainerLowest;
     final borderCol = onColor.withValues(alpha: 0.12);
-
-    final isCalc = message.toolCall!.contains('Calculando');
     final iconColor = isUser ? cs.onPrimaryContainer : cs.onSurfaceVariant;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: cardBg,
@@ -177,14 +315,10 @@ class ChatBubble extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                isCalc ? Icons.calculate_outlined : Icons.table_rows_outlined,
-                size: 13,
-                color: iconColor,
-              ),
+              Icon(_toolIcon(record.toolName), size: 13, color: iconColor),
               const SizedBox(width: 6),
               Text(
-                isCalc ? 'Calculadora' : 'Banco de Dados',
+                _toolLabel(record.toolName),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -195,16 +329,16 @@ class ChatBubble extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            message.toolCall!,
+            record.description,
             style: TextStyle(
               fontSize: 12,
               color: isUser ? cs.onPrimaryContainer : cs.onSurface,
             ),
           ),
-          if (showDebug && message.toolResult != null) ...[
+          if (record.result != null) ...[
             const Divider(height: 8, thickness: 0.5),
             Text(
-              message.toolResult!,
+              record.result!,
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 12,
@@ -217,6 +351,24 @@ class ChatBubble extends StatelessWidget {
     );
   }
 }
+
+IconData _toolIcon(String toolName) => switch (toolName) {
+  'CALCULATE' => Icons.calculate_outlined,
+  'GET_GOALS' => Icons.flag_outlined,
+  'GET_RECURRING' => Icons.repeat_rounded,
+  'GET_SPENDING_SUMMARY' => Icons.pie_chart_outline_rounded,
+  'LOOKUP_USER_DATA' => Icons.table_rows_outlined,
+  _ => Icons.build_outlined,
+};
+
+String _toolLabel(String toolName) => switch (toolName) {
+  'CALCULATE' => 'Calculadora',
+  'GET_GOALS' => 'Metas',
+  'GET_RECURRING' => 'Recorrentes',
+  'GET_SPENDING_SUMMARY' => 'Resumo de gastos',
+  'LOOKUP_USER_DATA' => 'Dados',
+  _ => toolName,
+};
 
 class _ThinkingBlock extends StatefulWidget {
   final String content;
@@ -259,7 +411,10 @@ class _ThinkingBlockState extends State<_ThinkingBlock> {
               onTap: () => setState(() => _expanded = !_expanded),
               borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -399,9 +554,7 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: maxWidth != null
-          ? BoxConstraints(maxWidth: maxWidth!)
-          : null,
+      constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth!) : null,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
@@ -426,23 +579,20 @@ class _MetricChip extends StatelessWidget {
 }
 
 class _ToolRunningChip extends StatelessWidget {
-  final String toolCall;
+  final String toolName;
   final Color textColor;
   final ColorScheme cs;
-  final bool isUser;
 
   const _ToolRunningChip({
-    required this.toolCall,
+    required this.toolName,
     required this.textColor,
     required this.cs,
-    required this.isUser,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isCalc = toolCall.contains('Calculando');
-    final icon = isCalc ? Icons.calculate_outlined : Icons.table_rows_outlined;
-    final label = isCalc ? 'Calculando...' : 'Lendo dados...';
+    final icon = _toolIcon(toolName);
+    final label = _toolLabel(toolName);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -466,6 +616,47 @@ class _ToolRunningChip extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SkillChip extends StatelessWidget {
+  final String skillId;
+  final Color textColor;
+  final ColorScheme cs;
+
+  const _SkillChip({
+    required this.skillId,
+    required this.textColor,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final skill = SkillRegistry.instance.get(skillId);
+    if (skill.id == 'fora_escopo') return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            skill.icon,
+            size: 11,
+            color: textColor.withValues(alpha: 0.55),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            skill.displayName,
+            style: TextStyle(
+              fontSize: 11,
+              color: textColor.withValues(alpha: 0.55),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

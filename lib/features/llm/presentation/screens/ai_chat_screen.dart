@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,16 +12,20 @@ import 'package:bestfin/features/llm/presentation/widgets/chat_bubble.dart';
 import 'package:bestfin/features/llm/presentation/widgets/chat_input_bar.dart';
 import 'package:bestfin/features/llm/presentation/widgets/model_setup_sheet.dart';
 import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
-import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart'
-    show llmThinkingEnabledProvider;
 
 const _genericPrompts = [
+  // gastos
   'Quanto gastei este mês?',
-  'Qual meu maior gasto?',
+  'Qual minha categoria com maior gasto?',
+  // metas
   'Estou no caminho das minhas metas?',
-  'Tenho gastos incomuns?',
-  'Quais são minhas metas financeiras?',
-  'Liste minhas transações recorrentes',
+  'Quanto preciso poupar por mês para atingir minha meta?',
+  // fluxo
+  'Terei saldo positivo no fim do mês?',
+  'Quais são meus gastos fixos mensais?',
+  // busca
+  'Mostre minhas últimas transações',
+  'Onde usei o cartão esta semana?',
 ];
 
 class AiChatScreen extends ConsumerStatefulWidget {
@@ -44,7 +50,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       if (widget.initialMessage != null && mounted) {
         final llmState = ref.read(llmStateProvider);
         if (llmState.canChat) {
-          ref.read(chatHistoryProvider.notifier).sendMessage(widget.initialMessage!);
+          unawaited(
+            ref
+                .read(chatHistoryProvider.notifier)
+                .sendMessage(widget.initialMessage!),
+          );
           _scrollToBottom();
         }
       }
@@ -97,12 +107,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     final offTrack = goals.where((g) => !g.isOnTrack).toList();
     if (offTrack.isNotEmpty) {
-      result.add('Como atingir minha meta "${offTrack.first.goalName}" mais rápido?');
+      result.add(
+        'Como atingir minha meta "${offTrack.first.goalName}" mais rápido?',
+      );
     }
 
     final increasing = trends.where((t) => t.trend == 'increasing').toList();
     if (increasing.isNotEmpty) {
-      result.add('Meus gastos com ${increasing.first.categoryName} subiram — o que fazer?');
+      result.add(
+        'Meus gastos com ${increasing.first.categoryName} subiram — o que fazer?',
+      );
     }
 
     if (health.score < 60) {
@@ -121,11 +135,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     // For now, send as a text note; full multimodal requires mmproj support
-    ref
-        .read(chatHistoryProvider.notifier)
-        .sendMessage(
-          '[Imagem: ${picked.name}] O que você consegue extrair desta imagem de recibo?',
-        );
+    unawaited(
+      ref
+          .read(chatHistoryProvider.notifier)
+          .sendMessage(
+            '[Imagem: ${picked.name}] O que você consegue extrair desta imagem de recibo?',
+          ),
+    );
     _scrollToBottom();
   }
 
@@ -141,9 +157,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final llmState = ref.watch(llmStateProvider);
     final messages = ref.watch(chatHistoryProvider);
     final isGenerating = llmState.status == LlmStatus.generating;
+    final thinkingEnabled = ref.watch(llmThinkingEnabledProvider);
 
     // Auto-scroll when new tokens arrive
-    ref.listen(chatHistoryProvider, (_, __) => _scrollToBottom());
+    ref.listen(chatHistoryProvider, (previous, next) => _scrollToBottom());
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -158,14 +175,30 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ),
           IconButton(
             icon: Icon(
+              thinkingEnabled
+                  ? Icons.psychology_alt_rounded
+                  : Icons.psychology_outlined,
+              color: thinkingEnabled
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            tooltip: thinkingEnabled
+                ? 'Desabilitar pensamento do modelo'
+                : 'Habilitar pensamento do modelo',
+            onPressed: isGenerating
+                ? null
+                : () => ref
+                      .read(llmThinkingEnabledProvider.notifier)
+                      .set(!thinkingEnabled),
+          ),
+          IconButton(
+            icon: Icon(
               Icons.bug_report_outlined,
               color: _debugMode ? Theme.of(context).colorScheme.primary : null,
             ),
-            tooltip: _debugMode ? 'Ocultar debug/thinking' : 'Mostrar debug e ativar thinking',
+            tooltip: _debugMode ? 'Ocultar detalhes' : 'Mostrar detalhes',
             onPressed: () {
               setState(() => _debugMode = !_debugMode);
-              // Sync thinking mode with debug toggle
-              ref.read(llmThinkingEnabledProvider.notifier).set(_debugMode);
             },
           ),
           IconButton(
@@ -187,9 +220,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                           llmState: llmState,
                           suggestedPrompts: _buildSuggestedPrompts(),
                           onSuggestion: (s) {
-                            ref
-                                .read(chatHistoryProvider.notifier)
-                                .sendMessage(s);
+                            unawaited(
+                              ref
+                                  .read(chatHistoryProvider.notifier)
+                                  .sendMessage(s),
+                            );
                             _scrollToBottom();
                           },
                           onSetup: _showSetupSheet,
@@ -212,10 +247,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 ),
                 ChatInputBar(
                   enabled: llmState.canChat,
+                  isGenerating: isGenerating,
                   onSend: (text) {
-                    ref.read(chatHistoryProvider.notifier).sendMessage(text);
+                    unawaited(
+                      ref.read(chatHistoryProvider.notifier).sendMessage(text),
+                    );
                     _scrollToBottom();
                   },
+                  onStop: isGenerating
+                      ? () => ref
+                            .read(chatHistoryProvider.notifier)
+                            .stopGeneration()
+                      : null,
                   onImageTap: _pickImage,
                 ),
               ],

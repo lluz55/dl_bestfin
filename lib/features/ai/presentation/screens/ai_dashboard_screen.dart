@@ -106,7 +106,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
     }
     final increasing = trends.where((t) => t.trend == 'increasing').toList();
     if (increasing.isNotEmpty) {
-      result.add('Gastos com ${increasing.first.categoryName} subiram — o que fazer?');
+      result.add(
+        'Gastos com ${increasing.first.categoryName} subiram — o que fazer?',
+      );
     }
     if (health.score < 60) result.add('Como melhorar minha saúde financeira?');
 
@@ -146,7 +148,11 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.chat_bubble_outline_rounded, size: 16, color: cs.primary),
+              Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 16,
+                color: cs.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Pergunte ao Assistente',
@@ -361,7 +367,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
           ),
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (list) {
         if (list.isEmpty) return const SizedBox.shrink();
         final card = AnimatedCard(
@@ -425,26 +431,33 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'PREVISÃO DE FLUXO DE CAIXA',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PREVISÃO DE FLUXO DE CAIXA',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Projeção Inteligente',
-                      style: tt.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Projeção Inteligente',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
                 DropdownButton<int>(
                   value: _forecastDays,
                   onChanged: (val) {
@@ -732,7 +745,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: anomalies.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, idx) {
                   final item = anomalies[idx];
                   final tx = item.transaction;
@@ -976,10 +989,12 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
 
             llmSentimentInsights.when(
               loading: () => _buildSentimentInsightsList(
-                context, report.psychologicalInsights,
+                context,
+                report.psychologicalInsights,
               ),
-              error: (_, __) => _buildSentimentInsightsList(
-                context, report.psychologicalInsights,
+              error: (_, _) => _buildSentimentInsightsList(
+                context,
+                report.psychologicalInsights,
               ),
               data: (llmInsights) => _buildSentimentInsightsList(
                 context,
@@ -1022,7 +1037,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: insights.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, idx) {
         return Container(
           padding: const EdgeInsets.all(12),
@@ -1241,7 +1256,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      error: (_, __) => Text(
+                      error: (_, _) => Text(
                         health.primaryRecommendation,
                         style: tt.bodySmall?.copyWith(
                           color: cs.onSurface,
@@ -1249,7 +1264,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                         ),
                       ),
                       data: (narrative) => Text(
-                        narrative.isNotEmpty ? narrative : health.primaryRecommendation,
+                        narrative.isNotEmpty
+                            ? narrative
+                            : health.primaryRecommendation,
                         style: tt.bodySmall?.copyWith(
                           color: cs.onSurface,
                           fontWeight: FontWeight.w500,
@@ -1355,7 +1372,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: trends.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, idx) {
                   final trend = trends[idx];
                   final isIncreasing = trend.trend == 'increasing';
@@ -1465,7 +1482,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: forecasts.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              separatorBuilder: (_, _) => const SizedBox(height: 16),
               itemBuilder: (context, idx) {
                 final f = forecasts[idx];
                 final progressColor = f.isOnTrack ? Colors.green : cs.primary;
@@ -1580,7 +1597,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: recs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              separatorBuilder: (_, _) => const SizedBox(height: 16),
               itemBuilder: (context, idx) {
                 final rec = recs[idx];
                 final barRatio = (rec.suggestedBudget / rec.avgMonthlySpend)

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -642,9 +644,12 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
 
   Future<void> _changeModel() async {
     final selectedModel = ref.read(selectedModelProvider);
-    
+    final availableModels = AiModelType.values
+        .where(_isModelAvailable)
+        .toList();
+
     final presenceMap = <AiModelType, bool>{};
-    for (final type in AiModelType.values) {
+    for (final type in availableModels) {
       presenceMap[type] = await ModelDownloadService.isModelPresent(type);
     }
 
@@ -656,17 +661,19 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
         final cs = Theme.of(ctx).colorScheme;
         final tt = Theme.of(ctx).textTheme;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: Text(
             'Selecione o Modelo de IA',
             style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: AiModelType.values.map((model) {
+            children: availableModels.map((model) {
               final isCurrent = model == selectedModel;
               final isPresent = presenceMap[model] ?? false;
-              
+
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
@@ -675,13 +682,18 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
                     width: isCurrent ? 2 : 1,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  color: isCurrent 
+                  color: isCurrent
                       ? cs.primaryContainer.withValues(alpha: 0.15)
                       : cs.surfaceContainerLow,
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   title: Row(
                     children: [
                       Expanded(
@@ -695,7 +707,10 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
                       ),
                       if (isPresent)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: cs.secondaryContainer,
                             borderRadius: BorderRadius.circular(6),
@@ -745,6 +760,12 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
       await ref.read(selectedModelProvider.notifier).setModel(newModel);
       await _checkModel();
     }
+  }
+
+  bool _isModelAvailable(AiModelType model) {
+    if (Platform.isLinux) return !model.isAndroidOnly;
+    if (Platform.isAndroid) return !model.isLinuxOnly;
+    return !model.isLinuxOnly && !model.isAndroidOnly;
   }
 
   @override
@@ -824,23 +845,15 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
               color: cs.surfaceContainerLow,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.swap_horiz_rounded,
-              size: 20,
-              color: cs.primary,
-            ),
+            child: Icon(Icons.swap_horiz_rounded, size: 20, color: cs.primary),
           ),
           title: Text(
             'Alterar modelo',
-            style: tt.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           subtitle: Text(
             'Escolha outro modelo GGUF local',
-            style: tt.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: _changeModel,

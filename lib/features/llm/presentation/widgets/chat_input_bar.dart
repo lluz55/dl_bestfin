@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 class ChatInputBar extends StatefulWidget {
   final bool enabled;
+  final bool isGenerating;
   final void Function(String text) onSend;
+  final VoidCallback? onStop;
   final VoidCallback? onImageTap;
 
   const ChatInputBar({
     super.key,
     required this.enabled,
+    this.isGenerating = false,
     required this.onSend,
+    this.onStop,
     this.onImageTap,
   });
 
@@ -37,7 +41,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   void _submit() {
     final text = _ctrl.text.trim();
-    if (text.isEmpty || !widget.enabled) return;
+    if (text.isEmpty || !widget.enabled || widget.isGenerating) return;
     _ctrl.clear();
     widget.onSend(text);
   }
@@ -62,18 +66,23 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   Icons.add_photo_alternate_outlined,
                   color: cs.onSurfaceVariant,
                 ),
-                onPressed: widget.enabled ? widget.onImageTap : null,
+                onPressed:
+                    widget.enabled && !widget.isGenerating
+                        ? widget.onImageTap
+                        : null,
                 tooltip: 'Digitalizar recibo',
               ),
             Expanded(
               child: TextField(
                 controller: _ctrl,
-                enabled: widget.enabled,
+                enabled: widget.enabled && !widget.isGenerating,
                 maxLines: null,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  hintText: widget.enabled
+                  hintText: widget.isGenerating
+                      ? 'Gerando resposta…'
+                      : widget.enabled
                       ? 'Pergunte sobre suas finanças…'
                       : 'Aguardando modelo…',
                   hintStyle: TextStyle(color: cs.onSurfaceVariant),
@@ -93,7 +102,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
             const SizedBox(width: 8),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              child: _hasText
+              child: widget.isGenerating
+                  ? IconButton.filled(
+                      key: const ValueKey('stop'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: cs.errorContainer,
+                        foregroundColor: cs.onErrorContainer,
+                      ),
+                      onPressed: widget.onStop,
+                      icon: const Icon(Icons.stop_rounded),
+                      tooltip: 'Parar geração',
+                    )
+                  : _hasText
                   ? IconButton.filled(
                       key: const ValueKey('send'),
                       onPressed: widget.enabled ? _submit : null,
