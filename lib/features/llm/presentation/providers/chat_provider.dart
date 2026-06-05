@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/llm/domain/models/chat_message.dart';
 import 'package:bestfin/features/llm/domain/models/llm_metrics.dart';
+import 'package:bestfin/features/llm/domain/services/llm_router_service.dart';
+import 'package:bestfin/features/llm/domain/services/skill_registry.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
 import 'package:bestfin/features/llm/domain/services/llm_tools_service.dart';
-import 'package:bestfin/features/llm/domain/services/financial_context_builder.dart';
 
 final chatHistoryProvider =
     NotifierProvider<ChatHistoryNotifier, List<ChatMessage>>(
@@ -13,18 +14,33 @@ final chatHistoryProvider =
     );
 
 class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
+  String? _lastSkillId;
+  bool _cancelled = false;
+
   @override
   List<ChatMessage> build() => [];
+
+  void stopGeneration() {
+    _cancelled = true;
+  }
 
   Future<void> sendMessage(String text) async {
     final llmState = ref.read(llmStateProvider);
     if (!llmState.canChat) return;
 
+    _cancelled = false;
+
     final userMsg = ChatMessage.user(text);
     debugPrint('[Chat] Usuário: $text');
     state = [...state, userMsg];
 
-    var assistantMsg = ChatMessage.assistant('');
+    // Start assistant message in routing state
+    var assistantMsg = ChatMessage(
+      role: ChatRole.assistant,
+      content: '',
+      createdAt: DateTime.now(),
+      isRouting: true,
+    );
     state = [...state, assistantMsg];
 
     ref.read(llmStateProvider.notifier).setGenerating(true);
@@ -36,104 +52,149 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
     try {
       final service = ref.read(llmServiceProvider);
 
-      // Dynamically update the system prompt with the latest live financial context and date/time
-      final latestContext = FinancialContextBuilder.build(ref);
-      service.updateSystemPrompt(latestContext);
+      // Step 1: Route the message to a skill
+      final router = ref.read(llmRouterServiceProvider);
+      final skillId = await router.route(text);
+      if (_cancelled) return;
 
-      // Step 1: Send user query to LLM and stream the response
-      var stream = service.sendMessage(
+      final skill = SkillRegistry.instance.get(skillId);
+
+      // Update message: routing done, skill identified
+      assistantMsg = assistantMsg.copyWith(
+        isRouting: false,
+        activeSkill: skillId,
+      );
+      _updateLast(assistantMsg);
+
+      // Step 2: Handle out-of-scope immediately (no LLM call)
+      if (skill.isStaticResponse) {
+        assistantMsg = assistantMsg.copyWith(content: skill.staticResponse!);
+        _updateLast(assistantMsg);
+        return;
+      }
+
+      // Step 3: Reset native history only when the skill changes.
+      if (_lastSkillId != skillId) {
+        await service.clearHistory();
+        _lastSkillId = skillId;
+      }
+
+      // Step 4: Build skill-specific context and update system prompt.
+      final rawContext = await skill.buildContext(ref);
+      final contextData = rawContext.length > skill.maxContextChars
+          ? rawContext.substring(0, skill.maxContextChars)
+          : rawContext;
+      await service.updateSystemPrompt(skill.systemPrompt(contextData));
+
+      // Step 5: Stream the skill response
+      final stream = service.sendMessage(
         text,
         onMetrics: (m) => collectedMetrics = m,
         enableThinking: enableThinking,
-        onThinkingToken: enableThinking ? (token) {
-          thinkingBuffer.write(token);
-          final updated = state.toList();
-          updated[updated.length - 1] = assistantMsg.copyWith(
-            thinkingContent: thinkingBuffer.toString(),
-          );
-          state = updated;
-          assistantMsg = state.last;
-        } : null,
+        onThinkingToken: enableThinking
+            ? (token) {
+                thinkingBuffer.write(token);
+                assistantMsg = assistantMsg.copyWith(
+                  thinkingContent: thinkingBuffer.toString(),
+                );
+                _updateLast(assistantMsg);
+              }
+            : null,
       );
-      var buffer = StringBuffer();
+      final buffer = StringBuffer();
 
       await for (final token in stream) {
+        if (_cancelled) break;
         buffer.write(token);
-        final updated = state.toList();
-        updated[updated.length - 1] = assistantMsg.copyWith(
-          content: buffer.toString(),
-        );
-        state = updated;
+        assistantMsg = assistantMsg.copyWith(content: buffer.toString());
+        _updateLast(assistantMsg);
       }
 
-      // Check if the response contains a tool call
+      if (_cancelled) return;
+
+      // Step 6: Parse all tool calls (filtered to this skill's tools)
       final fullResponse = buffer.toString();
-      final parsed = LlmToolsService.parseFirst(fullResponse);
+      final parsedCalls = LlmToolsService.parseAll(
+        fullResponse,
+        allowedTools: skill.toolNames,
+      );
 
-      if (parsed != null) {
-        debugPrint('[Tool] ${parsed.toolName}(${parsed.argument})');
+      if (parsedCalls.isNotEmpty) {
+        // Clear generated content — tool results will produce the final answer
+        assistantMsg = assistantMsg.copyWith(content: '');
+        _updateLast(assistantMsg);
 
-        // Step 2: Update UI message to show that a tool is running
-        final toolDetail = switch (parsed.toolName) {
-          'CALCULATE' => 'Calculando "${parsed.argument}"...',
-          'GET_GOALS' => 'Buscando suas metas financeiras...',
-          'GET_RECURRING' => 'Buscando transações recorrentes...',
-          'GET_SPENDING_SUMMARY' => 'Calculando resumo de gastos por categoria...',
-          _ => 'Buscando informações no banco de dados...',
-        };
+        final allToolResults = <String>[];
 
-        assistantMsg = assistantMsg.copyWith(
-          content: '', // Clear the raw [CALCULATE: ...] tag from UI content
-          toolCall: toolDetail,
-          isToolRunning: true,
-        );
+        for (final parsed in parsedCalls) {
+          if (_cancelled) break;
+          debugPrint('[Tool] ${parsed.toolName}(${parsed.argument})');
 
-        final updatedList = state.toList();
-        updatedList[updatedList.length - 1] = assistantMsg;
-        state = updatedList;
+          final toolDetail = _toolDetail(parsed.toolName, parsed.argument);
+          final record = ToolCallRecord(
+            description: toolDetail,
+            toolName: parsed.toolName,
+            isRunning: true,
+          );
 
-        // Step 3: Execute the tool
-        final toolResult = await LlmToolsService.execute(ref, parsed);
-        debugPrint('[Tool] resultado: $toolResult');
+          assistantMsg = assistantMsg.copyWith(
+            toolCalls: [...assistantMsg.toolCalls, record],
+          );
+          _updateLast(assistantMsg);
 
-        // Step 4: Update UI message to show the tool has finished and has results
-        assistantMsg = assistantMsg.copyWith(
-          isToolRunning: false,
-          toolResult: toolResult,
-          isPostToolStreaming: true,
-        );
+          String toolResult;
+          try {
+            toolResult = await LlmToolsService.execute(ref, parsed);
+            debugPrint('[Tool] resultado: $toolResult');
+          } catch (e) {
+            debugPrint('[Tool] erro ao executar ${parsed.toolName}: $e');
+            toolResult =
+                'Nenhum dado disponível — ${parsed.toolName} não pôde ser executado.';
+          }
 
-        final updatedList2 = state.toList();
-        updatedList2[updatedList2.length - 1] = assistantMsg;
-        state = updatedList2;
+          allToolResults.add('Ferramenta ${parsed.toolName}:\n$toolResult');
 
-        // Step 5: Send tool result back to LLM to get the final human-readable response
+          final updatedCalls = assistantMsg.toolCalls.toList();
+          updatedCalls[updatedCalls.length - 1] = record.copyWith(
+            isRunning: false,
+            result: toolResult,
+          );
+          assistantMsg = assistantMsg.copyWith(toolCalls: updatedCalls);
+          _updateLast(assistantMsg);
+        }
+
+        if (_cancelled) return;
+
+        // Step 7: One final LLM call with all collected tool results
+        assistantMsg = assistantMsg.copyWith(isPostToolStreaming: true);
+        _updateLast(assistantMsg);
+
+        final toolResultsText = allToolResults.join('\n\n');
         final toolPrompt =
-            'Resultado da ferramenta ${parsed.toolName}:\n$toolResult\n\nAgora responda ao usuário de forma final, concisa, clara, profissional e amigável no mesmo idioma/linguagem que ele usou na pergunta com base nesse resultado.';
+            'Pergunta original do usuário:\n'
+            '$text\n\n'
+            '$toolResultsText\n\n'
+            'Responda agora em português, de forma final, curta e útil. '
+            'Não chame outra ferramenta.';
 
         final finalStream = service.sendMessage(
           toolPrompt,
-          onMetrics: (m) =>
-              collectedMetrics = m, // update with final generation metrics
+          onMetrics: (m) => collectedMetrics = m,
         );
 
         final finalBuffer = StringBuffer();
         await for (final token in finalStream) {
+          if (_cancelled) break;
           finalBuffer.write(token);
-          final updated = state.toList();
-          updated[updated.length - 1] = assistantMsg.copyWith(
-            content: finalBuffer.toString(),
-          );
-          state = updated;
+          assistantMsg = assistantMsg.copyWith(content: finalBuffer.toString());
+          _updateLast(assistantMsg);
         }
       }
 
-      final finalContent = state.last.content;
-      if (finalContent.isNotEmpty) {
-        debugPrint('[Chat] IA: $finalContent');
+      if (state.last.content.isNotEmpty) {
+        debugPrint('[Chat] IA: ${state.last.content}');
       }
 
-      // Attach final metrics to the completed message
       if (collectedMetrics != null) {
         final updated = state.toList();
         updated[updated.length - 1] = updated.last.copyWith(
@@ -142,19 +203,36 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
         state = updated;
       }
     } catch (e, st) {
+      if (_cancelled) return;
       debugPrint('[LLM] Erro ao gerar resposta: $e\n$st');
-      final updated = state.toList();
-      updated[updated.length - 1] = assistantMsg.copyWith(
+      assistantMsg = assistantMsg.copyWith(
         content: 'Erro ao gerar resposta: $e',
+        isRouting: false,
       );
-      state = updated;
+      _updateLast(assistantMsg);
     } finally {
       ref.read(llmStateProvider.notifier).setGenerating(false);
     }
   }
 
-  void clearHistory() {
+  Future<void> clearHistory() async {
     state = [];
-    ref.read(llmServiceProvider).clearHistory();
+    _lastSkillId = null;
+    await ref.read(llmServiceProvider).clearHistory();
   }
+
+  void _updateLast(ChatMessage msg) {
+    final updated = state.toList();
+    updated[updated.length - 1] = msg;
+    state = updated;
+  }
+
+  static String _toolDetail(String toolName, String argument) =>
+      switch (toolName) {
+        'CALCULATE' => 'Calculando "$argument"...',
+        'GET_GOALS' => 'Buscando suas metas financeiras...',
+        'GET_RECURRING' => 'Buscando transações recorrentes...',
+        'GET_SPENDING_SUMMARY' => 'Calculando resumo de gastos por categoria...',
+        _ => 'Buscando informações no banco de dados...',
+      };
 }

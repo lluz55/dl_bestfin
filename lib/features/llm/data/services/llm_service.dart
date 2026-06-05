@@ -1,61 +1,76 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show max;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:llama_cpp_dart/llama_cpp_dart.dart' as ffi;
+import 'package:bestfin/features/llm/domain/models/ai_model_type.dart';
 import 'package:bestfin/features/llm/domain/models/llm_metrics.dart';
 
 // Sampling defaults — tuned for a focused financial assistant.
-// Lower temperature = fewer hallucinations, more factual responses.
 const _kChatTemp = 0.55;
-const _kOneShotTemp = 0.30; // categorization/insights: more deterministic
+const _kOneShotTemp = 0.30; // router/categorization: more deterministic
 const _kTopP = 0.90;
-const _kMinP = 0.05; // min-p cuts low-probability tokens; better than top-p alone
-const _kRepeatPenalty = 1.05; // mild; avoids word repetition in long answers
+const _kMinP = 0.05;
+const _kRepeatPenalty = 1.05;
 
 class LlmService {
+  static const _liteRtMethodChannel = MethodChannel(
+    'com.bestfin.bestfin/litert_lm',
+  );
+  static const _liteRtStreamChannel = EventChannel(
+    'com.bestfin.bestfin/litert_lm_stream',
+  );
+
   // Linux: background llama-server process + persistent HTTP client
   Process? _serverProcess;
   HttpClient? _httpClient;
-  StreamSubscription<String>? _stderrSub; // kept alive to surface server crashes
+  StreamSubscription<String>? _stderrSub;
   List<Map<String, String>> _linuxMessages = [];
 
-  // Android/others: native FFI (reused for all calls)
-  ffi.LlamaParent? _parent;
+  // Android/others: new isolate-based LlamaEngine + EngineChat
+  ffi.LlamaEngine? _engine;
+  ffi.EngineChat? _chat;
+  bool _androidLiteRtLoaded = false;
 
-  // Serializes concurrent generations on non-Linux (model has one context slot)
-  Completer<void>? _generationLock;
+  // Serializes concurrent calls on non-Linux
+  final _LlmLock _lock = _LlmLock();
 
   String _systemPrompt = '';
   String _modelName = 'desconhecido';
-  // Path to the mmproj file for vision support (Linux only)
   String? _mmProjPath;
+  AiModelRuntime? _runtime;
 
-  bool get isLoaded =>
-      Platform.isLinux ? (_serverProcess != null) : (_parent != null);
+  bool get isLoaded => Platform.isLinux
+      ? (_serverProcess != null)
+      : (_androidLiteRtLoaded || _engine != null);
 
-  bool get supportsVision => Platform.isLinux && _mmProjPath != null;
+  bool get supportsVision => Platform.isLinux
+      ? _mmProjPath != null
+      : (_runtime == AiModelRuntime.liteRtLm
+            ? false
+            : (_engine?.multimodalLoaded ?? false));
 
   Future<void> load(
     String modelPath, {
+    AiModelType? modelType,
     String systemPrompt = '',
     String? mmProjPath,
   }) async {
     _systemPrompt = systemPrompt;
     _modelName = p.basename(modelPath);
     _mmProjPath = mmProjPath;
+    _runtime = modelType?.runtime;
 
     if (Platform.isLinux) {
       await dispose();
 
-      // Kill any stale process still holding port 8087 (crash / hot-restart).
-      // Use ss (iproute2) to find the PID by socket, then pkill as fallback.
+      // Kill any stale process still holding port 8087.
       try {
-        await Process.run('sh', ['-c',
+        await Process.run('sh', [
+          '-c',
           'ss -tlnp | grep :8087 | grep -o "pid=[0-9]*" | cut -d= -f2 | xargs -r kill -9',
         ]);
       } catch (_) {}
@@ -67,37 +82,36 @@ class LlmService {
       final serverBin =
           Platform.environment['LLAMA_SERVER_BIN'] ?? 'llama-server';
       final logicalCpus = Platform.numberOfProcessors;
-      // Cap generation threads at 6 to prevent cache-thrashing on hyperthreaded/high-core CPUs.
       final genThreads = logicalCpus > 8 ? 6 : max(1, logicalCpus - 1);
-      // Cap batch/prefill threads at 8.
       final batchThreads = logicalCpus > 8 ? 8 : logicalCpus;
       debugPrint(
         '[LLM] Iniciando $serverBin (gen=$genThreads t, batch=$batchThreads t, vision=${mmProjPath != null})',
       );
 
       final args = <String>[
-        '-m', modelPath,
-        '--port', '8087',
-        // GPU Offload — fully offload layers to Vulkan GPU if compiled
-        '-ngl', '99',
-        // Context — use larger context when vision is enabled (image tokens)
-        '-c', mmProjPath != null ? '8192' : '4096',
-        // Threading
-        '-t', '$genThreads',
-        '-tb', '$batchThreads',
-        // NOTE: -fa (Flash Attention) and -ctk/-ctv (KV quant) omitted:
-        // both are unsupported on AMD RADV Vulkan and cause server crashes.
-        // Batching
+        '-m',
+        modelPath,
+        '--port',
+        '8087',
+        '-ngl',
+        '99',
+        '-c',
+        mmProjPath != null ? '8192' : '4096',
+        '-t',
+        '$genThreads',
+        '-tb',
+        '$batchThreads',
         '--cont-batching',
-        '-b', '2048',
-        '-ub', '256',
-        // Single-user: 1 slot avoids memory duplication across parallel slots
-        '-np', '1',
-        // Raise server process priority (no root required for level 1)
-        '--prio', '1',
+        '-b',
+        '2048',
+        '-ub',
+        '256',
+        '-np',
+        '1',
+        '--prio',
+        '1',
       ];
 
-      // Add mmproj for vision support if provided
       if (mmProjPath != null) {
         args.addAll(['--mmproj', mmProjPath]);
       }
@@ -110,8 +124,6 @@ class LlmService {
 
       final completer = Completer<void>();
 
-      // Keep subscription alive for the lifetime of the process so crashes
-      // after model load are visible in the terminal.
       _stderrSub = _serverProcess!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
@@ -119,9 +131,9 @@ class LlmService {
             debugPrint('[LLM Server] $line');
             if (!completer.isCompleted &&
                 (line.contains('server is listening') ||
-                 line.contains('all slots are idle') ||
-                 line.contains('all slots are ready') ||
-                 line.contains('starting the main loop'))) {
+                    line.contains('all slots are idle') ||
+                    line.contains('all slots are ready') ||
+                    line.contains('starting the main loop'))) {
               completer.complete();
             }
           });
@@ -139,64 +151,270 @@ class LlmService {
 
       try {
         await completer.future.timeout(const Duration(seconds: 60));
-        clearHistory();
+        await clearHistory();
       } catch (e, st) {
         debugPrint('[LLM] Falha ao iniciar llama-server: $e\n$st');
         await dispose();
         rethrow;
       }
+    } else if (Platform.isAndroid &&
+        (modelType?.runtime == AiModelRuntime.liteRtLm ||
+            modelPath.endsWith('.litertlm'))) {
+      await _loadAndroidLiteRt(modelPath);
     } else {
-      if (Platform.isAndroid) {
-        // libllama.so directly exports all llama_* symbols needed for text models.
-        // mtmd_* symbols (vision) are lazy-looked-up and never called for text-only models.
-        ffi.Llama.libraryPath = 'libllama.so';
-      } else if (Platform.isMacOS || Platform.isIOS) {
-        ffi.Llama.libraryPath = 'libllama.dylib';
-      }
+      // Android / macOS / iOS: LlamaEngine (isolate-based, new API)
+      await _lock.synchronized(() async {
+        await _disposeEngine();
 
-      // Try loading with GPU offload first; fall back to CPU-only if it fails.
-      // On Android, GPU availability depends on the device's OpenCL driver —
-      // the forwarding libOpenCL.so stub handles detection at runtime.
-      final gpuLayerCandidates = Platform.isAndroid ? [99, 0] : [99];
-      for (final nGpuLayers in gpuLayerCandidates) {
-        try {
-          final modelParams = ffi.ModelParams()..nGpuLayers = nGpuLayers;
-          final load = ffi.LlamaLoad(
-            path: modelPath,
-            modelParams: modelParams,
-            contextParams: ffi.ContextParams()..nCtx = 4096,
-            samplingParams: ffi.SamplerParams()
-              ..temp = _kChatTemp
-              ..topP = _kTopP,
-            mmprojPath: mmProjPath,
-            verbose: true,
-          );
+        final libraryPath = Platform.isAndroid
+            ? 'libllama.so'
+            : 'libllama.dylib'; // macOS / iOS
 
-          _parent = ffi.LlamaParent(load, ffi.ChatMLFormat());
-          await _parent!.init();
-          debugPrint('[LLM] Modelo carregado (nGpuLayers=$nGpuLayers)');
-          break;
-        } catch (e) {
+        final contextSize = Platform.isAndroid
+            ? (mmProjPath != null ? 4096 : 2048)
+            : (mmProjPath != null ? 8192 : 4096);
+        final multimodalParams = mmProjPath != null
+            ? ffi.MultimodalParams(mmprojPath: mmProjPath)
+            : null;
+
+        // Android OpenCL/GGML can crash inside llama_decode after the model
+        // loads successfully, so load CPU-only there instead of relying on a
+        // load-time GPU fallback.
+        final gpuLayerCandidates = Platform.isAndroid ? [0] : [99];
+        for (final nGpuLayers in gpuLayerCandidates) {
           try {
-            await _parent?.dispose();
-          } catch (_) {}
-          _parent = null;
-          if (nGpuLayers == 0) rethrow; // CPU also failed — propagate
-          debugPrint('[LLM] GPU falhou ($e), tentando CPU puro...');
+            final androidThreads = max(
+              1,
+              Platform.numberOfProcessors > 6
+                  ? 4
+                  : Platform.numberOfProcessors - 1,
+            );
+            _engine = await ffi.LlamaEngine.spawn(
+              libraryPath: libraryPath,
+              modelParams: ffi.ModelParams(
+                path: modelPath,
+                gpuLayers: nGpuLayers,
+              ),
+              contextParams: Platform.isAndroid
+                  ? ffi.ContextParams(
+                      nCtx: contextSize,
+                      nBatch: 512,
+                      nUbatch: 256,
+                      nThreads: androidThreads,
+                      nThreadsBatch: androidThreads,
+                    )
+                  : ffi.ContextParams(nCtx: contextSize),
+              multimodalParams: multimodalParams,
+            );
+            debugPrint('[LLM] Modelo carregado (nGpuLayers=$nGpuLayers)');
+            break;
+          } catch (e) {
+            await _engine?.dispose();
+            _engine = null;
+            if (nGpuLayers == 0) rethrow;
+            debugPrint('[LLM] GPU falhou ($e), tentando CPU puro...');
+          }
         }
-      }
 
-      if (_systemPrompt.isNotEmpty) {
-        _parent!.messages = [
-          {'role': 'system', 'content': _systemPrompt},
-        ];
-      }
+        _chat = await _engine!.createChat();
+        if (_systemPrompt.isNotEmpty) {
+          _chat!.addSystem(_systemPrompt);
+        }
+      });
     }
   }
 
-  /// POSTs [body] to the llama-server, retrying once with a fresh HttpClient
-  /// on broken-pipe errors (errno 32) which happen when the server recycles
-  /// an idle connection.
+  String _cleanStructuredResponse(String response) {
+    final trimmed = response.trim();
+    if (!trimmed.startsWith('```')) return trimmed;
+    final lines = trimmed.split('\n').toList();
+    if (lines.isNotEmpty && lines.first.trim().startsWith('```')) {
+      lines.removeAt(0);
+    }
+    if (lines.isNotEmpty && lines.last.trim() == '```') {
+      lines.removeLast();
+    }
+    return lines.join('\n').trim();
+  }
+
+  String _withThinkingDirective(String userMessage, bool enableThinking) {
+    final lowerModel = _modelName.toLowerCase();
+    final isQwen3 = lowerModel.contains('qwen3');
+    if (!isQwen3) return userMessage;
+
+    // Qwen3 supports a hard chat-template switch when the runtime exposes it.
+    // LiteRT-LM currently receives plain prompts through the platform channel,
+    // so use Qwen's documented per-turn soft switch.
+    final directive = enableThinking ? '/think' : '/no_think';
+    return '$directive\n$userMessage';
+  }
+
+  _ThinkingSplit _splitThinkingResponse(String response) {
+    const openTag = '<think>';
+    const closeTag = '</think>';
+
+    final close = response.indexOf(closeTag);
+    if (close >= 0) {
+      final open = response.indexOf(openTag);
+      final thinkingStart = open >= 0 && open < close
+          ? open + openTag.length
+          : 0;
+      final answerStart = close + closeTag.length;
+      return _ThinkingSplit(
+        thinking: response.substring(thinkingStart, close).trim(),
+        answer: response.substring(answerStart).trimLeft(),
+      );
+    }
+
+    final open = response.indexOf(openTag);
+    if (open >= 0) {
+      return _ThinkingSplit(
+        thinking: response.substring(open + openTag.length).trimLeft(),
+        answer: '',
+      );
+    }
+
+    final trimmedLeft = response.trimLeft();
+    if (_isPartialThinkTag(trimmedLeft)) {
+      return const _ThinkingSplit(thinking: '', answer: '');
+    }
+
+    return _ThinkingSplit(thinking: '', answer: response);
+  }
+
+  bool _isPartialThinkTag(String text) {
+    if (text.isEmpty) return true;
+    const openTag = '<think>';
+    return openTag.startsWith(text) && text.length < openTag.length;
+  }
+
+  Stream<String> _sendAndroidLiteRtMessage(
+    String userMessage, {
+    void Function(LlmMetrics)? onMetrics,
+    void Function(String)? onThinkingToken,
+    bool enableThinking = false,
+  }) {
+    return _lock.synchronizedStream(() {
+      if (!_androidLiteRtLoaded) throw StateError('LiteRT-LM not loaded');
+
+      final prompt = _withThinkingDirective(userMessage, enableThinking);
+      final requestId = DateTime.now().microsecondsSinceEpoch.toString();
+      final ctrl = StreamController<String>();
+      final buffer = StringBuffer();
+      final rawBuffer = StringBuffer();
+      var visibleLength = 0;
+      var thinkingLength = 0;
+      final startTime = DateTime.now();
+      DateTime? firstTokenTime;
+      int tokenCount = 0;
+      StreamSubscription<dynamic>? sub;
+
+      ctrl.onListen = () async {
+        sub = _liteRtStreamChannel.receiveBroadcastStream().listen(
+          (event) {
+            if (event is! Map) return;
+            if (event['requestId'] != requestId) return;
+
+            final type = event['type'];
+            if (type == 'token') {
+              final text = event['text'] as String? ?? '';
+              if (text.isEmpty) return;
+              tokenCount++;
+              firstTokenTime ??= DateTime.now();
+              rawBuffer.write(text);
+              final parsed = _splitThinkingResponse(rawBuffer.toString());
+              if (parsed.thinking.length > thinkingLength &&
+                  onThinkingToken != null) {
+                onThinkingToken(parsed.thinking.substring(thinkingLength));
+                thinkingLength = parsed.thinking.length;
+              }
+              if (parsed.answer.length > visibleLength) {
+                final visibleToken = parsed.answer.substring(visibleLength);
+                visibleLength = parsed.answer.length;
+                buffer.write(visibleToken);
+                ctrl.add(visibleToken);
+              }
+            } else if (type == 'error') {
+              ctrl.addError(Exception(event['message'] ?? 'Erro LiteRT-LM'));
+              unawaited(ctrl.close());
+            } else if (type == 'done') {
+              if (buffer.isNotEmpty) {
+                _trimHistory();
+              }
+              if (onMetrics != null) {
+                final endTime = DateTime.now();
+                final total = endTime.difference(startTime);
+                final ttft = firstTokenTime != null
+                    ? firstTokenTime!.difference(startTime)
+                    : Duration.zero;
+                final tps = tokenCount > 0 && total.inMilliseconds > 0
+                    ? tokenCount / (total.inMilliseconds / 1000)
+                    : 0.0;
+                onMetrics(
+                  LlmMetrics(
+                    timeToFirstToken: ttft,
+                    totalTime: total,
+                    tokensGenerated: tokenCount,
+                    tokensPerSecond: tps,
+                    modelName: _modelName,
+                  ),
+                );
+              }
+              unawaited(ctrl.close());
+            }
+          },
+          onError: (error) {
+            ctrl.addError(error);
+            unawaited(ctrl.close());
+          },
+        );
+
+        try {
+          await _liteRtMethodChannel.invokeMethod<bool>('sendMessage', {
+            'prompt': prompt,
+            'requestId': requestId,
+          });
+        } catch (e, st) {
+          ctrl.addError(e, st);
+          await ctrl.close();
+        }
+      };
+
+      ctrl.onCancel = () async {
+        await _liteRtMethodChannel
+            .invokeMethod<bool>('cancel', {'requestId': requestId})
+            .catchError((_) => false);
+        await sub?.cancel();
+      };
+
+      ctrl.onPause = () => sub?.pause();
+      ctrl.onResume = () => sub?.resume();
+
+      return ctrl.stream;
+    });
+  }
+
+  Future<void> _loadAndroidLiteRt(String modelPath) async {
+    await _lock.synchronized(() async {
+      await _disposeAndroidLiteRt();
+      await _disposeEngine();
+      _androidLiteRtLoaded = false;
+      final loaded = await _liteRtMethodChannel
+          .invokeMethod<bool>('loadModel', {
+            'modelPath': modelPath,
+            'systemPrompt': _systemPrompt,
+            'temperature': _kChatTemp,
+            'topP': _kTopP,
+            'maxTokens': 768,
+          });
+      _androidLiteRtLoaded = loaded ?? false;
+      if (!_androidLiteRtLoaded) {
+        throw Exception('LiteRT-LM nao confirmou o carregamento do modelo');
+      }
+    });
+  }
+
+  /// POSTs [body] to the llama-server, retrying once on broken-pipe errors.
   Future<HttpClientResponse> _post(Map<String, dynamic> body) async {
     for (int attempt = 0; attempt <= 1; attempt++) {
       try {
@@ -222,10 +440,7 @@ class LlmService {
     throw StateError('unreachable');
   }
 
-  /// Sends [userMessage] and returns a stream of regular token strings.
-  /// [onMetrics] is called once after generation completes.
-  /// [onThinkingToken] receives reasoning_content tokens separately (when [enableThinking] is true).
-  /// [enableThinking] controls whether the model uses chain-of-thought reasoning per request.
+  /// Sends [userMessage] and returns a stream of token strings.
   Stream<String> sendMessage(
     String userMessage, {
     void Function(LlmMetrics)? onMetrics,
@@ -254,12 +469,12 @@ class LlmService {
         'min_p': _kMinP,
         'repeat_penalty': _kRepeatPenalty,
         'stream_options': {'include_usage': true},
-        // Thinking control: per-request via chat_template_kwargs + budget
         'chat_template_kwargs': {'enable_thinking': enableThinking},
         if (!enableThinking) 'thinking_budget_tokens': 0,
       };
 
-      _post(body).then((response) {
+      _post(body)
+          .then((response) {
             if (response.statusCode != 200) {
               controller.addError(
                 Exception(
@@ -281,7 +496,6 @@ class LlmService {
                       if (dataStr == '[DONE]') return;
                       try {
                         final decoded = jsonDecode(dataStr);
-                        // Collect server-reported usage from the final stats chunk
                         final usage = decoded['usage'];
                         if (usage != null) {
                           serverCompletionTokens =
@@ -291,12 +505,10 @@ class LlmService {
                         if (choices.isNotEmpty) {
                           final delta = choices[0]['delta'];
                           if (delta != null) {
-                            // reasoning_content → thinking callback (not added to main stream)
                             final thinking = delta['reasoning_content'];
                             if (thinking != null && onThinkingToken != null) {
                               onThinkingToken(thinking as String);
                             }
-                            // content → main stream
                             if (delta['content'] != null) {
                               final content = delta['content'] as String;
                               controller.add(content);
@@ -354,75 +566,97 @@ class LlmService {
           });
 
       return controller.stream;
+    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
+      return _sendAndroidLiteRtMessage(
+        userMessage,
+        onMetrics: onMetrics,
+        onThinkingToken: onThinkingToken,
+        enableThinking: enableThinking,
+      );
     } else {
-      if (_parent == null) throw StateError('LlmService not loaded');
+      // Android/non-Linux: EngineChat
+      return _lock.synchronizedStream(() {
+        if (_chat == null) throw StateError('LlmService not loaded');
 
-      final parent = _parent!;
-      parent.messages.add({'role': 'user', 'content': userMessage});
+        final ctrl = StreamController<String>();
+        final buffer = StringBuffer();
+        final startTime = DateTime.now();
+        DateTime? firstTokenTime;
+        int tokenCount = 0;
 
-      final ctrl = StreamController<String>();
-      final buffer = StringBuffer();
-      final startTime = DateTime.now();
-      DateTime? firstTokenTime;
-      int tokenCount = 0;
+        _chat!.addUser(_withThinkingDirective(userMessage, enableThinking));
 
-      StreamSubscription<String>? tokenSub;
-      StreamSubscription<ffi.CompletionEvent>? completionSub;
+        const sampler = ffi.SamplerParams(
+          temperature: _kChatTemp,
+          topP: _kTopP,
+          minP: _kMinP,
+          repeatPenalty: _kRepeatPenalty,
+        );
 
-      tokenSub = parent.stream.listen((token) {
-        ctrl.add(token);
-        buffer.write(token);
-        tokenCount++;
-        firstTokenTime ??= DateTime.now();
+        final maxChatTokens = Platform.isAndroid ? 768 : 4096;
+
+        final rawBuffer = StringBuffer();
+        var visibleLength = 0;
+        var thinkingLength = 0;
+
+        _chat!
+            .generate(sampler: sampler, maxTokens: maxChatTokens)
+            .listen(
+              (event) {
+                if (event is ffi.TokenEvent) {
+                  rawBuffer.write(event.text);
+                  final parsed = _splitThinkingResponse(rawBuffer.toString());
+                  if (parsed.thinking.length > thinkingLength &&
+                      onThinkingToken != null) {
+                    onThinkingToken(parsed.thinking.substring(thinkingLength));
+                    thinkingLength = parsed.thinking.length;
+                  }
+                  if (parsed.answer.length > visibleLength) {
+                    final visibleToken = parsed.answer.substring(visibleLength);
+                    visibleLength = parsed.answer.length;
+                    ctrl.add(visibleToken);
+                    buffer.write(visibleToken);
+                  }
+                  tokenCount++;
+                  firstTokenTime ??= DateTime.now();
+                }
+                // ShiftEvent / DoneEvent: no extra action needed
+              },
+              onDone: () {
+                _trimHistory();
+                if (onMetrics != null && tokenCount > 0) {
+                  final endTime = DateTime.now();
+                  final total = endTime.difference(startTime);
+                  final ttft = firstTokenTime != null
+                      ? firstTokenTime!.difference(startTime)
+                      : Duration.zero;
+                  final tps = total.inMilliseconds > 0
+                      ? tokenCount / (total.inMilliseconds / 1000)
+                      : 0.0;
+                  onMetrics(
+                    LlmMetrics(
+                      timeToFirstToken: ttft,
+                      totalTime: total,
+                      tokensGenerated: tokenCount,
+                      tokensPerSecond: tps,
+                      modelName: _modelName,
+                    ),
+                  );
+                }
+                if (!ctrl.isClosed) ctrl.close();
+              },
+              onError: (error) {
+                ctrl.addError(error);
+                if (!ctrl.isClosed) ctrl.close();
+              },
+            );
+
+        return ctrl.stream;
       });
-
-      completionSub = parent.completions.listen((event) {
-        if (!event.success) {
-          debugPrint('[LLM] Geracao falhou: ${event.errorDetails}');
-          ctrl.addError(Exception(event.errorDetails ?? 'Erro desconhecido'));
-        }
-        tokenSub?.cancel();
-        completionSub?.cancel();
-        if (buffer.isNotEmpty) {
-          parent.messages.add({
-            'role': 'assistant',
-            'content': buffer.toString(),
-          });
-        }
-        _trimHistory();
-        if (onMetrics != null && tokenCount > 0) {
-          final endTime = DateTime.now();
-          final total = endTime.difference(startTime);
-          final ttft = firstTokenTime != null
-              ? firstTokenTime!.difference(startTime)
-              : Duration.zero;
-          final tps = total.inMilliseconds > 0
-              ? tokenCount / (total.inMilliseconds / 1000)
-              : 0.0;
-          onMetrics(
-            LlmMetrics(
-              timeToFirstToken: ttft,
-              totalTime: total,
-              tokensGenerated: tokenCount,
-              tokensPerSecond: tps,
-              modelName: _modelName,
-            ),
-          );
-        }
-        if (!ctrl.isClosed) ctrl.close();
-      });
-
-      parent.sendPrompt(userMessage);
-
-      return ctrl.stream;
     }
   }
 
-  /// One-shot generation without chat history (for insights/categorization).
-  /// [maxTokens] bounds output length — pass a small value (e.g. 20) for
-  /// categorization prompts to avoid unnecessary generation.
-  /// [enableThinking] is always false for one-shot calls (insights, categorization, OCR)
-  /// since thinking would add latency without benefit for structured outputs.
+  /// One-shot generation without chat history (router/insights/categorization).
   Future<String> generateOnce(String prompt, {int maxTokens = 512}) async {
     if (Platform.isLinux) {
       if (_serverProcess == null) {
@@ -438,7 +672,6 @@ class LlmService {
         'top_p': _kTopP,
         'min_p': _kMinP,
         'max_tokens': maxTokens,
-        // Always disable thinking for one-shot calls (faster, deterministic)
         'chat_template_kwargs': {'enable_thinking': false},
         'thinking_budget_tokens': 0,
       });
@@ -458,65 +691,70 @@ class LlmService {
         }
       }
       throw Exception('Resposta vazia do servidor LLM');
+    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
+      return _lock.synchronized(() async {
+        final response = await _liteRtMethodChannel
+            .invokeMethod<String>('generateOnce', {
+              'prompt': _withThinkingDirective(prompt, false),
+              'requestId': DateTime.now().microsecondsSinceEpoch.toString(),
+              'maxTokens': maxTokens,
+              'temperature': _kOneShotTemp,
+              'topP': _kTopP,
+            });
+        return _cleanStructuredResponse(
+          _splitThinkingResponse(response ?? '').answer,
+        );
+      });
     } else {
-      if (_parent == null) throw StateError('LlmService not loaded');
+      if (_engine == null) throw StateError('LlmService not loaded');
 
-      // Serialize concurrent calls — the model context has one slot
-      while (_generationLock != null && !_generationLock!.isCompleted) {
-        await _generationLock!.future;
-      }
-      _generationLock = Completer<void>();
+      return _lock.synchronized(() async {
+        final chat = _chat;
+        if (chat == null) throw StateError('Chat not initialized');
 
-      final parent = _parent!;
-      // Swap to isolated single-turn messages and restore after generation,
-      // avoiding the cost of loading the model a second time.
-      final savedMessages = List<Map<String, String>>.from(parent.messages);
-      parent.messages = [
-        {'role': 'user', 'content': prompt},
-      ];
+        // Save current messages, excluding the system prompt
+        final savedMessages = chat.messages
+            .where((m) => m.role != 'system')
+            .toList();
 
-      final buffer = StringBuffer();
-      final completer = Completer<String>();
+        // Clear history to run stateless generation
+        chat.clearHistory();
 
-      StreamSubscription<String>? tokenSub;
-      StreamSubscription<ffi.CompletionEvent>? completionSub;
+        // Add the prompt
+        chat.addUser(_withThinkingDirective(prompt, false));
 
-      tokenSub = parent.stream.listen((t) => buffer.write(t));
-      completionSub = parent.completions.listen((event) {
-        tokenSub?.cancel();
-        completionSub?.cancel();
-        parent.messages = savedMessages;
-        if (!event.success) {
-          if (!completer.isCompleted) {
-            completer.completeError(Exception(event.errorDetails ?? 'Erro'));
+        const sampler = ffi.SamplerParams(
+          temperature: _kOneShotTemp,
+          topP: _kTopP,
+          minP: _kMinP,
+        );
+
+        final buffer = StringBuffer();
+        try {
+          await for (final event in chat.generate(
+            sampler: sampler,
+            maxTokens: maxTokens,
+          )) {
+            if (event is ffi.TokenEvent) {
+              buffer.write(event.text);
+            }
           }
-        } else if (!completer.isCompleted) {
-          completer.complete(buffer.toString().trim());
+          return _splitThinkingResponse(buffer.toString()).answer.trim();
+        } finally {
+          // Restore the system prompt and saved history
+          chat.clearHistory();
+          if (_systemPrompt.isNotEmpty) {
+            chat.addSystem(_systemPrompt);
+          }
+          for (final m in savedMessages) {
+            chat.addMessage(m);
+          }
         }
       });
-
-      unawaited(parent.sendPrompt(prompt));
-
-      try {
-        return await completer.future.timeout(
-          const Duration(seconds: 90),
-          onTimeout: () {
-            tokenSub?.cancel();
-            completionSub?.cancel();
-            parent.messages = savedMessages;
-            throw TimeoutException('generateOnce timeout após 90s');
-          },
-        );
-      } finally {
-        _generationLock?.complete();
-        _generationLock = null;
-      }
     }
   }
 
-  /// Analyzes an image with an optional text prompt using the vision model.
-  /// Only available on Linux when the mmproj file is loaded.
-  /// Throws [UnsupportedError] on non-Linux or when mmproj is not loaded.
+  /// Analyzes an image using the vision model (Linux + mmproj only).
   Future<String> analyzeImage(
     Uint8List imageBytes,
     String prompt, {
@@ -527,7 +765,7 @@ class LlmService {
     }
     if (_mmProjPath == null) {
       throw UnsupportedError(
-        'analyzeImage requer o arquivo mmproj para visão. Baixe o módulo de visão nas configurações.',
+        'analyzeImage requer o arquivo mmproj. Baixe o módulo de visão nas configurações.',
       );
     }
 
@@ -574,48 +812,65 @@ class LlmService {
       final system = _linuxMessages
           .where((m) => m['role'] == 'system')
           .toList();
-      final conversation = _linuxMessages
-          .where((m) => m['role'] != 'system')
-          .toList();
-      if (conversation.length > 20) {
-        _linuxMessages = [
-          ...system,
-          ...conversation.sublist(conversation.length - 20),
-        ];
+      final conv = _linuxMessages.where((m) => m['role'] != 'system').toList();
+      if (conv.length > 20) {
+        _linuxMessages = [...system, ...conv.sublist(conv.length - 20)];
       }
     } else {
-      if (_parent == null) return;
-      final msgs = _parent!.messages;
-      if (msgs.isEmpty) return;
-      final system = msgs.where((m) => m['role'] == 'system').toList();
-      final conversation = msgs.where((m) => m['role'] != 'system').toList();
-      if (conversation.length > 20) {
-        _parent!.messages = [
-          ...system,
-          ...conversation.sublist(conversation.length - 20),
-        ];
+      final chat = _chat;
+      if (chat == null) return;
+      final msgs = chat.messages.toList();
+      final systemMsgs = msgs.where((m) => m.role == 'system').toList();
+      final conv = msgs.where((m) => m.role != 'system').toList();
+      if (conv.length > 20) {
+        final trimmed = conv.sublist(conv.length - 20);
+        chat.clearHistory();
+        for (final m in systemMsgs) {
+          chat.addMessage(m);
+        }
+        for (final m in trimmed) {
+          chat.addMessage(m);
+        }
       }
     }
   }
 
-  void clearHistory() {
+  void _clearHistoryUnlocked() {
     if (Platform.isLinux) {
       _linuxMessages = _systemPrompt.isNotEmpty
           ? [
               {'role': 'system', 'content': _systemPrompt},
             ]
           : [];
+    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
+      unawaited(
+        _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
+          'systemPrompt': _systemPrompt,
+        }),
+      );
     } else {
-      if (_parent == null) return;
-      _parent!.messages = _systemPrompt.isNotEmpty
-          ? [
-              {'role': 'system', 'content': _systemPrompt},
-            ]
-          : [];
+      _chat?.clearHistory();
+      if (_systemPrompt.isNotEmpty) {
+        _chat?.addSystem(_systemPrompt);
+      }
     }
   }
 
-  void updateSystemPrompt(String systemPrompt) {
+  Future<void> clearHistory() async {
+    if (Platform.isLinux) {
+      _clearHistoryUnlocked();
+    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
+      await _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
+        'systemPrompt': _systemPrompt,
+      });
+    } else {
+      await _lock.synchronized(() async {
+        _clearHistoryUnlocked();
+      });
+    }
+  }
+
+  void _updateSystemPromptUnlocked(String systemPrompt) {
     _systemPrompt = systemPrompt;
     if (Platform.isLinux) {
       if (_linuxMessages.isNotEmpty && _linuxMessages[0]['role'] == 'system') {
@@ -623,16 +878,55 @@ class LlmService {
       } else if (_systemPrompt.isNotEmpty) {
         _linuxMessages.insert(0, {'role': 'system', 'content': systemPrompt});
       }
+    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
+      unawaited(
+        _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
+          'systemPrompt': _systemPrompt,
+        }),
+      );
     } else {
-      if (_parent != null) {
-        final msgs = _parent!.messages;
-        if (msgs.isNotEmpty && msgs[0]['role'] == 'system') {
-          msgs[0]['content'] = systemPrompt;
-        } else if (_systemPrompt.isNotEmpty) {
-          msgs.insert(0, {'role': 'system', 'content': systemPrompt});
-        }
+      final chat = _chat;
+      if (chat == null) return;
+      // Preserve non-system messages while replacing the system prompt
+      final conv = chat.messages.where((m) => m.role != 'system').toList();
+      chat.clearHistory();
+      if (_systemPrompt.isNotEmpty) {
+        chat.addSystem(_systemPrompt);
+      }
+      for (final m in conv) {
+        chat.addMessage(m);
       }
     }
+  }
+
+  Future<void> updateSystemPrompt(String systemPrompt) async {
+    if (Platform.isLinux) {
+      _updateSystemPromptUnlocked(systemPrompt);
+    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
+      _systemPrompt = systemPrompt;
+      await _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
+        'systemPrompt': _systemPrompt,
+      });
+    } else {
+      await _lock.synchronized(() async {
+        _updateSystemPromptUnlocked(systemPrompt);
+      });
+    }
+  }
+
+  Future<void> _disposeEngine() async {
+    await _chat?.dispose().catchError((_) {});
+    _chat = null;
+    await _engine?.dispose().catchError((_) {});
+    _engine = null;
+  }
+
+  Future<void> _disposeAndroidLiteRt() async {
+    if (!_androidLiteRtLoaded) return;
+    await _liteRtMethodChannel
+        .invokeMethod<bool>('dispose')
+        .catchError((_) => false);
+    _androidLiteRtLoaded = false;
   }
 
   Future<void> dispose() async {
@@ -655,15 +949,98 @@ class LlmService {
           );
         }
         _serverProcess = null;
-        // Brief pause so the OS releases the port before a potential restart.
         await Future.delayed(const Duration(milliseconds: 200));
       }
       _linuxMessages.clear();
     } else {
-      if (_parent != null) {
-        await _parent!.dispose();
-        _parent = null;
-      }
+      await _lock.synchronized(() async {
+        await _disposeAndroidLiteRt();
+        await _disposeEngine();
+      });
     }
   }
+}
+
+class _LlmLock {
+  Future<void> _last = Future.value();
+
+  Future<T> synchronized<T>(Future<T> Function() action) async {
+    final previous = _last;
+    final completer = Completer<void>();
+    _last = completer.future;
+    try {
+      await previous;
+      return await action();
+    } finally {
+      completer.complete();
+    }
+  }
+
+  Stream<T> synchronizedStream<T>(Stream<T> Function() streamCreator) {
+    final controller = StreamController<T>(sync: true);
+    StreamSubscription<T>? subscription;
+    Completer<void>? lockCompleter;
+
+    controller.onListen = () async {
+      final previous = _last;
+      lockCompleter = Completer<void>();
+      _last = lockCompleter!.future;
+
+      try {
+        await previous;
+        if (controller.isClosed) {
+          lockCompleter?.complete();
+          return;
+        }
+
+        final sourceStream = streamCreator();
+        subscription = sourceStream.listen(
+          (data) {
+            if (!controller.isClosed) {
+              controller.add(data);
+            }
+          },
+          onError: (err, stack) {
+            if (!controller.isClosed) {
+              controller.addError(err, stack);
+            }
+            unawaited(subscription?.cancel());
+            if (!controller.isClosed) {
+              controller.close();
+            }
+            lockCompleter?.complete();
+          },
+          onDone: () {
+            if (!controller.isClosed) {
+              controller.close();
+            }
+            lockCompleter?.complete();
+          },
+        );
+      } catch (e, st) {
+        if (!controller.isClosed) {
+          controller.addError(e, st);
+          await controller.close();
+        }
+        lockCompleter?.complete();
+      }
+    };
+
+    controller.onCancel = () async {
+      await subscription?.cancel();
+      lockCompleter?.complete();
+    };
+
+    controller.onPause = () => subscription?.pause();
+    controller.onResume = () => subscription?.resume();
+
+    return controller.stream;
+  }
+}
+
+class _ThinkingSplit {
+  final String thinking;
+  final String answer;
+
+  const _ThinkingSplit({required this.thinking, required this.answer});
 }

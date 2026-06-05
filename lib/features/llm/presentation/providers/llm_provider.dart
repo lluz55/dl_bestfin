@@ -24,7 +24,9 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
   @override
   AiModelType build() {
     _load();
-    return Platform.isLinux ? AiModelType.minicpmV4_6 : AiModelType.minicpm5_1b; // Default model
+    if (Platform.isLinux) return AiModelType.minicpmV4_6;
+    if (Platform.isAndroid) return AiModelType.qwen3_0_6bLiteRt;
+    return AiModelType.minicpm5_1b;
   }
 
   Future<void> _load() async {
@@ -32,25 +34,37 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
     final savedModelId = prefs.getString(_keyAiModel);
     if (savedModelId != null) {
       try {
-        final model = AiModelType.values.firstWhere((e) => e.id == savedModelId);
-        // Ignore saved model if it requires Linux but we're on Android/iOS.
-        if (!Platform.isLinux && model.isLinuxOnly) return;
+        final model = AiModelType.values.firstWhere(
+          (e) => e.id == savedModelId,
+        );
+        if (Platform.isAndroid && model == AiModelType.gemma3nE2bLiteRt) {
+          return;
+        }
+        if (!_isModelAvailableOnCurrentPlatform(model)) return;
         state = model;
       } catch (_) {}
     }
   }
 
   Future<void> setModel(AiModelType model) async {
+    if (!_isModelAvailableOnCurrentPlatform(model)) return;
     if (state == model) return;
     state = model;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAiModel, model.id);
   }
+
+  bool _isModelAvailableOnCurrentPlatform(AiModelType model) {
+    if (Platform.isLinux) return !model.isAndroidOnly;
+    if (Platform.isAndroid) return !model.isLinuxOnly;
+    return !model.isLinuxOnly && !model.isAndroidOnly;
+  }
 }
 
-final selectedModelProvider = NotifierProvider<SelectedModelNotifier, AiModelType>(
-  SelectedModelNotifier.new,
-);
+final selectedModelProvider =
+    NotifierProvider<SelectedModelNotifier, AiModelType>(
+      SelectedModelNotifier.new,
+    );
 
 final llmStateProvider = NotifierProvider<LlmStateNotifier, LlmState>(
   LlmStateNotifier.new,
@@ -121,7 +135,9 @@ class LlmStateNotifier extends Notifier<LlmState> {
 
     try {
       final modelType = ref.read(selectedModelProvider);
-      await for (final progress in ModelDownloadService.downloadModel(modelType)) {
+      await for (final progress in ModelDownloadService.downloadModel(
+        modelType,
+      )) {
         state = state.copyWith(downloadProgress: progress.fraction);
       }
       await _executeLoad();
@@ -143,12 +159,16 @@ class LlmStateNotifier extends Notifier<LlmState> {
       final mmProjPath = modelType.hasVision
           ? await ModelDownloadService.mmProjPath(modelType)
           : null;
-      final mmProjExists = mmProjPath != null &&
+      final mmProjExists =
+          mmProjPath != null &&
           await ModelDownloadService.isMmProjPresent(modelType);
-      final context = FinancialContextBuilder.build(ref);
+      final context = modelType.runtime == AiModelRuntime.liteRtLm
+          ? ''
+          : FinancialContextBuilder.build(ref);
       final service = ref.read(llmServiceProvider);
       await service.load(
         path,
+        modelType: modelType,
         systemPrompt: context,
         mmProjPath: mmProjExists ? mmProjPath : null,
       );
@@ -181,10 +201,10 @@ class LlmStateNotifier extends Notifier<LlmState> {
   Future<void> reload() => _executeLoad();
 }
 
-/// Controls whether thinking/reasoning (chain-of-thought) is enabled.
-/// Linked to debug mode in the chat UI — when debug is on, thinking is on.
-final llmThinkingEnabledProvider =
-    NotifierProvider<_ThinkingNotifier, bool>(_ThinkingNotifier.new);
+/// Controls whether the current chat model should use its thinking mode.
+final llmThinkingEnabledProvider = NotifierProvider<_ThinkingNotifier, bool>(
+  _ThinkingNotifier.new,
+);
 
 class _ThinkingNotifier extends Notifier<bool> {
   @override
@@ -205,8 +225,8 @@ final visionAvailableProvider = FutureProvider<bool>((ref) async {
 /// Tracks download progress as 0.0–1.0; null when idle.
 final mmProjDownloadProgressProvider =
     NotifierProvider<MmProjDownloadNotifier, double?>(() {
-  return MmProjDownloadNotifier();
-});
+      return MmProjDownloadNotifier();
+    });
 
 class MmProjDownloadNotifier extends Notifier<double?> {
   @override
@@ -232,7 +252,9 @@ class MmProjDownloadNotifier extends Notifier<double?> {
 
     state = 0.0;
     try {
-      await for (final progress in ModelDownloadService.downloadMmProj(modelType)) {
+      await for (final progress in ModelDownloadService.downloadMmProj(
+        modelType,
+      )) {
         state = progress.fraction;
       }
       // Reload model with mmproj now available

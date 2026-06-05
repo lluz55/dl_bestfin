@@ -22,11 +22,8 @@ class ParsedToolCall {
 }
 
 class LlmToolsService {
-  // Accepts both [TOOL: arg] and [TOOL(arg)] variants from the model.
-  // The \)?  strips a trailing ) if the model closed its own paren before ].
-  static final RegExp _toolRegex = RegExp(
-    r'\[(CALCULATE|LOOKUP_USER_DATA|GET_GOALS|GET_RECURRING|GET_SPENDING_SUMMARY)[:(]\s*([\s\S]*?)\)?]',
-  );
+  static const _kAllTools =
+      'CALCULATE|LOOKUP_USER_DATA|GET_GOALS|GET_RECURRING|GET_SPENDING_SUMMARY';
 
   // Converts key="value" or key=value to a JSON-like map when the model
   // outputs arguments without braces (e.g. action="list_accounts").
@@ -39,8 +36,17 @@ class LlmToolsService {
     return result;
   }
 
-  static ParsedToolCall? parseFirst(String text) {
-    final match = _toolRegex.firstMatch(text);
+  // Builds a regex that only matches tools in [allowedTools] (or all tools if null).
+  // Accepts both [TOOL: arg] and [TOOL(arg)] variants from the model.
+  static RegExp _buildRegex(List<String>? allowedTools) {
+    final pattern = allowedTools != null && allowedTools.isNotEmpty
+        ? allowedTools.join('|')
+        : _kAllTools;
+    return RegExp(r'\[(' + pattern + r')[:(]\s*([\s\S]*?)\)?]');
+  }
+
+  static ParsedToolCall? parseFirst(String text, {List<String>? allowedTools}) {
+    final match = _buildRegex(allowedTools).firstMatch(text);
     if (match == null) return null;
     return ParsedToolCall(
       toolName: match.group(1)!,
@@ -49,9 +55,9 @@ class LlmToolsService {
     );
   }
 
-  static List<ParsedToolCall> parseAll(String text) {
+  static List<ParsedToolCall> parseAll(String text, {List<String>? allowedTools}) {
     final List<ParsedToolCall> list = [];
-    for (final match in _toolRegex.allMatches(text)) {
+    for (final match in _buildRegex(allowedTools).allMatches(text)) {
       list.add(
         ParsedToolCall(
           toolName: match.group(1)!,

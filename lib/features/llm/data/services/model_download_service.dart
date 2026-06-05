@@ -17,6 +17,7 @@ class DownloadProgress {
 
 class ModelDownloadService {
   static const _channel = MethodChannel('com.bestfin.bestfin/download_manager');
+  static const _hfToken = String.fromEnvironment('BESTFIN_HF_TOKEN');
 
   static Future<Directory> _llmDir() async {
     if (Platform.isAndroid) {
@@ -85,6 +86,7 @@ class ModelDownloadService {
     required String url,
     required String fileName,
     required String prefKey,
+    required AiModelType modelType,
   }) async* {
     int? downloadId = await getActiveDownloadId(prefKey);
 
@@ -93,12 +95,13 @@ class ModelDownloadService {
         final result = await _channel.invokeMethod<int>('startDownload', {
           'url': url,
           'fileName': fileName,
+          'headers': _downloadHeaders(modelType),
         });
         if (result == null) throw Exception('Falha ao iniciar download nativo');
         downloadId = result;
         await saveActiveDownloadId(prefKey, downloadId);
       } catch (e) {
-        throw Exception('Erro ao iniciar download nativo: $e');
+        throw Exception(_downloadErrorMessage(modelType, '$e'));
       }
     }
 
@@ -108,10 +111,10 @@ class ModelDownloadService {
     while (!completed) {
       await Future.delayed(const Duration(seconds: 1));
       try {
-        final Map<dynamic, dynamic>? progress =
-            await _channel.invokeMethod<Map<dynamic, dynamic>>('getDownloadProgress', {
-          'downloadId': downloadId,
-        });
+        final Map<dynamic, dynamic>? progress = await _channel
+            .invokeMethod<Map<dynamic, dynamic>>('getDownloadProgress', {
+              'downloadId': downloadId,
+            });
 
         if (progress == null) {
           throw Exception('Não foi possível obter o progresso do download');
@@ -123,12 +126,15 @@ class ModelDownloadService {
 
         if (status == 'successful') {
           await clearActiveDownloadId(prefKey);
-          yield DownloadProgress(bytesDownloaded, bytesDownloaded > 0 ? bytesDownloaded : 1);
+          yield DownloadProgress(
+            bytesDownloaded,
+            bytesDownloaded > 0 ? bytesDownloaded : 1,
+          );
           completed = true;
         } else if (status == 'failed') {
           await clearActiveDownloadId(prefKey);
           final reason = progress['reason'] as int? ?? 0;
-          throw Exception('Download falhou no Android DownloadManager (erro: $reason)');
+          throw Exception(_downloadErrorMessage(modelType, 'erro: $reason'));
         } else {
           yield DownloadProgress(
             bytesDownloaded,
@@ -148,6 +154,7 @@ class ModelDownloadService {
         url: modelType.url,
         fileName: modelType.fileName,
         prefKey: 'active_download_id_model_${modelType.id}',
+        modelType: modelType,
       );
       return;
     }
@@ -159,11 +166,15 @@ class ModelDownloadService {
     try {
       final client = HttpClient();
       final request = await client.getUrl(Uri.parse(modelType.url));
-      request.headers.set('User-Agent', 'BestFin/1.0');
+      for (final entry in _downloadHeaders(modelType).entries) {
+        request.headers.set(entry.key, entry.value);
+      }
       final response = await request.close();
 
       if (response.statusCode != 200) {
-        throw Exception('Download failed: HTTP ${response.statusCode}');
+        throw Exception(
+          _downloadErrorMessage(modelType, 'HTTP ${response.statusCode}'),
+        );
       }
 
       final total = response.contentLength;
@@ -221,7 +232,9 @@ class ModelDownloadService {
   }
 
   static Future<bool> isMmProjPresent(AiModelType modelType) async {
-    if (modelType.mmProjFileName == null || modelType.mmProjSizeMb == null) return false;
+    if (modelType.mmProjFileName == null || modelType.mmProjSizeMb == null) {
+      return false;
+    }
     final minBytes = (modelType.mmProjSizeMb! * 1024 * 1024 * 0.95).round();
 
     if (Platform.isAndroid) {
@@ -243,7 +256,9 @@ class ModelDownloadService {
     final url = modelType.mmProjUrl;
     final fileName = modelType.mmProjFileName;
     if (url == null || fileName == null) {
-      throw UnsupportedError('Model ${modelType.id} does not have a vision projector.');
+      throw UnsupportedError(
+        'Model ${modelType.id} does not have a vision projector.',
+      );
     }
 
     if (Platform.isAndroid) {
@@ -251,6 +266,7 @@ class ModelDownloadService {
         url: url,
         fileName: fileName,
         prefKey: 'active_download_id_mmproj_${modelType.id}',
+        modelType: modelType,
       );
       return;
     }
@@ -262,11 +278,15 @@ class ModelDownloadService {
     try {
       final client = HttpClient();
       final request = await client.getUrl(Uri.parse(url));
-      request.headers.set('User-Agent', 'BestFin/1.0');
+      for (final entry in _downloadHeaders(modelType).entries) {
+        request.headers.set(entry.key, entry.value);
+      }
       final response = await request.close();
 
       if (response.statusCode != 200) {
-        throw Exception('Download failed: HTTP ${response.statusCode}');
+        throw Exception(
+          _downloadErrorMessage(modelType, 'HTTP ${response.statusCode}'),
+        );
       }
 
       final total = response.contentLength;
@@ -305,5 +325,23 @@ class ModelDownloadService {
       final internalFile = File(internalPath);
       if (internalFile.existsSync()) internalFile.deleteSync();
     }
+  }
+
+  static String _downloadErrorMessage(AiModelType modelType, String reason) {
+    if (modelType == AiModelType.gemma3nE2bLiteRt) {
+      return 'Falha ao baixar o Gemma 3n LiteRT ($reason). '
+          'Esse modelo pode exigir aceite da licença Gemma no Hugging Face. '
+          'Aceite os termos da conta e rode o app com BESTFIN_HF_TOKEN, '
+          'ou configure BESTFIN_GEMMA_LITERT_URL para um artefato .litertlm aprovado.';
+    }
+    return 'Falha ao baixar o modelo (${modelType.displayName}): $reason';
+  }
+
+  static Map<String, String> _downloadHeaders(AiModelType modelType) {
+    final headers = <String, String>{'User-Agent': 'BestFin/1.0'};
+    if (modelType == AiModelType.gemma3nE2bLiteRt && _hfToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_hfToken';
+    }
+    return headers;
   }
 }
