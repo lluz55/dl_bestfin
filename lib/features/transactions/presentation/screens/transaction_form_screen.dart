@@ -1252,7 +1252,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         EntityAutocomplete(
           selectedEntityId: _entityId,
           entityType: _type == TransactionType.income ? 'payer' : 'payee',
-          label: _type == TransactionType.income ? 'Recebido de *' : 'Pago a *',
+          label: _type == TransactionType.income ? 'Quem pagou *' : 'Quem recebeu *',
           onEntitySelected: (entity) {
             setState(() {
               _entityId = entity?.id;
@@ -1520,7 +1520,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 _type == TransactionType.income
                     ? Icons.person_outlined
                     : Icons.store_outlined,
-                _type == TransactionType.income ? 'Recebido de' : 'Pago a',
+                _type == TransactionType.income ? 'Quem pagou' : 'Quem recebeu',
                 _entityName!,
                 cs,
                 tt,
