@@ -668,9 +668,12 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
             'Selecione o Modelo de IA',
             style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: availableModels.map((model) {
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: availableModels.map((model) {
               final isCurrent = model == selectedModel;
               final isPresent = presenceMap[model] ?? false;
 
@@ -745,6 +748,8 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
                 ),
               );
             }).toList(),
+              ),
+            ),
           ),
           actions: [
             TextButton(
