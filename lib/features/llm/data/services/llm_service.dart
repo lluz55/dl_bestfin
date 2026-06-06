@@ -160,7 +160,7 @@ class LlmService {
     } else if (Platform.isAndroid &&
         (modelType?.runtime == AiModelRuntime.liteRtLm ||
             modelPath.endsWith('.litertlm'))) {
-      await _loadAndroidLiteRt(modelPath);
+      await _loadAndroidLiteRt(modelPath, modelType: modelType);
     } else {
       // Android / macOS / iOS: LlamaEngine (isolate-based, new API)
       await _lock.synchronized(() async {
@@ -394,7 +394,10 @@ class LlmService {
     });
   }
 
-  Future<void> _loadAndroidLiteRt(String modelPath) async {
+  Future<void> _loadAndroidLiteRt(
+    String modelPath, {
+    AiModelType? modelType,
+  }) async {
     await _lock.synchronized(() async {
       await _disposeAndroidLiteRt();
       await _disposeEngine();
@@ -406,6 +409,7 @@ class LlmService {
             'temperature': _kChatTemp,
             'topP': _kTopP,
             'maxTokens': 768,
+            'useGpu': modelType?.preferGpu ?? false,
           });
       _androidLiteRtLoaded = loaded ?? false;
       if (!_androidLiteRtLoaded) {

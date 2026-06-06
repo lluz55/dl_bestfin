@@ -4,7 +4,8 @@ enum AiModelType {
   minicpmV4_6,
   minicpm5_1b,
   qwen3_0_6bLiteRt,
-  gemma3nE2bLiteRt;
+  gemma3nE2bLiteRt,
+  gemma4E2bLiteRt;
 
   // minicpmV4_6 uses the 'qwen35' GGUF architecture, supported only in the
   // Linux llama-server binary. The Android pre-built SOs lack qwen35 support,
@@ -18,7 +19,13 @@ enum AiModelType {
     AiModelType.minicpm5_1b => AiModelRuntime.llamaCpp,
     AiModelType.qwen3_0_6bLiteRt => AiModelRuntime.liteRtLm,
     AiModelType.gemma3nE2bLiteRt => AiModelRuntime.liteRtLm,
+    AiModelType.gemma4E2bLiteRt => AiModelRuntime.liteRtLm,
   };
+
+  /// GPU backend is disabled: libLiteRtClGlAccelerator.so crashes with a native
+  /// SIGSEGV (null function-pointer dereference) that cannot be caught in Kotlin.
+  /// Re-enable once the upstream LiteRT OpenCL accelerator bug is fixed.
+  bool get preferGpu => false;
 
   String get id => name;
 
@@ -27,6 +34,7 @@ enum AiModelType {
     AiModelType.minicpm5_1b => 'MiniCPM5-1B (Apenas Texto)',
     AiModelType.qwen3_0_6bLiteRt => 'Qwen3 0.6B (LiteRT, Android)',
     AiModelType.gemma3nE2bLiteRt => 'Gemma 3n E2B (LiteRT, Android)',
+    AiModelType.gemma4E2bLiteRt => 'Gemma 4 E2B (LiteRT, Android)',
   };
 
   String get fileName => switch (this) {
@@ -34,6 +42,7 @@ enum AiModelType {
     AiModelType.minicpm5_1b => 'MiniCPM5-1B-Q4_K_M.gguf',
     AiModelType.qwen3_0_6bLiteRt => 'Qwen3-0.6B.litertlm',
     AiModelType.gemma3nE2bLiteRt => 'gemma-3n-E2B-it-int4.litertlm',
+    AiModelType.gemma4E2bLiteRt => 'gemma-4-E2B-it.litertlm',
   };
 
   String get url => switch (this) {
@@ -51,6 +60,11 @@ enum AiModelType {
       defaultValue:
           'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     ),
+    AiModelType.gemma4E2bLiteRt => const String.fromEnvironment(
+      'BESTFIN_GEMMA4_LITERT_URL',
+      defaultValue:
+          'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    ),
   };
 
   int get sizeMb => switch (this) {
@@ -58,6 +72,7 @@ enum AiModelType {
     AiModelType.minicpm5_1b => 657,
     AiModelType.qwen3_0_6bLiteRt => 586,
     AiModelType.gemma3nE2bLiteRt => 3660,
+    AiModelType.gemma4E2bLiteRt => 2583,
   };
 
   // Exact byte sizes for integrity checks (source: actual downloaded files).
@@ -66,6 +81,7 @@ enum AiModelType {
     AiModelType.minicpm5_1b => 688_065_920,
     AiModelType.qwen3_0_6bLiteRt => 586_000_000,
     AiModelType.gemma3nE2bLiteRt => 3_660_000_000,
+    AiModelType.gemma4E2bLiteRt => 2_710_000_000,
   };
 
   String get description => switch (this) {
@@ -77,6 +93,8 @@ enum AiModelType {
       'Modelo local pequeno, rápido e sem licença gated para Android.',
     AiModelType.gemma3nE2bLiteRt =>
       'Modelo local Gemma otimizado para Android via LiteRT-LM.',
+    AiModelType.gemma4E2bLiteRt =>
+      'Gemma 4 E2B via LiteRT-LM (CPU). Mais leve que o Gemma 3n. ~2.6 GB.',
   };
 
   /// Whether this model supports image/vision input via a separate mmproj file.

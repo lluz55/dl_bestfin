@@ -38,6 +38,7 @@ class LiteRtLlmBridge(private val context: Context) :
     private var systemPrompt: String = ""
     private var temperature: Double = 0.55
     private var topP: Double = 0.90
+    private var activeBackend: String = "cpu"
 
     init {
         Engine.setNativeMinLogSeverity(LogSeverity.ERROR)
@@ -51,7 +52,7 @@ class LiteRtLlmBridge(private val context: Context) :
             "cancel" -> cancel(call, result)
             "clearHistory" -> clearHistory(call, result)
             "dispose" -> dispose(result)
-            "backendInfo" -> result.success(mapOf("runtime" to "litert-lm", "backend" to "cpu"))
+            "backendInfo" -> result.success(mapOf("runtime" to "litert-lm", "backend" to activeBackend))
             else -> result.notImplemented()
         }
     }
@@ -81,6 +82,7 @@ class LiteRtLlmBridge(private val context: Context) :
         val prompt = call.argument<String>("systemPrompt") ?: ""
         val temp = (call.argument<Any>("temperature") as? Number)?.toDouble() ?: 0.55
         val p = (call.argument<Any>("topP") as? Number)?.toDouble() ?: 0.90
+        val useGpu = call.argument<Boolean>("useGpu") ?: false
 
         scope.launch {
             try {
@@ -89,13 +91,7 @@ class LiteRtLlmBridge(private val context: Context) :
                 temperature = temp
                 topP = p
 
-                val config = EngineConfig(
-                    modelPath = modelPath,
-                    backend = Backend.CPU(),
-                    cacheDir = context.cacheDir.path,
-                )
-                val loadedEngine = Engine(config)
-                loadedEngine.initialize()
+                val loadedEngine = if (useGpu) tryLoadWithGpu(modelPath) else loadWithCpu(modelPath)
                 engine = loadedEngine
                 conversation = createConversation(temperature, topP)
 
@@ -253,6 +249,22 @@ class LiteRtLlmBridge(private val context: Context) :
                 result.success(true)
             }
         }
+    }
+
+    private fun tryLoadWithGpu(modelPath: String): Engine {
+        // WARNING: Backend.GPU() triggers libLiteRtClGlAccelerator.so which crashes
+        // with a native SIGSEGV (null function-pointer dereference). Native signals
+        // cannot be caught by Kotlin try/catch — the process dies.
+        // Keep preferGpu = false in AiModelType until the upstream bug is resolved.
+        android.util.Log.w("LiteRtLlmBridge", "GPU backend requested but disabled due to upstream SIGSEGV — using CPU")
+        return loadWithCpu(modelPath)
+    }
+
+    private fun loadWithCpu(modelPath: String): Engine {
+        val engine = Engine(EngineConfig(modelPath = modelPath, backend = Backend.CPU(), cacheDir = context.cacheDir.path))
+        engine.initialize()
+        activeBackend = "cpu"
+        return engine
     }
 
     private fun createConversation(temp: Double, p: Double): Conversation {
