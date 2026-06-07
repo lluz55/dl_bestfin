@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show max;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:llama_cpp_dart/llama_cpp_dart.dart' as ffi;
+import 'package:flutter_litert_lm/flutter_litert_lm.dart';
 import 'package:bestfin/features/llm/domain/models/ai_model_type.dart';
 import 'package:bestfin/features/llm/domain/models/llm_metrics.dart';
 
@@ -17,23 +17,20 @@ const _kMinP = 0.05;
 const _kRepeatPenalty = 1.05;
 
 class LlmService {
-  static const _liteRtMethodChannel = MethodChannel(
-    'com.bestfin.bestfin/litert_lm',
-  );
-  static const _liteRtStreamChannel = EventChannel(
-    'com.bestfin.bestfin/litert_lm_stream',
-  );
-
   // Linux: background llama-server process + persistent HTTP client
   Process? _serverProcess;
   HttpClient? _httpClient;
   StreamSubscription<String>? _stderrSub;
   List<Map<String, String>> _linuxMessages = [];
 
-  // Android/others: new isolate-based LlamaEngine + EngineChat
+  // Android LiteRT-LM via flutter_litert_lm package
+  LiteLmEngine? _liteRtEngine;
+  LiteLmConversation? _liteRtConversation;
+  bool _androidLiteRtLoaded = false;
+
+  // Android/others: isolate-based LlamaEngine + EngineChat (non-LiteRT path)
   ffi.LlamaEngine? _engine;
   ffi.EngineChat? _chat;
-  bool _androidLiteRtLoaded = false;
 
   // Serializes concurrent calls on non-Linux
   final _LlmLock _lock = _LlmLock();
@@ -295,98 +292,68 @@ class LlmService {
     bool enableThinking = false,
   }) {
     return _lock.synchronizedStream(() {
-      if (!_androidLiteRtLoaded) throw StateError('LiteRT-LM not loaded');
+      if (_liteRtConversation == null) throw StateError('LiteRT-LM not loaded');
 
       final prompt = _withThinkingDirective(userMessage, enableThinking);
-      final requestId = DateTime.now().microsecondsSinceEpoch.toString();
       final ctrl = StreamController<String>();
-      final buffer = StringBuffer();
       final rawBuffer = StringBuffer();
       var visibleLength = 0;
       var thinkingLength = 0;
       final startTime = DateTime.now();
       DateTime? firstTokenTime;
       int tokenCount = 0;
-      StreamSubscription<dynamic>? sub;
+      StreamSubscription? sub;
 
-      ctrl.onListen = () async {
-        sub = _liteRtStreamChannel.receiveBroadcastStream().listen(
-          (event) {
-            if (event is! Map) return;
-            if (event['requestId'] != requestId) return;
-
-            final type = event['type'];
-            if (type == 'token') {
-              final text = event['text'] as String? ?? '';
-              if (text.isEmpty) return;
-              tokenCount++;
-              firstTokenTime ??= DateTime.now();
-              rawBuffer.write(text);
-              final parsed = _splitThinkingResponse(rawBuffer.toString());
-              if (parsed.thinking.length > thinkingLength &&
-                  onThinkingToken != null) {
-                onThinkingToken(parsed.thinking.substring(thinkingLength));
-                thinkingLength = parsed.thinking.length;
-              }
-              if (parsed.answer.length > visibleLength) {
-                final visibleToken = parsed.answer.substring(visibleLength);
-                visibleLength = parsed.answer.length;
-                buffer.write(visibleToken);
-                ctrl.add(visibleToken);
-              }
-            } else if (type == 'error') {
-              ctrl.addError(Exception(event['message'] ?? 'Erro LiteRT-LM'));
-              unawaited(ctrl.close());
-            } else if (type == 'done') {
-              if (buffer.isNotEmpty) {
-                _trimHistory();
-              }
-              if (onMetrics != null) {
-                final endTime = DateTime.now();
-                final total = endTime.difference(startTime);
-                final ttft = firstTokenTime != null
-                    ? firstTokenTime!.difference(startTime)
-                    : Duration.zero;
-                final tps = tokenCount > 0 && total.inMilliseconds > 0
-                    ? tokenCount / (total.inMilliseconds / 1000)
-                    : 0.0;
-                onMetrics(
-                  LlmMetrics(
-                    timeToFirstToken: ttft,
-                    totalTime: total,
-                    tokensGenerated: tokenCount,
-                    tokensPerSecond: tps,
-                    modelName: _modelName,
-                  ),
-                );
-              }
-              unawaited(ctrl.close());
+      ctrl.onListen = () {
+        sub = _liteRtConversation!.sendMessageStream(prompt).listen(
+          (delta) {
+            final text = delta.text;
+            if (text.isEmpty) return;
+            tokenCount++;
+            firstTokenTime ??= DateTime.now();
+            rawBuffer.write(text);
+            final parsed = _splitThinkingResponse(rawBuffer.toString());
+            if (parsed.thinking.length > thinkingLength &&
+                onThinkingToken != null) {
+              onThinkingToken(parsed.thinking.substring(thinkingLength));
+              thinkingLength = parsed.thinking.length;
+            }
+            if (parsed.answer.length > visibleLength) {
+              final visibleToken = parsed.answer.substring(visibleLength);
+              visibleLength = parsed.answer.length;
+              ctrl.add(visibleToken);
             }
           },
-          onError: (error) {
-            ctrl.addError(error);
+          onDone: () {
+            if (onMetrics != null) {
+              final endTime = DateTime.now();
+              final total = endTime.difference(startTime);
+              final ttft = firstTokenTime != null
+                  ? firstTokenTime!.difference(startTime)
+                  : Duration.zero;
+              final tps = tokenCount > 0 && total.inMilliseconds > 0
+                  ? tokenCount / (total.inMilliseconds / 1000)
+                  : 0.0;
+              onMetrics(
+                LlmMetrics(
+                  timeToFirstToken: ttft,
+                  totalTime: total,
+                  tokensGenerated: tokenCount,
+                  tokensPerSecond: tps,
+                  modelName: _modelName,
+                ),
+              );
+            }
+            unawaited(ctrl.close());
+          },
+          onError: (e) {
+            ctrl.addError(e);
             unawaited(ctrl.close());
           },
         );
-
-        try {
-          await _liteRtMethodChannel.invokeMethod<bool>('sendMessage', {
-            'prompt': prompt,
-            'requestId': requestId,
-          });
-        } catch (e, st) {
-          ctrl.addError(e, st);
-          await ctrl.close();
-        }
       };
 
-      ctrl.onCancel = () async {
-        await _liteRtMethodChannel
-            .invokeMethod<bool>('cancel', {'requestId': requestId})
-            .catchError((_) => false);
-        await sub?.cancel();
-      };
-
+      ctrl.onCancel = () => sub?.cancel();
       ctrl.onPause = () => sub?.pause();
       ctrl.onResume = () => sub?.resume();
 
@@ -402,19 +369,34 @@ class LlmService {
       await _disposeAndroidLiteRt();
       await _disposeEngine();
       _androidLiteRtLoaded = false;
-      final loaded = await _liteRtMethodChannel
-          .invokeMethod<bool>('loadModel', {
-            'modelPath': modelPath,
-            'systemPrompt': _systemPrompt,
-            'temperature': _kChatTemp,
-            'topP': _kTopP,
-            'maxTokens': 768,
-            'useGpu': modelType?.preferGpu ?? false,
-          });
-      _androidLiteRtLoaded = loaded ?? false;
-      if (!_androidLiteRtLoaded) {
-        throw Exception('LiteRT-LM nao confirmou o carregamento do modelo');
+
+      // Try GPU first; fall back to CPU if GPU init fails (known issues on some
+      // Tensor G3 devices and other chipsets with OpenCL driver bugs).
+      for (final backend in [LiteLmBackend.gpu, LiteLmBackend.cpu]) {
+        try {
+          _liteRtEngine = await LiteLmEngine.create(
+            LiteLmEngineConfig(modelPath: modelPath, backend: backend),
+          );
+          debugPrint('[LLM] LiteRT-LM carregado (backend=$backend)');
+          break;
+        } catch (e) {
+          await _liteRtEngine?.dispose().catchError((_) {});
+          _liteRtEngine = null;
+          if (backend == LiteLmBackend.cpu) rethrow;
+          debugPrint('[LLM] GPU LiteRT falhou ($e), tentando CPU...');
+        }
       }
+
+      _liteRtConversation = await _liteRtEngine!.createConversation(
+        LiteLmConversationConfig(
+          systemInstruction: _systemPrompt.isNotEmpty ? _systemPrompt : null,
+          samplerConfig: const LiteLmSamplerConfig(
+            temperature: _kChatTemp,
+            topP: _kTopP,
+          ),
+        ),
+      );
+      _androidLiteRtLoaded = true;
     });
   }
 
@@ -697,17 +679,25 @@ class LlmService {
       throw Exception('Resposta vazia do servidor LLM');
     } else if (Platform.isAndroid && _androidLiteRtLoaded) {
       return _lock.synchronized(() async {
-        final response = await _liteRtMethodChannel
-            .invokeMethod<String>('generateOnce', {
-              'prompt': _withThinkingDirective(prompt, false),
-              'requestId': DateTime.now().microsecondsSinceEpoch.toString(),
-              'maxTokens': maxTokens,
-              'temperature': _kOneShotTemp,
-              'topP': _kTopP,
-            });
-        return _cleanStructuredResponse(
-          _splitThinkingResponse(response ?? '').answer,
+        if (_liteRtEngine == null) throw StateError('LiteRT-LM not loaded');
+        final tmpConversation = await _liteRtEngine!.createConversation(
+          const LiteLmConversationConfig(
+            samplerConfig: LiteLmSamplerConfig(
+              temperature: _kOneShotTemp,
+              topP: _kTopP,
+            ),
+          ),
         );
+        try {
+          final reply = await tmpConversation.sendMessage(
+            _withThinkingDirective(prompt, false),
+          );
+          return _cleanStructuredResponse(
+            _splitThinkingResponse(reply.text).answer,
+          );
+        } finally {
+          await tmpConversation.dispose().catchError((_) {});
+        }
       });
     } else {
       if (_engine == null) throw StateError('LlmService not loaded');
@@ -846,12 +836,6 @@ class LlmService {
               {'role': 'system', 'content': _systemPrompt},
             ]
           : [];
-    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
-      unawaited(
-        _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
-          'systemPrompt': _systemPrompt,
-        }),
-      );
     } else {
       _chat?.clearHistory();
       if (_systemPrompt.isNotEmpty) {
@@ -864,9 +848,19 @@ class LlmService {
     if (Platform.isLinux) {
       _clearHistoryUnlocked();
     } else if (Platform.isAndroid && _androidLiteRtLoaded) {
-      await _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
-        'systemPrompt': _systemPrompt,
-      });
+      await _lock.synchronized(() async {
+        await _liteRtConversation?.dispose().catchError((_) {});
+        _liteRtConversation = await _liteRtEngine!.createConversation(
+          LiteLmConversationConfig(
+            systemInstruction:
+                _systemPrompt.isNotEmpty ? _systemPrompt : null,
+            samplerConfig: const LiteLmSamplerConfig(
+              temperature: _kChatTemp,
+              topP: _kTopP,
+            ),
+          ),
+        );
+        });
     } else {
       await _lock.synchronized(() async {
         _clearHistoryUnlocked();
@@ -882,12 +876,6 @@ class LlmService {
       } else if (_systemPrompt.isNotEmpty) {
         _linuxMessages.insert(0, {'role': 'system', 'content': systemPrompt});
       }
-    } else if (Platform.isAndroid && _androidLiteRtLoaded) {
-      unawaited(
-        _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
-          'systemPrompt': _systemPrompt,
-        }),
-      );
     } else {
       final chat = _chat;
       if (chat == null) return;
@@ -907,10 +895,20 @@ class LlmService {
     if (Platform.isLinux) {
       _updateSystemPromptUnlocked(systemPrompt);
     } else if (Platform.isAndroid && _androidLiteRtLoaded) {
-      _systemPrompt = systemPrompt;
-      await _liteRtMethodChannel.invokeMethod<bool>('clearHistory', {
-        'systemPrompt': _systemPrompt,
-      });
+      await _lock.synchronized(() async {
+        _systemPrompt = systemPrompt;
+        await _liteRtConversation?.dispose().catchError((_) {});
+        _liteRtConversation = await _liteRtEngine!.createConversation(
+          LiteLmConversationConfig(
+            systemInstruction:
+                _systemPrompt.isNotEmpty ? _systemPrompt : null,
+            samplerConfig: const LiteLmSamplerConfig(
+              temperature: _kChatTemp,
+              topP: _kTopP,
+            ),
+          ),
+        );
+        });
     } else {
       await _lock.synchronized(() async {
         _updateSystemPromptUnlocked(systemPrompt);
@@ -926,10 +924,11 @@ class LlmService {
   }
 
   Future<void> _disposeAndroidLiteRt() async {
-    if (!_androidLiteRtLoaded) return;
-    await _liteRtMethodChannel
-        .invokeMethod<bool>('dispose')
-        .catchError((_) => false);
+    if (!_androidLiteRtLoaded && _liteRtEngine == null) return;
+    await _liteRtConversation?.dispose().catchError((_) {});
+    _liteRtConversation = null;
+    await _liteRtEngine?.dispose().catchError((_) {});
+    _liteRtEngine = null;
     _androidLiteRtLoaded = false;
   }
 

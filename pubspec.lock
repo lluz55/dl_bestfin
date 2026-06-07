@@ -406,6 +406,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_litert_lm:
+    dependency: "direct main"
+    description:
+      name: flutter_litert_lm
+      sha256: "45165eb70cb8437f66cfd969b5aeb5d9852881ed7994266bb1b1c456dfa5c77a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
