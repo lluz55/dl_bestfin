@@ -44,6 +44,7 @@ flutter {
 }
 
 dependencies {
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.13.1")
+    // litertlm-android is provided by flutter_litert_lm plugin — do not pin here
+    // to avoid overriding the plugin's bundled runtime version.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }
