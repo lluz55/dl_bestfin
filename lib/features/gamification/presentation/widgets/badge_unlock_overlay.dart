@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/router/app_router.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/gamification/domain/models/badge.dart';
-import 'package:lottie/lottie.dart';
 
 // A better way is to have a provider for the unlock events
 final badgeUnlockEventProvider = StreamProvider<String>((ref) {
@@ -19,28 +21,27 @@ class BadgeUnlockOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen<AsyncValue<String>>(badgeUnlockEventProvider, (previous, next) {
       next.whenData((badgeKey) {
-        _showUnlockDialog(context, ref, badgeKey);
+        unawaited(_showUnlockDialog(ref, badgeKey));
       });
     });
 
     return child;
   }
 
-  void _showUnlockDialog(
-    BuildContext context,
-    WidgetRef ref,
-    String badgeKey,
-  ) async {
+  Future<void> _showUnlockDialog(WidgetRef ref, String badgeKey) async {
     final badges = await ref.read(badgesDaoProvider).getAllBadges();
     final badgeDb = badges.firstWhere((b) => b.badgeKey == badgeKey);
     final badge = BadgeModel.fromDb(badgeDb);
 
-    if (!context.mounted) return;
+    final navContext = ref.read(navigatorKeyProvider).currentContext;
+    if (navContext == null || !navContext.mounted) return;
 
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => _UnlockDialog(badge: badge),
+    unawaited(
+      showDialog(
+        context: navContext,
+        barrierDismissible: true,
+        builder: (context) => _UnlockDialog(badge: badge),
+      ),
     );
   }
 }
