@@ -2,18 +2,25 @@ package com.bestfin.bestfin
 
 import android.app.DownloadManager
 import android.content.Context
+import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
+import android.os.Bundle
 import com.bestfin.bestfin.llm.LiteRtLlmBridge
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.bestfin.bestfin/download_manager"
+    private val SHARE_CHANNEL = "com.bestfin.bestfin/share_receiver"
     private var liteRtBridge: LiteRtLlmBridge? = null
+
+    private var sharedText: String? = null
+    private var sharedImageUri: String? = null
 
     companion object {
         init {
@@ -46,6 +53,23 @@ class MainActivity: FlutterFragmentActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             "com.bestfin.bestfin/litert_lm_stream"
         ).setStreamHandler(bridge)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SHARE_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            if (call.method == "getSharedData") {
+                val data = mutableMapOf<String, String?>()
+                data["text"] = sharedText
+                data["imageUri"] = sharedImageUri
+                result.success(data)
+                
+                sharedText = null
+                sharedImageUri = null
+            } else {
+                result.notImplemented()
+            }
+        }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -174,5 +198,56 @@ class MainActivity: FlutterFragmentActivity() {
     private fun cancelDownload(downloadId: Long): Boolean {
         val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         return downloadManager.remove(downloadId) > 0
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        val type = intent.type
+
+        when (action) {
+            Intent.ACTION_SEND -> {
+                if ("text/plain" == type) {
+                    sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                } else if (type != null && type.startsWith("image/")) {
+                    val imageUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                    if (imageUri != null) {
+                        sharedImageUri = copyUriToCache(imageUri)
+                    }
+                }
+            }
+            Intent.ACTION_PROCESS_TEXT -> {
+                if ("text/plain" == type) {
+                    sharedText = intent.getStringExtra(Intent.EXTRA_PROCESS_TEXT)
+                }
+            }
+        }
+    }
+
+    private fun copyUriToCache(uri: Uri): String? {
+        return try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return null
+            val cacheFile = File(cacheDir, "shared_image.jpg")
+            FileOutputStream(cacheFile).use { outputStream ->
+                inputStream.use { input ->
+                    input.copyTo(outputStream)
+                }
+            }
+            cacheFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -7,8 +8,12 @@ import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/motion.dart';
 import 'package:bestfin/core/widgets/global_fab.dart';
+import 'package:bestfin/features/ai_quick_transaction/presentation/widgets/ai_quick_transaction_sheet.dart';
+import 'package:bestfin/features/ai_quick_transaction/presentation/widgets/ai_quick_tx_fab.dart';
 import 'package:bestfin/features/llm/domain/models/llm_state.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
+import 'package:bestfin/core/services/share_receiver_service.dart';
+import 'package:bestfin/features/ai_quick_transaction/presentation/providers/ai_quick_tx_notifier.dart';
 import 'package:bestfin/features/llm/presentation/widgets/model_setup_sheet.dart';
 
 class AppShell extends ConsumerWidget {
@@ -54,109 +59,134 @@ class AppShell extends ConsumerWidget {
     final llmState = ref.watch(llmStateProvider);
     final selectedModel = ref.watch(selectedModelProvider);
 
-    return Scaffold(
-      extendBody: true,
-      floatingActionButton: GlobalFAB(
-        onExpense: () => context.push(
-          '/transaction/new?type=${TransactionType.expense.name}',
-        ),
-        onIncome: () => context.push(
-          '/transaction/new?type=${TransactionType.income.name}',
-        ),
-        onTransfer: () => context.push(
-          '/transaction/new?type=${TransactionType.transfer.name}',
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: Stack(
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: 96 + MediaQuery.paddingOf(context).bottom,
+    return ShareReceiverListener(
+      child: Scaffold(
+        extendBody: true,
+        floatingActionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            AiQuickTxFab(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => const AiQuickTransactionSheet(),
+                );
+              },
             ),
-            child: navigationShell,
-          ),
-          if (llmState.status == LlmStatus.downloading)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 104 + MediaQuery.paddingOf(context).bottom,
-              child: GestureDetector(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    builder: (_) => const ModelSetupSheet(),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+            const SizedBox(height: 8),
+            GlobalFAB(
+              onExpense: () => context.push(
+                '/transaction/new?type=${TransactionType.expense.name}',
+              ),
+              onIncome: () => context.push(
+                '/transaction/new?type=${TransactionType.income.name}',
+              ),
+              onTransfer: () => context.push(
+                '/transaction/new?type=${TransactionType.transfer.name}',
+              ),
+            ),
+          ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        body: Stack(
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: 96 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: navigationShell,
+            ),
+            if (llmState.status == LlmStatus.downloading)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 104 + MediaQuery.paddingOf(context).bottom,
+                child: GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      builder: (_) => const ModelSetupSheet(),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.3),
                       ),
-                    ],
-                    border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            value: llmState.downloadProgress,
+                            strokeWidth: 3,
+                            color: cs.primary,
+                            backgroundColor: cs.outlineVariant.withValues(
+                              alpha: 0.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Baixando modelo em segundo plano...',
+                                style: context.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${selectedModel.displayName} · ${(llmState.downloadProgress * 100).toStringAsFixed(1)}%',
+                                style: context.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          value: llmState.downloadProgress,
-                          strokeWidth: 3,
-                          color: cs.primary,
-                          backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Baixando modelo em segundo plano...',
-                              style: context.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${selectedModel.displayName} · ${(llmState.downloadProgress * 100).toStringAsFixed(1)}%',
-                              style: context.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
+              ).animate().slideY(
+                begin: 0.5,
+                end: 0,
+                curve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 300),
               ),
-            ).animate().slideY(
-                  begin: 0.5,
-                  end: 0,
-                  curve: Curves.easeOutCubic,
-                  duration: const Duration(milliseconds: 300),
-                ),
-        ],
-      ),
-      bottomNavigationBar: _AnimatedNavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: _onBranchTap,
-        destinations: _destinations,
-        cs: cs,
+          ],
+        ),
+        bottomNavigationBar: _AnimatedNavigationBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: _onBranchTap,
+          destinations: _destinations,
+          cs: cs,
+        ),
       ),
     );
   }
@@ -318,4 +348,68 @@ class _NavBarItem extends StatelessWidget {
       ),
     );
   }
+}
+
+class ShareReceiverListener extends ConsumerStatefulWidget {
+  final Widget child;
+  const ShareReceiverListener({super.key, required this.child});
+
+  @override
+  ConsumerState<ShareReceiverListener> createState() =>
+      _ShareReceiverListenerState();
+}
+
+class _ShareReceiverListenerState extends ConsumerState<ShareReceiverListener>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForSharedData();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkForSharedData();
+    }
+  }
+
+  Future<void> _checkForSharedData() async {
+    final sharedData = await ShareReceiverService.checkSharedData();
+    if (sharedData == null) return;
+
+    final text = sharedData['text'];
+    final imageUri = sharedData['imageUri'];
+
+    if (text != null && text.trim().isNotEmpty) {
+      unawaited(ref.read(aiQuickTxProvider.notifier).parse(text));
+
+      if (mounted) {
+        unawaited(
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (_) => const AiQuickTransactionSheet(),
+          ),
+        );
+      }
+    } else if (imageUri != null && imageUri.isNotEmpty) {
+      if (mounted) {
+        unawaited(context.push('/ai/scan', extra: imageUri));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -81,10 +81,16 @@ final _routerNotifierProvider = Provider<_RouterNotifier>((ref) {
   return notifier;
 });
 
+final navigatorKeyProvider = Provider<GlobalKey<NavigatorState>>(
+  (_) => GlobalKey<NavigatorState>(),
+);
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = ref.watch(_routerNotifierProvider);
+  final navigatorKey = ref.watch(navigatorKeyProvider);
 
   final router = GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: '/home',
     refreshListenable: notifier,
     redirect: (BuildContext context, GoRouterState state) {
@@ -192,7 +198,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/ai/scan',
-        builder: (context, state) => const OcrScannerWidget(),
+        builder: (context, state) =>
+            OcrScannerWidget(initialImagePath: state.extra as String?),
       ),
       GoRoute(
         path: '/ai/chat',
