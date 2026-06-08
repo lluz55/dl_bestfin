@@ -370,22 +370,13 @@ class LlmService {
       await _disposeEngine();
       _androidLiteRtLoaded = false;
 
-      // Try GPU first; fall back to CPU if GPU init fails (known issues on some
-      // Tensor G3 devices and other chipsets with OpenCL driver bugs).
-      for (final backend in [LiteLmBackend.gpu, LiteLmBackend.cpu]) {
-        try {
-          _liteRtEngine = await LiteLmEngine.create(
-            LiteLmEngineConfig(modelPath: modelPath, backend: backend),
-          );
-          debugPrint('[LLM] LiteRT-LM carregado (backend=$backend)');
-          break;
-        } catch (e) {
-          await _liteRtEngine?.dispose().catchError((_) {});
-          _liteRtEngine = null;
-          if (backend == LiteLmBackend.cpu) rethrow;
-          debugPrint('[LLM] GPU LiteRT falhou ($e), tentando CPU...');
-        }
-      }
+      // GPU (OpenCL) triggers a native SIGSEGV in delegate_opencl.cc on
+      // Qualcomm/Samsung devices — the crash is unrecoverable from Dart.
+      // Use CPU until upstream LiteRT fixes the OpenCL null-pointer bug.
+      _liteRtEngine = await LiteLmEngine.create(
+        LiteLmEngineConfig(modelPath: modelPath, backend: LiteLmBackend.cpu),
+      );
+      debugPrint('[LLM] LiteRT-LM carregado (backend=cpu)');
 
       _liteRtConversation = await _liteRtEngine!.createConversation(
         LiteLmConversationConfig(
