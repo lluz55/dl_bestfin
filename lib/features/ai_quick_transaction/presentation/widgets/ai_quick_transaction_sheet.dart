@@ -6,12 +6,17 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/widgets/entity_autocomplete.dart'
     show allEntitiesProvider;
+import 'package:bestfin/core/widgets/color_picker.dart' show AppColorPicker;
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart'
-    show allFlatCategoriesProvider;
+    show allFlatCategoriesProvider, createCategoryProvider;
+import 'package:bestfin/features/credit_cards/domain/models/credit_card.dart';
+import 'package:bestfin/features/credit_cards/presentation/providers/credit_cards_provider.dart';
 import 'package:bestfin/features/llm/domain/models/llm_state.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
@@ -485,6 +490,7 @@ class _PreviewPhase extends ConsumerWidget {
     };
 
     final allAccounts = ref.watch(activeAccountsProvider);
+    final creditCards = ref.watch(creditCardsStreamProvider).value ?? [];
 
     final isToday =
         draft.date.year == now.year &&
@@ -582,17 +588,22 @@ class _PreviewPhase extends ConsumerWidget {
 
                   // Origin account
                   _FieldChip(
-                    icon: draft.accountId != null
-                        ? Icons.account_balance_wallet_rounded
-                        : Icons.account_balance_wallet_outlined,
-                    label: isTransfer
-                        ? 'De: ${draft.accountName ?? '?'}'
-                        : (draft.accountName ?? 'Conta?'),
-                    filled: draft.accountId != null,
+                    icon: draft.creditCardId != null
+                        ? Icons.credit_card_rounded
+                        : (draft.accountId != null
+                            ? Icons.account_balance_wallet_rounded
+                            : Icons.account_balance_wallet_outlined),
+                    label: draft.creditCardId != null
+                        ? (isTransfer ? 'De: ${draft.creditCardName}' : draft.creditCardName!)
+                        : (isTransfer
+                            ? 'De: ${draft.accountName ?? '?'}'
+                            : (draft.accountName ?? 'Conta?')),
+                    filled: draft.accountId != null || draft.creditCardId != null,
                     onTap: () => _showAccountSelector(
                       context,
                       ref,
                       allAccounts,
+                      creditCards,
                       isOrigin: true,
                     ),
                   ),
@@ -611,6 +622,7 @@ class _PreviewPhase extends ConsumerWidget {
                         context,
                         ref,
                         allAccounts,
+                        creditCards,
                         isOrigin: false,
                       ),
                     ),
@@ -787,57 +799,128 @@ class _PreviewPhase extends ConsumerWidget {
   void _showAccountSelector(
     BuildContext context,
     WidgetRef ref,
-    List accounts, {
+    List accounts,
+    List<CreditCardModel> creditCards, {
     required bool isOrigin,
   }) {
     final cs = context.colorScheme;
-    final currentId = isOrigin ? draft.accountId : draft.toAccountId;
+    final currentId = isOrigin ? (draft.creditCardId ?? draft.accountId) : draft.toAccountId;
     final excludeId = isOrigin ? draft.toAccountId : draft.accountId;
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          24 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              isOrigin ? 'Conta de origem' : 'Conta de destino',
-              style: context.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...accounts
-                .where((a) => a.id != excludeId)
-                .map(
-                  (a) => ListTile(
-                    leading: const Icon(Icons.account_balance_wallet_outlined),
-                    title: Text(a.name),
-                    selected: currentId == a.id,
-                    selectedTileColor: cs.secondaryContainer.withValues(
-                      alpha: 0.5,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    onTap: () {
-                      if (isOrigin) {
-                        ref
-                            .read(aiQuickTxProvider.notifier)
-                            .selectAccount(a.id, a.name);
-                      } else {
-                        ref
-                            .read(aiQuickTxProvider.notifier)
-                            .selectToAccount(a.id, a.name);
-                      }
-                      Navigator.of(context).pop();
-                    },
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isOrigin ? 'Conta / Cartão de origem' : 'Conta de destino',
+                  style: context.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Novo(a)'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _showCreateAccountOrCardSheet(context, ref, isOrigin);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (accounts.isNotEmpty) ...[
+              Text(
+                'Contas',
+                style: context.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 4),
+              ...accounts
+                  .where((a) => a.id != excludeId)
+                  .map(
+                    (a) => ListTile(
+                      leading: const Icon(Icons.account_balance_wallet_outlined),
+                      title: Text(a.name),
+                      selected: currentId == a.id && draft.creditCardId == null,
+                      selectedTileColor: cs.secondaryContainer.withValues(
+                        alpha: 0.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onTap: () {
+                        if (isOrigin) {
+                          ref
+                              .read(aiQuickTxProvider.notifier)
+                              .selectAccount(a.id, a.name);
+                        } else {
+                          ref
+                              .read(aiQuickTxProvider.notifier)
+                              .selectToAccount(a.id, a.name);
+                        }
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ),
+            ],
+            if (isOrigin && draft.type == TransactionType.expense && creditCards.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Cartões de Crédito',
+                style: context.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 4),
+              ...creditCards.map(
+                (c) => ListTile(
+                  leading: const Icon(Icons.credit_card_rounded),
+                  title: Text(c.name),
+                  selected: currentId == c.id && draft.creditCardId != null,
+                  selectedTileColor: cs.secondaryContainer.withValues(
+                    alpha: 0.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onTap: () {
+                    final linkedAccount = accounts.where((a) => a.id == c.accountId).firstOrNull;
+                    ref
+                        .read(aiQuickTxProvider.notifier)
+                        .selectCreditCard(c.id, c.name, c.accountId, linkedAccount?.name ?? 'Conta Vinculada');
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCreateAccountOrCardSheet(
+    BuildContext context,
+    WidgetRef ref,
+    bool isOrigin,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _CreateAccountOrCardSheet(
+        isOrigin: isOrigin,
+        type: draft.type,
       ),
     );
   }
@@ -957,13 +1040,19 @@ class _EntitySelectorSheetState extends ConsumerState<_EntitySelectorSheet> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.currentName ?? '');
+    _controller.addListener(_onTextChanged);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _focusNode.requestFocus(),
     );
   }
 
+  void _onTextChanged() {
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -1027,37 +1116,53 @@ class _EntitySelectorSheetState extends ConsumerState<_EntitySelectorSheet> {
               final filtered = entities
                   .where((e) => e.type == widget.entityType)
                   .toList();
-              if (filtered.isEmpty) return const SizedBox.shrink();
+              final typedName = _controller.text.trim();
+              final exists = filtered.any((e) => e.name.toLowerCase() == typedName.toLowerCase());
+
               return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
-                  Text(
-                    'Recentes',
-                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: filtered
-                        .take(8)
-                        .map(
-                          (e) => FilterChip(
-                            label: Text(
-                              e.name,
-                              style: const TextStyle(fontSize: 12),
+                  if (typedName.isNotEmpty && !exists) ...[
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: Icon(Icons.person_add_alt_1_rounded, color: cs.primary),
+                      title: Text('Criar nova pessoa: "$typedName"'),
+                      subtitle: Text(widget.entityType == 'payer' ? 'Registrar como pagador' : 'Registrar como recebedor'),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      tileColor: cs.primaryContainer.withValues(alpha: 0.15),
+                      onTap: _confirm,
+                    ),
+                  ],
+                  if (filtered.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Sugestões',
+                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: filtered
+                          .where((e) => typedName.isEmpty || e.name.toLowerCase().contains(typedName.toLowerCase()))
+                          .take(8)
+                          .map(
+                            (e) => FilterChip(
+                              label: Text(
+                                e.name,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              selected: _controller.text == e.name,
+                              onSelected: (_) {
+                                _controller.text = e.name;
+                                widget.onSelect(e.name);
+                              },
                             ),
-                            visualDensity: VisualDensity.compact,
-                            selected: _controller.text == e.name,
-                            onSelected: (_) {
-                              _controller.text = e.name;
-                              widget.onSelect(e.name);
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
+                          )
+                          .toList(),
+                    ),
+                  ],
                 ],
               );
             },
@@ -1094,6 +1199,20 @@ class _CategorySelectorSheetState
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _showCreateCategorySheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _CreateCategorySheet(
+        initialType: widget.draft.type,
+        onCategoryCreated: (id, name) {
+          widget.onSelect(id, name);
+        },
+      ),
+    );
   }
 
   @override
@@ -1147,9 +1266,21 @@ class _CategorySelectorSheetState
                     ),
                   ),
                 ),
-                Text(
-                  'Categoria',
-                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Categoria',
+                      style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Nova'),
+                      onPressed: () {
+                        _showCreateCategorySheet(context, ref);
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -1323,5 +1454,601 @@ class _DoneWidget extends StatelessWidget {
         ],
       ),
     ).animate().fadeIn(duration: 300.ms).scale(begin: const Offset(0.8, 0.8));
+  }
+}
+
+// ── New Entity / Category / Account Creation Sheets ──────────────────────────
+
+class _CreateCategorySheet extends ConsumerStatefulWidget {
+  final TransactionType? initialType;
+  final void Function(String id, String name) onCategoryCreated;
+
+  const _CreateCategorySheet({
+    required this.initialType,
+    required this.onCategoryCreated,
+  });
+
+  @override
+  ConsumerState<_CreateCategorySheet> createState() => _CreateCategorySheetState();
+}
+
+class _CreateCategorySheetState extends ConsumerState<_CreateCategorySheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  late String _type;
+  String _color = '#2196F3';
+  String _icon = 'category';
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.initialType?.name ?? 'expense';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    try {
+      final name = _nameController.text.trim();
+      final description = _descriptionController.text.trim();
+      final descVal = description.isEmpty ? null : description;
+
+      final newId = await ref.read(createCategoryProvider)(
+        name: name,
+        icon: _icon,
+        color: _color,
+        type: _type,
+        description: descVal,
+      );
+
+      ref.invalidate(allFlatCategoriesProvider);
+
+      if (mounted) {
+        widget.onCategoryCreated(newId, name);
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar categoria: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final shapes = context.shapes;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Nova Categoria',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'Nome',
+                hintText: 'Ex: Alimentação',
+                filled: true,
+                fillColor: cs.surfaceContainerHigh,
+                border: OutlineInputBorder(
+                  borderRadius: shapes.card,
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: InputDecoration(
+                labelText: 'Descrição (opcional)',
+                hintText: 'Ex: Compras de supermercado',
+                filled: true,
+                fillColor: cs.surfaceContainerHigh,
+                border: OutlineInputBorder(
+                  borderRadius: shapes.card,
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Cor', style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            _buildColorSelector(),
+            const SizedBox(height: 16),
+            Text('Ícone', style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            _buildIconSelector(),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _save,
+              child: const Text('Salvar e Selecionar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorSelector() {
+    final presetColors = ['#2196F3', '#4CAF50', '#FF9800', '#009688', '#9C27B0', '#F44336'];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: presetColors.map((hex) {
+        final color = AppColorPicker.hexToColor(hex);
+        final isSelected = hex == _color;
+        return GestureDetector(
+          onTap: () => setState(() => _color = hex),
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildIconSelector() {
+    final icons = {
+      'category': Icons.category_rounded,
+      'shopping_bag': Icons.shopping_bag_rounded,
+      'restaurant': Icons.restaurant_rounded,
+      'directions_car': Icons.directions_car_rounded,
+      'home': Icons.home_rounded,
+      'local_grocery_store': Icons.local_grocery_store_rounded,
+    };
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: icons.entries.map((entry) {
+        final isSelected = entry.key == _icon;
+        final color = AppColorPicker.hexToColor(_color);
+        return GestureDetector(
+          onTap: () => setState(() => _icon = entry.key),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? color : Colors.grey.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Icon(entry.value, color: isSelected ? color : Colors.grey),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _CreateAccountOrCardSheet extends ConsumerStatefulWidget {
+  final bool isOrigin;
+  final TransactionType? type;
+
+  const _CreateAccountOrCardSheet({
+    required this.isOrigin,
+    required this.type,
+  });
+
+  @override
+  ConsumerState<_CreateAccountOrCardSheet> createState() => _CreateAccountOrCardSheetState();
+}
+
+class _CreateAccountOrCardSheetState extends ConsumerState<_CreateAccountOrCardSheet> {
+  bool _isCard = false;
+
+  // Account form state
+  final _accFormKey = GlobalKey<FormState>();
+  final _accNameController = TextEditingController();
+  final _accBalanceController = TextEditingController();
+  AccountType _accType = AccountType.checking;
+  String _accColor = '#2196F3';
+  late String _accIcon;
+
+  // Credit Card form state
+  final _cardFormKey = GlobalKey<FormState>();
+  final _cardNameController = TextEditingController();
+  final _cardLimitController = TextEditingController();
+  int _closingDay = 10;
+  int _dueDay = 20;
+  String? _cardAccountId;
+  String _cardColor = '#2196F3';
+
+  @override
+  void initState() {
+    super.initState();
+    _accIcon = _accType.defaultIcon.codePoint.toString();
+  }
+
+  @override
+  void dispose() {
+    _accNameController.dispose();
+    _accBalanceController.dispose();
+    _cardNameController.dispose();
+    _cardLimitController.dispose();
+    super.dispose();
+  }
+
+  void _onAccTypeChanged(AccountType type) {
+    setState(() {
+      _accType = type;
+      _accIcon = type.defaultIcon.codePoint.toString();
+      _accColor = type.defaultColorHex;
+    });
+  }
+
+  Future<void> _saveAccount() async {
+    if (!_accFormKey.currentState!.validate()) return;
+    try {
+      final name = _accNameController.text.trim();
+      final balance = (double.tryParse(_accBalanceController.text.trim().replaceAll(',', '.')) ?? 0.0) * 100;
+
+      await ref.read(createAccountProvider)(
+        name: name,
+        type: _accType.name,
+        icon: _accIcon,
+        color: _accColor,
+        initialBalance: balance.round(),
+      );
+
+      ref.invalidate(activeAccountsProvider);
+
+      final db = ref.read(databaseProvider);
+      final list = await db.select(db.accounts).get();
+      final created = list.where((a) => a.name == name).firstOrNull;
+
+      if (!mounted) return;
+
+      if (created != null) {
+        if (widget.isOrigin) {
+          ref.read(aiQuickTxProvider.notifier).selectAccount(created.id, created.name);
+        } else {
+          ref.read(aiQuickTxProvider.notifier).selectToAccount(created.id, created.name);
+        }
+      }
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar conta: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveCard() async {
+    if (!_cardFormKey.currentState!.validate()) return;
+    if (_cardAccountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione uma conta para vincular o cartão')),
+      );
+      return;
+    }
+    try {
+      final name = _cardNameController.text.trim();
+      final limit = (double.tryParse(_cardLimitController.text.trim().replaceAll(',', '.')) ?? 0.0) * 100;
+
+      final repository = ref.read(creditCardRepositoryProvider);
+      await repository.createCreditCard(
+        name: name,
+        limitAmount: limit.round(),
+        closingDay: _closingDay,
+        dueDay: _dueDay,
+        accountId: _cardAccountId!,
+        color: _cardColor,
+        minPaymentPercent: 15,
+      );
+
+      ref.invalidate(creditCardsStreamProvider);
+
+      final db = ref.read(databaseProvider);
+      final list = await db.select(db.creditCards).get();
+      final created = list.where((c) => c.name == name).firstOrNull;
+
+      if (!mounted) return;
+
+      if (created != null) {
+        final accounts = ref.read(activeAccountsProvider);
+        final linkedAccount = accounts.where((a) => a.id == created.accountId).firstOrNull;
+        ref
+            .read(aiQuickTxProvider.notifier)
+            .selectCreditCard(created.id, created.name, created.accountId, linkedAccount?.name ?? 'Conta Vinculada');
+      }
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar cartão: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final shapes = context.shapes;
+    final accounts = ref.watch(activeAccountsProvider);
+
+    final showCardOption = widget.type == TransactionType.expense;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _isCard ? 'Novo Cartão' : 'Nova Conta',
+                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (showCardOption)
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Conta'), icon: Icon(Icons.account_balance_wallet)),
+                    ButtonSegment(value: true, label: Text('Cartão'), icon: Icon(Icons.credit_card)),
+                  ],
+                  selected: {_isCard},
+                  onSelectionChanged: (val) => setState(() => _isCard = val.first),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (!_isCard)
+            Form(
+              key: _accFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _accNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nome da Conta',
+                      hintText: 'Ex: Itaú, Nubank, Carteira',
+                      filled: true,
+                      fillColor: cs.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: shapes.card,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _accBalanceController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Saldo Inicial (R\$)',
+                      hintText: 'Ex: 1500,00',
+                      filled: true,
+                      fillColor: cs.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: shapes.card,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Tipo de Conta', style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<AccountType>(
+                    initialValue: _accType,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: cs.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: shapes.card,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    items: AccountType.values
+                        .map((type) => DropdownMenuItem(value: type, child: Text(type.label)))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) _onAccTypeChanged(val);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Cor', style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  _buildColorSelector(_accColor, (c) => setState(() => _accColor = c)),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: _saveAccount,
+                    child: const Text('Criar Conta'),
+                  ),
+                ],
+              ),
+            )
+          else
+            Form(
+              key: _cardFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _cardNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nome do Cartão',
+                      hintText: 'Ex: Nubank, Inter',
+                      filled: true,
+                      fillColor: cs.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: shapes.card,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cardLimitController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Limite do Cartão (R\$)',
+                      hintText: 'Ex: 5000,00',
+                      filled: true,
+                      fillColor: cs.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: shapes.card,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: _closingDay,
+                          decoration: InputDecoration(
+                            labelText: 'Dia de Fechamento',
+                            filled: true,
+                            fillColor: cs.surfaceContainerHigh,
+                            border: OutlineInputBorder(
+                              borderRadius: shapes.card,
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          items: List.generate(31, (index) => index + 1)
+                              .map((day) => DropdownMenuItem(value: day, child: Text('$day')))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _closingDay = val);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: _dueDay,
+                          decoration: InputDecoration(
+                            labelText: 'Dia de Vencimento',
+                            filled: true,
+                            fillColor: cs.surfaceContainerHigh,
+                            border: OutlineInputBorder(
+                              borderRadius: shapes.card,
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          items: List.generate(31, (index) => index + 1)
+                              .map((day) => DropdownMenuItem(value: day, child: Text('$day')))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _dueDay = val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _cardAccountId,
+                    decoration: InputDecoration(
+                      labelText: 'Conta para Débito da Fatura',
+                      filled: true,
+                      fillColor: cs.surfaceContainerHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: shapes.card,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    items: accounts
+                        .map((acc) => DropdownMenuItem(value: acc.id, child: Text(acc.name)))
+                        .toList(),
+                    onChanged: (val) => setState(() => _cardAccountId = val),
+                    validator: (v) => v == null ? 'Selecione a conta' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Cor', style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  _buildColorSelector(_cardColor, (c) => setState(() => _cardColor = c)),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: _saveCard,
+                    child: const Text('Criar Cartão'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorSelector(String selectedColor, ValueChanged<String> onSelected) {
+    final presetColors = ['#2196F3', '#4CAF50', '#FF9800', '#009688', '#9C27B0', '#F44336'];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: presetColors.map((hex) {
+        final color = AppColorPicker.hexToColor(hex);
+        final isSelected = hex == selectedColor;
+        return GestureDetector(
+          onTap: () => onSelected(hex),
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+          ),
+        );
+      }).toList(),
+    );
   }
 }

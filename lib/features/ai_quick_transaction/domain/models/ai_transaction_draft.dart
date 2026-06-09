@@ -12,6 +12,8 @@ class AiTransactionDraft {
   final List<CategorySuggestion> categorySuggestions;
   final String? accountId;
   final String? accountName;
+  final String? creditCardId;
+  final String? creditCardName;
   // Transfer destination; null for non-transfers
   final String? toAccountId;
   final String? toAccountName;
@@ -31,6 +33,8 @@ class AiTransactionDraft {
     this.categorySuggestions = const [],
     this.accountId,
     this.accountName,
+    this.creditCardId,
+    this.creditCardName,
     this.toAccountId,
     this.toAccountName,
     this.entityName,
@@ -60,6 +64,8 @@ class AiTransactionDraft {
     List<CategorySuggestion>? categorySuggestions,
     Object? accountId = _sentinel,
     Object? accountName = _sentinel,
+    Object? creditCardId = _sentinel,
+    Object? creditCardName = _sentinel,
     Object? toAccountId = _sentinel,
     Object? toAccountName = _sentinel,
     Object? entityName = _sentinel,
@@ -83,6 +89,12 @@ class AiTransactionDraft {
       accountName: accountName == _sentinel
           ? this.accountName
           : accountName as String?,
+      creditCardId: creditCardId == _sentinel
+          ? this.creditCardId
+          : creditCardId as String?,
+      creditCardName: creditCardName == _sentinel
+          ? this.creditCardName
+          : creditCardName as String?,
       toAccountId: toAccountId == _sentinel
           ? this.toAccountId
           : toAccountId as String?,

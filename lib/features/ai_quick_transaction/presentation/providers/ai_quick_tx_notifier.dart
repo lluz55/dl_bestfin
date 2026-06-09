@@ -97,7 +97,25 @@ class AiQuickTxNotifier extends Notifier<AiQuickTxState> {
     final s = state;
     if (s is! AiQuickTxPreview) return;
     state = AiQuickTxPreview(
-      s.draft.copyWith(accountId: id, accountName: name),
+      s.draft.copyWith(
+        accountId: id,
+        accountName: name,
+        creditCardId: null,
+        creditCardName: null,
+      ),
+    );
+  }
+
+  void selectCreditCard(String id, String name, String accountId, String accountName) {
+    final s = state;
+    if (s is! AiQuickTxPreview) return;
+    state = AiQuickTxPreview(
+      s.draft.copyWith(
+        creditCardId: id,
+        creditCardName: name,
+        accountId: accountId,
+        accountName: accountName,
+      ),
     );
   }
 
@@ -182,6 +200,7 @@ class AiQuickTxNotifier extends Notifier<AiQuickTxState> {
                 ? draft.toAccountId
                 : null,
             entityId: entityId,
+            creditCardId: draft.creditCardId,
           );
 
       if (draft.isRecurring && draft.recurringFrequency != null) {
