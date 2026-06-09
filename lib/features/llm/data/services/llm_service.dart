@@ -671,6 +671,10 @@ class LlmService {
     } else if (Platform.isAndroid && _androidLiteRtLoaded) {
       return _lock.synchronized(() async {
         if (_liteRtEngine == null) throw StateError('LiteRT-LM not loaded');
+        // LiteRT-LM supports only one session at a time — dispose the
+        // persistent chat conversation before opening the one-shot slot.
+        await _liteRtConversation?.dispose().catchError((_) {});
+        _liteRtConversation = null;
         final tmpConversation = await _liteRtEngine!.createConversation(
           const LiteLmConversationConfig(
             samplerConfig: LiteLmSamplerConfig(
@@ -688,6 +692,19 @@ class LlmService {
           );
         } finally {
           await tmpConversation.dispose().catchError((_) {});
+          // Recreate the persistent chat conversation for subsequent sendMessage calls.
+          try {
+            _liteRtConversation = await _liteRtEngine!.createConversation(
+              LiteLmConversationConfig(
+                systemInstruction:
+                    _systemPrompt.isNotEmpty ? _systemPrompt : null,
+                samplerConfig: const LiteLmSamplerConfig(
+                  temperature: _kChatTemp,
+                  topP: _kTopP,
+                ),
+              ),
+            );
+          } catch (_) {}
         }
       });
     } else {
