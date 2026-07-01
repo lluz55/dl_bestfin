@@ -1,11 +1,13 @@
 package db
 
 type User struct {
-	ID           string
-	Email        string
-	PasswordHash string
-	KdfSalt      string
-	CreatedAt    int64
+	ID                 string
+	Email              string
+	PasswordHash       string
+	KdfSalt            string
+	CreatedAt          int64
+	EncryptedMasterKey string
+	RecoveryVerifier   string
 }
 
 type RefreshToken struct {

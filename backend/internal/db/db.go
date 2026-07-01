@@ -39,6 +39,9 @@ func migrate(database *sql.DB) error {
 			kdf_salt TEXT NOT NULL,
 			created_at INTEGER NOT NULL
 		)`,
+		// idempotent: SQLite returns "duplicate column name" on re-run; we ignore that below
+		`ALTER TABLE users ADD COLUMN encrypted_master_key TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN recovery_verifier TEXT NOT NULL DEFAULT ''`,
 		`CREATE TABLE IF NOT EXISTS sync_records (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id),
@@ -60,8 +63,16 @@ func migrate(database *sql.DB) error {
 	}
 	for _, stmt := range stmts {
 		if _, err := database.Exec(stmt); err != nil {
-			return err
+			// ALTER TABLE ADD COLUMN fails if the column already exists; that is fine.
+			if !isAlreadyExistsErr(err) {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func isAlreadyExistsErr(err error) bool {
+	msg := err.Error()
+	return len(msg) >= 21 && msg[:21] == "duplicate column name"
 }

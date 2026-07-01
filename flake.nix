@@ -43,12 +43,41 @@
           vendorHash = null; # vendor/ directory is included in src
           postInstall = "mv $out/bin/server $out/bin/bestfin-backend";
         };
+
+        flutterMcpToolkit = pkgs.stdenv.mkDerivation {
+          pname = "flutter-mcp-toolkit";
+          version = "3.1.0";
+
+          src = pkgs.fetchurl {
+            url = "https://github.com/Arenukvern/mcp_flutter/releases/download/v3.1.0/flutter_mcp_3.1.0_linux-x64.tar.gz";
+            hash = "sha256-LbBk/CLD6tTJh6bSntIEyZ7BjGO8AMjyb3WmcbJavKc=";
+          };
+
+          nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+          buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+          unpackPhase = ''
+            tar -xzf $src
+          '';
+
+          installPhase = ''
+            mkdir -p $out/bin
+            install -m 0755 flutter_mcp_3.1.0_linux-x64/bin/flutter-mcp-toolkit $out/bin/flutter-mcp-toolkit
+            install -m 0755 flutter_mcp_3.1.0_linux-x64/bin/flutter-mcp-toolkit-server $out/bin/flutter-mcp-toolkit-server
+          '';
+        };
       in {
         packages.backend = backend;
+        packages.flutter-mcp-toolkit = flutterMcpToolkit;
 
         apps.backend = {
           type = "app";
           program = "${backend}/bin/bestfin-backend";
+        };
+
+        apps.flutter-mcp-toolkit-server = {
+          type = "app";
+          program = "${flutterMcpToolkit}/bin/flutter-mcp-toolkit-server";
         };
 
         apps.llm-server = {
@@ -78,6 +107,7 @@
             flutter
             jdk17
             androidSdk
+            flutterMcpToolkit
             sqlite
             # Linux desktop deps
             pkg-config
@@ -114,5 +144,6 @@
         };
       }) // {
         nixosModules.backend = import ./backend/nix/module.nix;
+        nixosModules.cloudflareTunnel = import ./backend/nix/cloudflare-tunnel.nix;
       };
 }

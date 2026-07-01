@@ -19,6 +19,12 @@ in {
       description = "HTTP port to listen on.";
     };
 
+    listenAddr = lib.mkOption {
+      type = lib.types.str;
+      default = "127.0.0.1";
+      description = "Address to bind the HTTP server to. Defaults to localhost-only for Cloudflare Tunnel use.";
+    };
+
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/var/lib/bestfin-backend";
@@ -40,7 +46,7 @@ in {
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
       environment = {
-        PORT = toString cfg.port;
+        LISTEN_ADDR = "${cfg.listenAddr}:${toString cfg.port}";
         DATA_DIR = cfg.dataDir;
       };
       serviceConfig = {

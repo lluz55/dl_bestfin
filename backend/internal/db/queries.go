@@ -7,10 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func CreateUser(database *sql.DB, id, email, passwordHash, kdfSalt string) error {
+func CreateUser(database *sql.DB, id, email, passwordHash, kdfSalt, encryptedMasterKey, recoveryVerifier string) error {
 	_, err := database.Exec(
-		`INSERT INTO users (id, email, password_hash, kdf_salt, created_at) VALUES (?, ?, ?, ?, ?)`,
-		id, email, passwordHash, kdfSalt, time.Now().Unix(),
+		`INSERT INTO users (id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		id, email, passwordHash, kdfSalt, encryptedMasterKey, recoveryVerifier, time.Now().Unix(),
 	)
 	return err
 }
@@ -18,8 +18,36 @@ func CreateUser(database *sql.DB, id, email, passwordHash, kdfSalt string) error
 func GetUserByEmail(database *sql.DB, email string) (*User, error) {
 	u := &User{}
 	err := database.QueryRow(
-		`SELECT id, email, password_hash, kdf_salt, created_at FROM users WHERE email = ?`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.CreatedAt)
+		`SELECT id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at FROM users WHERE email = ?`, email,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.EncryptedMasterKey, &u.RecoveryVerifier, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return u, err
+}
+
+func UpdateMasterKey(database *sql.DB, userID, encryptedMasterKey, recoveryVerifier, passwordHash, kdfSalt string) error {
+	_, err := database.Exec(
+		`UPDATE users SET encrypted_master_key = ?, recovery_verifier = ?, password_hash = ?, kdf_salt = ? WHERE id = ?`,
+		encryptedMasterKey, recoveryVerifier, passwordHash, kdfSalt, userID,
+	)
+	return err
+}
+
+func UpdateEncryptedMasterKey(database *sql.DB, userID, encryptedMasterKey string) error {
+	_, err := database.Exec(
+		`UPDATE users SET encrypted_master_key = ? WHERE id = ?`,
+		encryptedMasterKey, userID,
+	)
+	return err
+}
+
+func GetUserByRecoveryVerifier(database *sql.DB, email, recoveryVerifier string) (*User, error) {
+	u := &User{}
+	err := database.QueryRow(
+		`SELECT id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at FROM users WHERE email = ? AND recovery_verifier = ?`,
+		email, recoveryVerifier,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.EncryptedMasterKey, &u.RecoveryVerifier, &u.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

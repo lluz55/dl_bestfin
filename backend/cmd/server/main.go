@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	port := envOr("PORT", "8080")
+	listenAddr := envOr("LISTEN_ADDR", "127.0.0.1:8080")
 	dataDir := envOr("DATA_DIR", "./data")
 	jwtSecret := mustEnv("JWT_SECRET")
 
@@ -42,16 +42,18 @@ func main() {
 		r.Post("/auth/register", auth.Register(database, jwtSecret))
 		r.Post("/auth/login", auth.Login(database, jwtSecret))
 		r.Post("/auth/refresh", auth.Refresh(database, jwtSecret))
+		r.Post("/auth/recover", auth.RecoverAccount(database))
 	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth(jwtSecret))
+		r.Put("/auth/master-key", auth.UpdateMasterKey(database, jwtSecret))
 		r.Get("/sync/pull", syncsvc.Pull(database))
 		r.Post("/sync/push", syncsvc.Push(database))
 	})
 
-	slog.Info("bestfin-backend starting", "port", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	slog.Info("bestfin-backend starting", "addr", listenAddr)
+	if err := http.ListenAndServe(listenAddr, r); err != nil {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}

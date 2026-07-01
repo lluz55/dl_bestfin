@@ -2,6 +2,7 @@ package syncsvc
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -102,8 +103,10 @@ func validateRecord(record db.SyncRecord) error {
 	if len(record.Payload) == 0 || len(record.Payload) > maxPayloadBytes {
 		return errors.New("invalid payload size")
 	}
-	if !json.Valid([]byte(record.Payload)) {
-		return errors.New("invalid payload json")
+	if _, err := base64.URLEncoding.DecodeString(record.Payload); err != nil {
+		if _, rawErr := base64.RawURLEncoding.DecodeString(record.Payload); rawErr != nil {
+			return errors.New("invalid payload base64")
+		}
 	}
 	now := time.Now().Unix()
 	if record.UpdatedAt <= 0 || record.UpdatedAt > now+300 {
