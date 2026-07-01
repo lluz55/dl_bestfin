@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/llm/domain/models/llm_state.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
@@ -44,7 +45,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       if (widget.initialMessage != null && mounted) {
         final llmState = ref.read(llmStateProvider);
         if (llmState.canChat) {
-          ref.read(chatHistoryProvider.notifier).sendMessage(widget.initialMessage!);
+          ref
+              .read(chatHistoryProvider.notifier)
+              .sendMessage(widget.initialMessage!);
           _scrollToBottom();
         }
       }
@@ -64,10 +67,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   void _showSetupSheet() {
-    showModalBottomSheet(
+    showAdaptiveModal(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => const ModelSetupSheet(),
     );
   }
@@ -97,12 +98,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     final offTrack = goals.where((g) => !g.isOnTrack).toList();
     if (offTrack.isNotEmpty) {
-      result.add('Como atingir minha meta "${offTrack.first.goalName}" mais rápido?');
+      result.add(
+        'Como atingir minha meta "${offTrack.first.goalName}" mais rápido?',
+      );
     }
 
     final increasing = trends.where((t) => t.trend == 'increasing').toList();
     if (increasing.isNotEmpty) {
-      result.add('Meus gastos com ${increasing.first.categoryName} subiram — o que fazer?');
+      result.add(
+        'Meus gastos com ${increasing.first.categoryName} subiram — o que fazer?',
+      );
     }
 
     if (health.score < 60) {
@@ -161,7 +166,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               Icons.bug_report_outlined,
               color: _debugMode ? Theme.of(context).colorScheme.primary : null,
             ),
-            tooltip: _debugMode ? 'Ocultar debug/thinking' : 'Mostrar debug e ativar thinking',
+            tooltip: _debugMode
+                ? 'Ocultar debug/thinking'
+                : 'Mostrar debug e ativar thinking',
             onPressed: () {
               setState(() => _debugMode = !_debugMode);
               // Sync thinking mode with debug toggle
@@ -179,46 +186,53 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       ),
       body: kIsWeb
           ? _WebUnsupportedBanner(cs: cs)
-          : Column(
-              children: [
-                Expanded(
-                  child: messages.isEmpty
-                      ? _EmptyState(
-                          llmState: llmState,
-                          suggestedPrompts: _buildSuggestedPrompts(),
-                          onSuggestion: (s) {
-                            ref
-                                .read(chatHistoryProvider.notifier)
-                                .sendMessage(s);
-                            _scrollToBottom();
-                          },
-                          onSetup: _showSetupSheet,
-                        )
-                      : ListView.builder(
-                          controller: _scrollCtrl,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          itemCount: messages.length,
-                          itemBuilder: (ctx, i) {
-                            final msg = messages[i];
-                            final isLast = i == messages.length - 1;
-                            return ChatBubble(
-                              message: msg,
-                              isStreaming:
-                                  isGenerating && isLast && msg.isAssistant,
-                              showDebug: _debugMode,
-                            );
-                          },
-                        ),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: messages.isEmpty
+                          ? _EmptyState(
+                              llmState: llmState,
+                              suggestedPrompts: _buildSuggestedPrompts(),
+                              onSuggestion: (s) {
+                                ref
+                                    .read(chatHistoryProvider.notifier)
+                                    .sendMessage(s);
+                                _scrollToBottom();
+                              },
+                              onSetup: _showSetupSheet,
+                            )
+                          : ListView.builder(
+                              controller: _scrollCtrl,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              itemCount: messages.length,
+                              itemBuilder: (ctx, i) {
+                                final msg = messages[i];
+                                final isLast = i == messages.length - 1;
+                                return ChatBubble(
+                                  message: msg,
+                                  isStreaming:
+                                      isGenerating && isLast && msg.isAssistant,
+                                  showDebug: _debugMode,
+                                );
+                              },
+                            ),
+                    ),
+                    ChatInputBar(
+                      enabled: llmState.canChat,
+                      onSend: (text) {
+                        ref
+                            .read(chatHistoryProvider.notifier)
+                            .sendMessage(text);
+                        _scrollToBottom();
+                      },
+                      onImageTap: _pickImage,
+                    ),
+                  ],
                 ),
-                ChatInputBar(
-                  enabled: llmState.canChat,
-                  onSend: (text) {
-                    ref.read(chatHistoryProvider.notifier).sendMessage(text);
-                    _scrollToBottom();
-                  },
-                  onImageTap: _pickImage,
-                ),
-              ],
+              ),
             ),
     );
   }

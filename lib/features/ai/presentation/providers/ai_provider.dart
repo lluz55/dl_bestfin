@@ -12,6 +12,8 @@ import 'package:bestfin/features/financing/presentation/providers/financing_prov
 import 'package:bestfin/features/financing/domain/models/financing.dart';
 import 'package:bestfin/features/financing/domain/models/financing_installment.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
+import 'package:bestfin/features/ai/domain/services/naive_bayes_classifier.dart';
+import 'package:bestfin/features/ai/domain/services/insight_nlg_service.dart';
 
 // ─── Auto-Categorização ──────────────────────────────────────────────────────
 
@@ -318,6 +320,55 @@ final autoCategorizeProvider = Provider.family<AiCategorySuggestion?, String>((
   );
 });
 
+// ─── Naive Bayes Categorization ─────────────────────────────────────────────
+
+/// Builds a Naive Bayes classifier trained on the user's confirmed transaction history.
+/// Rebuilds whenever the transaction list changes (Riverpod caches the result).
+final naiveBayesClassifierProvider = Provider<NaiveBayesClassifier>((ref) {
+  final classifier = NaiveBayesClassifier();
+  final txsAsync = ref.watch(filteredTransactionsProvider);
+  if (txsAsync is AsyncData<List<TransactionModel>>) {
+    for (final tx in txsAsync.value) {
+      if (tx.categoryId != null) {
+        classifier.train(tx.description, tx.categoryId!);
+      }
+    }
+  }
+  return classifier;
+});
+
+/// Runs NB classification for a description query.
+/// Returns null when the classifier lacks sufficient data or confidence < 0.45.
+final naiveBayesCategorizeProvider =
+    Provider.family<AiCategorySuggestion?, String>((ref, query) {
+      if (query.trim().length < 3) return null;
+
+      final classifier = ref.watch(naiveBayesClassifierProvider);
+      if (!classifier.hasSufficientData) return null;
+
+      final result = classifier.predict(query);
+      if (result == null) return null;
+
+      final (catId, confidence) = result;
+      if (confidence < 0.45) return null;
+
+      final txsAsync = ref.watch(filteredTransactionsProvider);
+      return txsAsync.whenData((txs) {
+        try {
+          final cat = txs.firstWhere((t) => t.categoryId == catId).category!;
+          return AiCategorySuggestion(
+            categoryId: catId,
+            categoryName: cat.name,
+            categoryColor: cat.color,
+            categoryIcon: cat.icon,
+            confidence: confidence.clamp(0.5, 0.95),
+          );
+        } catch (_) {
+          return null;
+        }
+      }).value;
+    });
+
 // ─── Cash Flow Forecasting ──────────────────────────────────────────────────
 
 class ForecastPoint {
@@ -367,7 +418,9 @@ final cashFlowForecastingProvider = Provider<AiForecastReport>((ref) {
           final now = DateTime.now();
           final List<ForecastPoint> points = [];
 
-          // 1. Calculate organic baseline daily spending rate from past 30 days of completed expenses
+          // 1. EWMA daily spending baseline from past 30 days.
+          //    Alpha is inversely proportional to the coefficient of variation (CV):
+          //    high volatility → more smoothing (lower alpha), stable spending → less smoothing.
           final past30Days = now.subtract(const Duration(days: 30));
           final completedExpenses = txs.where(
             (t) =>
@@ -376,11 +429,38 @@ final cashFlowForecastingProvider = Provider<AiForecastReport>((ref) {
                 t.date.isAfter(past30Days),
           );
 
-          final totalSpent = completedExpenses.fold<int>(
-            0,
-            (sum, t) => sum + t.amount,
-          );
-          final int dailyBaselineExpense = (totalSpent / 30.0).round();
+          // Aggregate by calendar day for the past 30 days
+          final Map<int, int> dailyTotals = {};
+          for (int i = 0; i < 30; i++) {
+            dailyTotals[i] = 0;
+          }
+          for (final tx in completedExpenses) {
+            final daysAgo = now.difference(tx.date).inDays.clamp(0, 29);
+            dailyTotals[29 - daysAgo] =
+                (dailyTotals[29 - daysAgo] ?? 0) + tx.amount;
+          }
+          final dailyValues = List.generate(30, (i) => dailyTotals[i] ?? 0);
+
+          final simpleMean = dailyValues.fold<int>(0, (s, v) => s + v) / 30.0;
+          final variance =
+              dailyValues.fold<double>(
+                0,
+                (s, v) => s + (v - simpleMean) * (v - simpleMean),
+              ) /
+              30.0;
+          final stddev = sqrt(variance);
+          // CV in [0, 1]: high CV → lower alpha (more smoothing)
+          final cv = simpleMean > 0
+              ? (stddev / simpleMean).clamp(0.0, 1.0)
+              : 1.0;
+          final alpha = (0.4 - cv * 0.25).clamp(0.05, 0.4);
+
+          // EWMA over oldest→newest days
+          double ewma = simpleMean;
+          for (final v in dailyValues) {
+            ewma = alpha * v + (1 - alpha) * ewma;
+          }
+          final int dailyBaselineExpense = ewma.round();
 
           int currentRunningBalance = currentNetWorth;
           String? alertMessage;
@@ -1166,5 +1246,39 @@ final budgetRecommendationsProvider = Provider<List<AiBudgetRecommendation>>((
     },
     loading: () => [],
     error: (_, __) => [],
+  );
+});
+
+// ─── Insights via Template NLG (sem LLM) ─────────────────────────────────────
+
+/// Gera os 3 insights do período usando NLG baseada em templates sobre os
+/// dados algorítmicos já existentes — substituto determinístico do
+/// `llmInsightsProvider`, sempre disponível mesmo sem modelo carregado.
+final templateInsightsProvider = Provider<List<String>>((ref) {
+  final balance = ref.watch(totalBalanceProvider);
+  final forecast = ref.watch(cashFlowForecastingProvider);
+  final health = ref.watch(financialHealthScoreProvider);
+  final trends = ref.watch(spendingTrendsProvider);
+
+  // Categoria com maior gasto no mês corrente (insight #2).
+  String topName = '';
+  int topCents = 0;
+  double topPct = 0;
+  for (final t in trends) {
+    if (t.currentMonthTotal > topCents) {
+      topCents = t.currentMonthTotal;
+      topName = t.categoryName;
+      topPct = t.percentChange;
+    }
+  }
+
+  return InsightNlgService.periodInsights(
+    balanceCents: balance,
+    savingsRate: health.savingsRate,
+    cashFlowAlert: forecast.alertMessage,
+    topCategoryName: topName,
+    topCategoryCents: topCents,
+    topCategoryPctChange: topPct,
+    primaryRecommendation: health.primaryRecommendation,
   );
 });

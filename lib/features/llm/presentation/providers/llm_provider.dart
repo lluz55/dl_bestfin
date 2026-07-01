@@ -24,7 +24,9 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
   @override
   AiModelType build() {
     _load();
-    return Platform.isLinux ? AiModelType.minicpmV4_6 : AiModelType.minicpm5_1b; // Default model
+    return Platform.isLinux
+        ? AiModelType.minicpmV4_6
+        : AiModelType.minicpm5_1b; // Default model
   }
 
   Future<void> _load() async {
@@ -32,7 +34,9 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
     final savedModelId = prefs.getString(_keyAiModel);
     if (savedModelId != null) {
       try {
-        final model = AiModelType.values.firstWhere((e) => e.id == savedModelId);
+        final model = AiModelType.values.firstWhere(
+          (e) => e.id == savedModelId,
+        );
         // Ignore saved model if it requires Linux but we're on Android/iOS.
         if (!Platform.isLinux && model.isLinuxOnly) return;
         state = model;
@@ -48,9 +52,10 @@ class SelectedModelNotifier extends Notifier<AiModelType> {
   }
 }
 
-final selectedModelProvider = NotifierProvider<SelectedModelNotifier, AiModelType>(
-  SelectedModelNotifier.new,
-);
+final selectedModelProvider =
+    NotifierProvider<SelectedModelNotifier, AiModelType>(
+      SelectedModelNotifier.new,
+    );
 
 final llmStateProvider = NotifierProvider<LlmStateNotifier, LlmState>(
   LlmStateNotifier.new,
@@ -121,7 +126,9 @@ class LlmStateNotifier extends Notifier<LlmState> {
 
     try {
       final modelType = ref.read(selectedModelProvider);
-      await for (final progress in ModelDownloadService.downloadModel(modelType)) {
+      await for (final progress in ModelDownloadService.downloadModel(
+        modelType,
+      )) {
         state = state.copyWith(downloadProgress: progress.fraction);
       }
       await _executeLoad();
@@ -143,7 +150,8 @@ class LlmStateNotifier extends Notifier<LlmState> {
       final mmProjPath = modelType.hasVision
           ? await ModelDownloadService.mmProjPath(modelType)
           : null;
-      final mmProjExists = mmProjPath != null &&
+      final mmProjExists =
+          mmProjPath != null &&
           await ModelDownloadService.isMmProjPresent(modelType);
       final context = FinancialContextBuilder.build(ref);
       final service = ref.read(llmServiceProvider);
@@ -183,8 +191,9 @@ class LlmStateNotifier extends Notifier<LlmState> {
 
 /// Controls whether thinking/reasoning (chain-of-thought) is enabled.
 /// Linked to debug mode in the chat UI — when debug is on, thinking is on.
-final llmThinkingEnabledProvider =
-    NotifierProvider<_ThinkingNotifier, bool>(_ThinkingNotifier.new);
+final llmThinkingEnabledProvider = NotifierProvider<_ThinkingNotifier, bool>(
+  _ThinkingNotifier.new,
+);
 
 class _ThinkingNotifier extends Notifier<bool> {
   @override
@@ -205,8 +214,8 @@ final visionAvailableProvider = FutureProvider<bool>((ref) async {
 /// Tracks download progress as 0.0–1.0; null when idle.
 final mmProjDownloadProgressProvider =
     NotifierProvider<MmProjDownloadNotifier, double?>(() {
-  return MmProjDownloadNotifier();
-});
+      return MmProjDownloadNotifier();
+    });
 
 class MmProjDownloadNotifier extends Notifier<double?> {
   @override
@@ -232,7 +241,9 @@ class MmProjDownloadNotifier extends Notifier<double?> {
 
     state = 0.0;
     try {
-      await for (final progress in ModelDownloadService.downloadMmProj(modelType)) {
+      await for (final progress in ModelDownloadService.downloadMmProj(
+        modelType,
+      )) {
         state = progress.fraction;
       }
       // Reload model with mmproj now available

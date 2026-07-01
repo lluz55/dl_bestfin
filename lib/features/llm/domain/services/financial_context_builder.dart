@@ -6,7 +6,17 @@ import 'package:bestfin/features/transactions/presentation/providers/transaction
 import 'package:bestfin/core/constants/transaction_types.dart';
 
 class FinancialContextBuilder {
+  static String? _cachedContext;
+  static DateTime? _cacheTimestamp;
+  static const _cacheTtl = Duration(minutes: 5);
+
   static String build(Ref ref) {
+    if (_cachedContext != null &&
+        _cacheTimestamp != null &&
+        DateTime.now().difference(_cacheTimestamp!) < _cacheTtl) {
+      return _cachedContext!;
+    }
+
     final balance = ref.read(totalBalanceProvider);
     final health = ref.read(financialHealthScoreProvider);
     final forecast = ref.read(cashFlowForecastingProvider);
@@ -27,10 +37,18 @@ class FinancialContextBuilder {
     );
     buf.writeln('');
     buf.writeln('=== DIRETRIZES DE RESPOSTA ===');
-    buf.writeln('- Responda de forma extremamente concisa, direta, curta e objetiva.');
-    buf.writeln('- Responda SEMPRE no mesmo idioma/linguagem que o usuário utilizou na pergunta (se ele perguntar em inglês, responda em inglês; se em português, responda em português, etc.).');
-    buf.writeln('- Você deve se manter estritamente dentro do escopo do aplicativo BestFin (finanças pessoais, controle de gastos, planejamento, economia e orçamento).');
-    buf.writeln('- Se o usuário perguntar sobre assuntos não relacionados ao tema (como receitas culinárias, programação de software, piadas, curiosidades históricas, esportes, etc.), recuse-se de forma educada, direta e concisa a responder, orientando-o a perguntar sobre suas finanças pessoais ou economia doméstica.');
+    buf.writeln(
+      '- Responda de forma extremamente concisa, direta, curta e objetiva.',
+    );
+    buf.writeln(
+      '- Responda SEMPRE no mesmo idioma/linguagem que o usuário utilizou na pergunta (se ele perguntar em inglês, responda em inglês; se em português, responda em português, etc.).',
+    );
+    buf.writeln(
+      '- Você deve se manter estritamente dentro do escopo do aplicativo BestFin (finanças pessoais, controle de gastos, planejamento, economia e orçamento).',
+    );
+    buf.writeln(
+      '- Se o usuário perguntar sobre assuntos não relacionados ao tema (como receitas culinárias, programação de software, piadas, curiosidades históricas, esportes, etc.), recuse-se de forma educada, direta e concisa a responder, orientando-o a perguntar sobre suas finanças pessoais ou economia doméstica.',
+    );
     buf.writeln('');
     buf.writeln('FORMATO OBRIGATÓRIO (use : dois-pontos, nunca parênteses):');
     buf.writeln('');
@@ -46,29 +64,65 @@ class FinancialContextBuilder {
     );
     buf.writeln('[GET_GOALS: {}]');
     buf.writeln('[GET_RECURRING: {}]');
-    buf.writeln('[GET_SPENDING_SUMMARY: {"start_date": "2026-05-01", "end_date": "2026-05-31"}]');
+    buf.writeln(
+      '[GET_SPENDING_SUMMARY: {"start_date": "2026-05-01", "end_date": "2026-05-31"}]',
+    );
     buf.writeln('[GET_SPENDING_SUMMARY: {}]');
     buf.writeln('');
     buf.writeln('REGRAS CRÍTICAS E OBRIGATÓRIAS DE USO DE FERRAMENTAS:');
-    buf.writeln('1. O CALCULATE serve APENAS para matemática básica (+, -, *, /) com números reais.');
-    buf.writeln('   - Ele NÃO tem acesso ao banco de dados e NÃO sabe o que o usuário gastou.');
-    buf.writeln('   - Ele NÃO aceita textos, SQL, datas, filtros ou nomes de tabelas (ex: "SUM(Traques...)" é PROIBIDO no CALCULATE).');
+    buf.writeln(
+      '1. O CALCULATE serve APENAS para matemática básica (+, -, *, /) com números reais.',
+    );
+    buf.writeln(
+      '   - Ele NÃO tem acesso ao banco de dados e NÃO sabe o que o usuário gastou.',
+    );
+    buf.writeln(
+      '   - Ele NÃO aceita textos, SQL, datas, filtros ou nomes de tabelas (ex: "SUM(Traques...)" é PROIBIDO no CALCULATE).',
+    );
     buf.writeln('   - Exemplo correto: [CALCULATE: 150.50 + 200]');
-    buf.writeln('2. O LOOKUP_USER_DATA acessa contas, categorias e transações individuais.');
-    buf.writeln('   - Se o usuário perguntar algo como "Quanto gastei este mês?", use GET_SPENDING_SUMMARY para um resumo por categoria.');
-    buf.writeln('   - Use LOOKUP_USER_DATA + search_transactions apenas se precisar de transações individuais específicas.');
-    buf.writeln('   - Exemplo: [LOOKUP_USER_DATA: {"action": "search_transactions", "start_date": "2026-05-01", "end_date": "2026-05-31"}]');
-    buf.writeln('3. O GET_SPENDING_SUMMARY retorna o total gasto por categoria num período (mais eficiente para visões gerais).');
-    buf.writeln('   - Omitir datas = mês atual. Exemplo: [GET_SPENDING_SUMMARY: {}]');
-    buf.writeln('4. O GET_GOALS lista todas as metas financeiras ativas com progresso e prazo.');
-    buf.writeln('   - Use quando o usuário perguntar sobre metas, objetivos ou economias. Exemplo: [GET_GOALS: {}]');
-    buf.writeln('5. O GET_RECURRING lista todas as transações recorrentes ativas (assinaturas, salário, aluguel, etc.).');
-    buf.writeln('   - Use quando o usuário perguntar sobre gastos fixos, assinaturas ou receitas regulares. Exemplo: [GET_RECURRING: {}]');
+    buf.writeln(
+      '2. O LOOKUP_USER_DATA acessa contas, categorias e transações individuais.',
+    );
+    buf.writeln(
+      '   - Se o usuário perguntar algo como "Quanto gastei este mês?", use GET_SPENDING_SUMMARY para um resumo por categoria.',
+    );
+    buf.writeln(
+      '   - Use LOOKUP_USER_DATA + search_transactions apenas se precisar de transações individuais específicas.',
+    );
+    buf.writeln(
+      '   - Exemplo: [LOOKUP_USER_DATA: {"action": "search_transactions", "start_date": "2026-05-01", "end_date": "2026-05-31"}]',
+    );
+    buf.writeln(
+      '3. O GET_SPENDING_SUMMARY retorna o total gasto por categoria num período (mais eficiente para visões gerais).',
+    );
+    buf.writeln(
+      '   - Omitir datas = mês atual. Exemplo: [GET_SPENDING_SUMMARY: {}]',
+    );
+    buf.writeln(
+      '4. O GET_GOALS lista todas as metas financeiras ativas com progresso e prazo.',
+    );
+    buf.writeln(
+      '   - Use quando o usuário perguntar sobre metas, objetivos ou economias. Exemplo: [GET_GOALS: {}]',
+    );
+    buf.writeln(
+      '5. O GET_RECURRING lista todas as transações recorrentes ativas (assinaturas, salário, aluguel, etc.).',
+    );
+    buf.writeln(
+      '   - Use quando o usuário perguntar sobre gastos fixos, assinaturas ou receitas regulares. Exemplo: [GET_RECURRING: {}]',
+    );
     buf.writeln('6. FLUXO DE TRABALHO:');
-    buf.writeln('   - Primeiro, use a ferramenta adequada para trazer os dados reais.');
-    buf.writeln('   - Depois, se precisar calcular porcentagens ou somas sobre valores retornados, use CALCULATE.');
-    buf.writeln('7. Escreva SOMENTE a linha da ferramenta (ex: [GET_GOALS: {}]). Nada mais antes ou depois.');
-    buf.writeln('8. Só responda em texto final para o usuário quando você já tiver o resultado real da ferramenta.');
+    buf.writeln(
+      '   - Primeiro, use a ferramenta adequada para trazer os dados reais.',
+    );
+    buf.writeln(
+      '   - Depois, se precisar calcular porcentagens ou somas sobre valores retornados, use CALCULATE.',
+    );
+    buf.writeln(
+      '7. Escreva SOMENTE a linha da ferramenta (ex: [GET_GOALS: {}]). Nada mais antes ou depois.',
+    );
+    buf.writeln(
+      '8. Só responda em texto final para o usuário quando você já tiver o resultado real da ferramenta.',
+    );
     buf.writeln('');
 
     // 2. Dynamic Financial Context (written at the bottom since it changes frequently)
@@ -139,7 +193,7 @@ class FinancialContextBuilder {
         buf.writeln('Últimas ${recent.length} transações confirmadas:');
         for (final tx in recent) {
           final sign = tx.type == TransactionType.income ? '+' : '-';
-          
+
           final String typeLabel;
           final String payer;
           final String payee;
@@ -148,18 +202,27 @@ class FinancialContextBuilder {
             typeLabel = 'Receita (Entrada)';
             payer = tx.entity?.name ?? 'Não especificado (Outros)';
             final destAccountId = tx.accountId;
-            payee = (destAccountId != null ? accountMap[destAccountId] : null) ?? 'Usuário (Minha Conta)';
+            payee =
+                (destAccountId != null ? accountMap[destAccountId] : null) ??
+                'Usuário (Minha Conta)';
           } else if (tx.type == TransactionType.expense) {
             typeLabel = 'Despesa (Saída)';
             final sourceAccountId = tx.accountId;
-            payer = (sourceAccountId != null ? accountMap[sourceAccountId] : null) ?? 'Usuário (Minha Conta)';
+            payer =
+                (sourceAccountId != null
+                    ? accountMap[sourceAccountId]
+                    : null) ??
+                'Usuário (Minha Conta)';
             payee = tx.entity?.name ?? 'Não especificado';
           } else {
             typeLabel = 'Transferência (Movimentação Interna)';
             final fromAcc = tx.fromAccountId;
             final toAcc = tx.toAccountId;
-            payer = (fromAcc != null ? accountMap[fromAcc] : null) ?? 'Conta Origem';
-            payee = (toAcc != null ? accountMap[toAcc] : null) ?? 'Conta Destino';
+            payer =
+                (fromAcc != null ? accountMap[fromAcc] : null) ??
+                'Conta Origem';
+            payee =
+                (toAcc != null ? accountMap[toAcc] : null) ?? 'Conta Destino';
           }
 
           final cat = tx.category?.name ?? 'Sem categoria';
@@ -171,6 +234,13 @@ class FinancialContextBuilder {
       }
     }
 
-    return buf.toString();
+    _cachedContext = buf.toString();
+    _cacheTimestamp = DateTime.now();
+    return _cachedContext!;
+  }
+
+  static void invalidate() {
+    _cachedContext = null;
+    _cacheTimestamp = null;
   }
 }

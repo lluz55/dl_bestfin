@@ -17,7 +17,8 @@ import 'package:bestfin/features/llm/domain/models/llm_state.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
 import 'package:bestfin/features/llm/domain/models/ai_model_type.dart';
 
-const _ocrPrompt = '''Analise este comprovante ou recibo fiscal. Extraia EXATAMENTE um JSON válido com os seguintes campos:
+const _ocrPrompt =
+    '''Analise este comprovante ou recibo fiscal. Extraia EXATAMENTE um JSON válido com os seguintes campos:
 {
   "amount": <valor total em reais como número, ex: 124.50>,
   "date": "<data no formato YYYY-MM-DD, ou null se não encontrada>",
@@ -98,7 +99,11 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
     });
 
     try {
-      final response = await llmService.analyzeImage(bytes, _ocrPrompt, maxTokens: 200);
+      final response = await llmService.analyzeImage(
+        bytes,
+        _ocrPrompt,
+        maxTokens: 200,
+      );
       _parseResponse(response);
     } on UnsupportedError catch (e) {
       setState(() => _errorMessage = e.message);
@@ -129,10 +134,15 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
         _dateStr = json['date'] as String?;
         _category = json['category'] as String?;
         _type = json['type'] as String?;
-        _errorMessage = amount == null ? 'Não foi possível extrair o valor do comprovante.' : null;
+        _errorMessage = amount == null
+            ? 'Não foi possível extrair o valor do comprovante.'
+            : null;
       });
     } catch (_) {
-      setState(() => _errorMessage = 'O modelo não retornou um JSON válido. Tente outra imagem.');
+      setState(
+        () => _errorMessage =
+            'O modelo não retornou um JSON válido. Tente outra imagem.',
+      );
     }
   }
 
@@ -149,8 +159,9 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
     };
   }
 
-  String _mapCategoryName(String? category) =>
-      category != null ? category[0].toUpperCase() + category.substring(1) : 'Outros';
+  String _mapCategoryName(String? category) => category != null
+      ? category[0].toUpperCase() + category.substring(1)
+      : 'Outros';
 
   String _mapCategoryIcon(String? category) {
     return switch (category?.toLowerCase()) {
@@ -182,7 +193,9 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
     if (!_hasResult) return;
     final accounts = ref.read(activeAccountsProvider);
     final accountId = accounts.isNotEmpty ? accounts.first.id : '';
-    final txType = _type == 'income' ? TransactionType.income : TransactionType.expense;
+    final txType = _type == 'income'
+        ? TransactionType.income
+        : TransactionType.expense;
     final catId = _mapCategoryId(_category);
     final catName = _mapCategoryName(_category);
     final catColor = _mapCategoryColor(_category);
@@ -238,7 +251,8 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
     final tt = context.textTheme;
     final llmState = ref.watch(llmStateProvider);
     final visionAsync = ref.watch(visionAvailableProvider);
-    final isVisionReady = visionAsync.value == true && llmState.status == LlmStatus.ready;
+    final isVisionReady =
+        visionAsync.value == true && llmState.status == LlmStatus.ready;
     final isModelReady = llmState.status == LlmStatus.ready;
     final mmProjProgress = ref.watch(mmProjDownloadProgressProvider);
     final selectedModel = ref.watch(selectedModelProvider);
@@ -280,8 +294,9 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
                   tt: tt,
                   modelType: selectedModel,
                   mmProjProgress: mmProjProgress,
-                  onDownload: () =>
-                      ref.read(mmProjDownloadProgressProvider.notifier).download(),
+                  onDownload: () => ref
+                      .read(mmProjDownloadProgressProvider.notifier)
+                      .download(),
                 ),
               ] else if (!isVisionReady && !selectedModel.hasVision) ...[
                 _TextModelOcrCard(cs: cs, tt: tt),
@@ -349,7 +364,9 @@ class _OcrScannerWidgetState extends ConsumerState<OcrScannerWidget> {
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onErrorContainer,
+                            ),
                           ),
                         ),
                       ],
@@ -507,7 +524,9 @@ class _VisionNotReadyCard extends StatelessWidget {
                   children: [
                     Text(
                       'Módulo de Visão necessário',
-                      style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       '~${modelType.mmProjSizeMb} MB adicionais',
@@ -564,7 +583,11 @@ class _TextModelOcrCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.image_not_supported_outlined, size: 48, color: cs.onSurfaceVariant),
+          Icon(
+            Icons.image_not_supported_outlined,
+            size: 48,
+            color: cs.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
           Text(
             'Escaneamento não disponível com o modelo atual',
@@ -600,11 +623,7 @@ class _PlatformUnsupportedVisionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            Icons.no_photography_outlined,
-            size: 48,
-            color: cs.error,
-          ),
+          Icon(Icons.no_photography_outlined, size: 48, color: cs.error),
           const SizedBox(height: 16),
           Text(
             'Escaneamento com IA não disponível no Android',
@@ -624,7 +643,8 @@ class _PlatformUnsupportedVisionCard extends StatelessWidget {
             tt: tt,
             icon: Icons.notifications_active_outlined,
             title: 'Importação por Notificações',
-            description: 'Capture e registre transações a partir de alertas de aplicativos bancários automaticamente.',
+            description:
+                'Capture e registre transações a partir de alertas de aplicativos bancários automaticamente.',
           ),
           const SizedBox(height: 12),
           _AlternativeTile(
@@ -632,7 +652,8 @@ class _PlatformUnsupportedVisionCard extends StatelessWidget {
             tt: tt,
             icon: Icons.picture_as_pdf_outlined,
             title: 'Importação de Extratos (PDF/CSV)',
-            description: 'Importe faturas de cartão e extratos bancários de forma prática.',
+            description:
+                'Importe faturas de cartão e extratos bancários de forma prática.',
           ),
           const SizedBox(height: 12),
           _AlternativeTile(
@@ -640,7 +661,8 @@ class _PlatformUnsupportedVisionCard extends StatelessWidget {
             tt: tt,
             icon: Icons.chat_bubble_outline_rounded,
             title: 'Assistente IA via Texto',
-            description: 'Utilize o chat com IA (usando modelos de texto offline super compactos) para planejar seus gastos.',
+            description:
+                'Utilize o chat com IA (usando modelos de texto offline super compactos) para planejar seus gastos.',
           ),
         ],
       ),
@@ -766,7 +788,11 @@ class _CameraPickerSection extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.tips_and_updates_outlined, color: cs.primary, size: 18),
+              Icon(
+                Icons.tips_and_updates_outlined,
+                color: cs.primary,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -833,7 +859,11 @@ class _ExtractionResultCard extends StatelessWidget {
                   color: Colors.green.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Column(
@@ -952,7 +982,10 @@ class _ResultRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+              Text(
+                label,
+                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
               const SizedBox(height: 2),
               Text(
                 value,

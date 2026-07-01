@@ -106,7 +106,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
     }
     final increasing = trends.where((t) => t.trend == 'increasing').toList();
     if (increasing.isNotEmpty) {
-      result.add('Gastos com ${increasing.first.categoryName} subiram — o que fazer?');
+      result.add(
+        'Gastos com ${increasing.first.categoryName} subiram — o que fazer?',
+      );
     }
     if (health.score < 60) result.add('Como melhorar minha saúde financeira?');
 
@@ -146,7 +148,11 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.chat_bubble_outline_rounded, size: 16, color: cs.primary),
+              Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 16,
+                color: cs.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Pergunte ao Assistente',
@@ -333,9 +339,16 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
 
   Widget _buildLlmInsightsCard(BuildContext context) {
     final llmState = ref.watch(llmStateProvider);
-    if (llmState.status != LlmStatus.ready &&
-        llmState.status != LlmStatus.generating) {
-      return const SizedBox.shrink();
+    final templateInsights = ref.watch(templateInsightsProvider);
+    final llmActive =
+        llmState.status == LlmStatus.ready ||
+        llmState.status == LlmStatus.generating;
+
+    // Sem LLM: usa NLG por template para que o card nunca desapareça.
+    if (!llmActive) {
+      return _wrapInsights(
+        _insightsCard(context, templateInsights, isLlm: false),
+      );
     }
 
     final cs = context.colorScheme;
@@ -361,51 +374,74 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
           ),
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      // Em erro, recai no template em vez de esconder o card.
+      error: (_, __) =>
+          _wrapInsights(_insightsCard(context, templateInsights, isLlm: false)),
       data: (list) {
-        if (list.isEmpty) return const SizedBox.shrink();
-        final card = AnimatedCard(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        final display = list.isNotEmpty ? list : templateInsights;
+        return _wrapInsights(
+          _insightsCard(context, display, isLlm: list.isNotEmpty),
+        );
+      },
+    );
+  }
+
+  /// Envolve o card de insights com o espaçamento padrão, ou colapsa quando
+  /// não há nenhum insight a exibir.
+  Widget _wrapInsights(Widget? card) {
+    if (card == null) return const SizedBox.shrink();
+    return Column(children: [card, const SizedBox(height: 20)]);
+  }
+
+  /// Constrói o card de insights. [isLlm] alterna o título e o botão de
+  /// recarregar (exclusivo do fluxo LLM). Retorna null quando a lista é vazia.
+  Widget? _insightsCard(
+    BuildContext context,
+    List<String> insights, {
+    required bool isLlm,
+  }) {
+    if (insights.isEmpty) return null;
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+
+    return AnimatedCard(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome, size: 18, color: cs.tertiary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Análise do Assistente IA',
-                      style: tt.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    InkWell(
-                      onTap: () {
-                        ref.read(llmInsightsCacheInvalidatorProvider).call();
-                      },
-                      child: Icon(
-                        Icons.refresh_rounded,
-                        size: 18,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                Icon(Icons.auto_awesome, size: 18, color: cs.tertiary),
+                const SizedBox(width: 8),
+                Text(
+                  isLlm ? 'Análise do Assistente IA' : 'Análise Financeira',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 12),
-                ...list.map(
-                  (insight) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Text(insight, style: tt.bodyMedium),
+                const Spacer(),
+                if (isLlm)
+                  InkWell(
+                    onTap: () {
+                      ref.read(llmInsightsCacheInvalidatorProvider).call();
+                    },
+                    child: Icon(
+                      Icons.refresh_rounded,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
-                ),
               ],
             ),
-          ),
-        );
-        return Column(children: [card, const SizedBox(height: 20)]);
-      },
+            const SizedBox(height: 12),
+            ...insights.map(
+              (insight) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(insight, style: tt.bodyMedium),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -976,10 +1012,12 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
 
             llmSentimentInsights.when(
               loading: () => _buildSentimentInsightsList(
-                context, report.psychologicalInsights,
+                context,
+                report.psychologicalInsights,
               ),
               error: (_, __) => _buildSentimentInsightsList(
-                context, report.psychologicalInsights,
+                context,
+                report.psychologicalInsights,
               ),
               data: (llmInsights) => _buildSentimentInsightsList(
                 context,
@@ -1249,7 +1287,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                         ),
                       ),
                       data: (narrative) => Text(
-                        narrative.isNotEmpty ? narrative : health.primaryRecommendation,
+                        narrative.isNotEmpty
+                            ? narrative
+                            : health.primaryRecommendation,
                         style: tt.bodySmall?.copyWith(
                           color: cs.onSurface,
                           fontWeight: FontWeight.w500,

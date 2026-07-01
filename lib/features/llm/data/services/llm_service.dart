@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show max;
@@ -14,21 +13,21 @@ import 'package:bestfin/features/llm/domain/models/llm_metrics.dart';
 const _kChatTemp = 0.55;
 const _kOneShotTemp = 0.30; // categorization/insights: more deterministic
 const _kTopP = 0.90;
-const _kMinP = 0.05; // min-p cuts low-probability tokens; better than top-p alone
+const _kMinP =
+    0.05; // min-p cuts low-probability tokens; better than top-p alone
 const _kRepeatPenalty = 1.05; // mild; avoids word repetition in long answers
 
 class LlmService {
   // Linux: background llama-server process + persistent HTTP client
   Process? _serverProcess;
   HttpClient? _httpClient;
-  StreamSubscription<String>? _stderrSub; // kept alive to surface server crashes
+  StreamSubscription<String>?
+  _stderrSub; // kept alive to surface server crashes
   List<Map<String, String>> _linuxMessages = [];
 
-  // Android/others: native FFI (reused for all calls)
-  ffi.LlamaParent? _parent;
-
-  // Serializes concurrent generations on non-Linux (model has one context slot)
-  Completer<void>? _generationLock;
+  // Android/others: native FFI via isolate engine
+  ffi.LlamaEngine? _engine;
+  ffi.EngineChat? _chat;
 
   String _systemPrompt = '';
   String _modelName = 'desconhecido';
@@ -36,7 +35,7 @@ class LlmService {
   String? _mmProjPath;
 
   bool get isLoaded =>
-      Platform.isLinux ? (_serverProcess != null) : (_parent != null);
+      Platform.isLinux ? (_serverProcess != null) : (_engine != null);
 
   bool get supportsVision => Platform.isLinux && _mmProjPath != null;
 
@@ -55,7 +54,8 @@ class LlmService {
       // Kill any stale process still holding port 8087 (crash / hot-restart).
       // Use ss (iproute2) to find the PID by socket, then pkill as fallback.
       try {
-        await Process.run('sh', ['-c',
+        await Process.run('sh', [
+          '-c',
           'ss -tlnp | grep :8087 | grep -o "pid=[0-9]*" | cut -d= -f2 | xargs -r kill -9',
         ]);
       } catch (_) {}
@@ -119,9 +119,9 @@ class LlmService {
             debugPrint('[LLM Server] $line');
             if (!completer.isCompleted &&
                 (line.contains('server is listening') ||
-                 line.contains('all slots are idle') ||
-                 line.contains('all slots are ready') ||
-                 line.contains('starting the main loop'))) {
+                    line.contains('all slots are idle') ||
+                    line.contains('all slots are ready') ||
+                    line.contains('starting the main loop'))) {
               completer.complete();
             }
           });
@@ -146,50 +146,45 @@ class LlmService {
         rethrow;
       }
     } else {
-      if (Platform.isAndroid) {
-        // libllama.so directly exports all llama_* symbols needed for text models.
-        // mtmd_* symbols (vision) are lazy-looked-up and never called for text-only models.
-        ffi.Llama.libraryPath = 'libllama.so';
-      } else if (Platform.isMacOS || Platform.isIOS) {
-        ffi.Llama.libraryPath = 'libllama.dylib';
-      }
-
       // Try loading with GPU offload first; fall back to CPU-only if it fails.
-      // On Android, GPU availability depends on the device's OpenCL driver —
-      // the forwarding libOpenCL.so stub handles detection at runtime.
+      // On Android, GPU availability depends on the device's OpenCL/Vulkan driver.
       final gpuLayerCandidates = Platform.isAndroid ? [99, 0] : [99];
       for (final nGpuLayers in gpuLayerCandidates) {
         try {
-          final modelParams = ffi.ModelParams()..nGpuLayers = nGpuLayers;
-          final load = ffi.LlamaLoad(
+          final modelParams = ffi.ModelParams(
             path: modelPath,
-            modelParams: modelParams,
-            contextParams: ffi.ContextParams()..nCtx = 4096,
-            samplingParams: ffi.SamplerParams()
-              ..temp = _kChatTemp
-              ..topP = _kTopP,
-            mmprojPath: mmProjPath,
-            verbose: true,
+            gpuLayers: nGpuLayers,
           );
+          const contextParams = ffi.ContextParams(nCtx: 4096);
 
-          _parent = ffi.LlamaParent(load, ffi.ChatMLFormat());
-          await _parent!.init();
+          if (Platform.isMacOS || Platform.isIOS) {
+            _engine = await ffi.LlamaEngine.spawnFromProcess(
+              modelParams: modelParams,
+              contextParams: contextParams,
+            );
+          } else {
+            // Android: libllama.so directly exports all llama_* symbols.
+            _engine = await ffi.LlamaEngine.spawn(
+              libraryPath: 'libllama.so',
+              modelParams: modelParams,
+              contextParams: contextParams,
+            );
+          }
+
+          _chat = await _engine!.createChat();
+          if (_systemPrompt.isNotEmpty) {
+            _chat!.addSystem(_systemPrompt);
+          }
           debugPrint('[LLM] Modelo carregado (nGpuLayers=$nGpuLayers)');
           break;
         } catch (e) {
-          try {
-            await _parent?.dispose();
-          } catch (_) {}
-          _parent = null;
+          await _chat?.dispose();
+          _chat = null;
+          await _engine?.dispose();
+          _engine = null;
           if (nGpuLayers == 0) rethrow; // CPU also failed — propagate
           debugPrint('[LLM] GPU falhou ($e), tentando CPU puro...');
         }
-      }
-
-      if (_systemPrompt.isNotEmpty) {
-        _parent!.messages = [
-          {'role': 'system', 'content': _systemPrompt},
-        ];
       }
     }
   }
@@ -259,7 +254,8 @@ class LlmService {
         if (!enableThinking) 'thinking_budget_tokens': 0,
       };
 
-      _post(body).then((response) {
+      _post(body)
+          .then((response) {
             if (response.statusCode != 200) {
               controller.addError(
                 Exception(
@@ -355,64 +351,61 @@ class LlmService {
 
       return controller.stream;
     } else {
-      if (_parent == null) throw StateError('LlmService not loaded');
+      if (_chat == null) throw StateError('LlmService not loaded');
 
-      final parent = _parent!;
-      parent.messages.add({'role': 'user', 'content': userMessage});
+      final chat = _chat!;
+      chat.addUser(userMessage);
 
       final ctrl = StreamController<String>();
-      final buffer = StringBuffer();
       final startTime = DateTime.now();
       DateTime? firstTokenTime;
       int tokenCount = 0;
 
-      StreamSubscription<String>? tokenSub;
-      StreamSubscription<ffi.CompletionEvent>? completionSub;
-
-      tokenSub = parent.stream.listen((token) {
-        ctrl.add(token);
-        buffer.write(token);
-        tokenCount++;
-        firstTokenTime ??= DateTime.now();
-      });
-
-      completionSub = parent.completions.listen((event) {
-        if (!event.success) {
-          debugPrint('[LLM] Geracao falhou: ${event.errorDetails}');
-          ctrl.addError(Exception(event.errorDetails ?? 'Erro desconhecido'));
-        }
-        tokenSub?.cancel();
-        completionSub?.cancel();
-        if (buffer.isNotEmpty) {
-          parent.messages.add({
-            'role': 'assistant',
-            'content': buffer.toString(),
-          });
-        }
-        _trimHistory();
-        if (onMetrics != null && tokenCount > 0) {
-          final endTime = DateTime.now();
-          final total = endTime.difference(startTime);
-          final ttft = firstTokenTime != null
-              ? firstTokenTime!.difference(startTime)
-              : Duration.zero;
-          final tps = total.inMilliseconds > 0
-              ? tokenCount / (total.inMilliseconds / 1000)
-              : 0.0;
-          onMetrics(
-            LlmMetrics(
-              timeToFirstToken: ttft,
-              totalTime: total,
-              tokensGenerated: tokenCount,
-              tokensPerSecond: tps,
-              modelName: _modelName,
+      () async {
+        try {
+          await for (final event in chat.generate(
+            sampler: ffi.SamplerParams(
+              temperature: _kChatTemp,
+              topP: _kTopP,
+              minP: _kMinP,
+              repeatPenalty: _kRepeatPenalty,
             ),
-          );
+          )) {
+            if (event is ffi.TokenEvent && event.text.isNotEmpty) {
+              ctrl.add(event.text);
+              tokenCount++;
+              firstTokenTime ??= DateTime.now();
+            } else if (event is ffi.DoneEvent &&
+                event.trailingText.isNotEmpty) {
+              ctrl.add(event.trailingText);
+            }
+          }
+          _trimHistory();
+          if (onMetrics != null && tokenCount > 0) {
+            final endTime = DateTime.now();
+            final total = endTime.difference(startTime);
+            final ttft = firstTokenTime != null
+                ? firstTokenTime!.difference(startTime)
+                : Duration.zero;
+            final tps = total.inMilliseconds > 0
+                ? tokenCount / (total.inMilliseconds / 1000)
+                : 0.0;
+            onMetrics(
+              LlmMetrics(
+                timeToFirstToken: ttft,
+                totalTime: total,
+                tokensGenerated: tokenCount,
+                tokensPerSecond: tps,
+                modelName: _modelName,
+              ),
+            );
+          }
+        } catch (e) {
+          ctrl.addError(e);
+        } finally {
+          if (!ctrl.isClosed) ctrl.close();
         }
-        if (!ctrl.isClosed) ctrl.close();
-      });
-
-      parent.sendPrompt(userMessage);
+      }();
 
       return ctrl.stream;
     }
@@ -459,58 +452,41 @@ class LlmService {
       }
       throw Exception('Resposta vazia do servidor LLM');
     } else {
-      if (_parent == null) throw StateError('LlmService not loaded');
+      if (_chat == null) throw StateError('LlmService not loaded');
 
-      // Serialize concurrent calls — the model context has one slot
-      while (_generationLock != null && !_generationLock!.isCompleted) {
-        await _generationLock!.future;
-      }
-      _generationLock = Completer<void>();
-
-      final parent = _parent!;
-      // Swap to isolated single-turn messages and restore after generation,
-      // avoiding the cost of loading the model a second time.
-      final savedMessages = List<Map<String, String>>.from(parent.messages);
-      parent.messages = [
-        {'role': 'user', 'content': prompt},
-      ];
+      final chat = _chat!;
+      // Save current conversation, run an isolated single-turn, then restore.
+      final savedMessages = chat.messages.toList();
+      chat.clearHistory();
+      chat.addUser(prompt);
 
       final buffer = StringBuffer();
-      final completer = Completer<String>();
-
-      StreamSubscription<String>? tokenSub;
-      StreamSubscription<ffi.CompletionEvent>? completionSub;
-
-      tokenSub = parent.stream.listen((t) => buffer.write(t));
-      completionSub = parent.completions.listen((event) {
-        tokenSub?.cancel();
-        completionSub?.cancel();
-        parent.messages = savedMessages;
-        if (!event.success) {
-          if (!completer.isCompleted) {
-            completer.completeError(Exception(event.errorDetails ?? 'Erro'));
-          }
-        } else if (!completer.isCompleted) {
-          completer.complete(buffer.toString().trim());
-        }
-      });
-
-      unawaited(parent.sendPrompt(prompt));
-
       try {
-        return await completer.future.timeout(
-          const Duration(seconds: 90),
-          onTimeout: () {
-            tokenSub?.cancel();
-            completionSub?.cancel();
-            parent.messages = savedMessages;
-            throw TimeoutException('generateOnce timeout após 90s');
-          },
-        );
+        await for (final event
+            in chat
+                .generate(
+                  sampler: ffi.SamplerParams(
+                    temperature: _kOneShotTemp,
+                    topP: _kTopP,
+                    minP: _kMinP,
+                  ),
+                  maxTokens: maxTokens,
+                )
+                .timeout(const Duration(seconds: 90))) {
+          if (event is ffi.TokenEvent && event.text.isNotEmpty) {
+            buffer.write(event.text);
+          } else if (event is ffi.DoneEvent && event.trailingText.isNotEmpty) {
+            buffer.write(event.trailingText);
+          }
+        }
       } finally {
-        _generationLock?.complete();
-        _generationLock = null;
+        // Restore conversation regardless of success/failure.
+        chat.clearHistory();
+        for (final m in savedMessages) {
+          chat.addMessage(m);
+        }
       }
+      return buffer.toString().trim();
     }
   }
 
@@ -584,16 +560,17 @@ class LlmService {
         ];
       }
     } else {
-      if (_parent == null) return;
-      final msgs = _parent!.messages;
+      if (_chat == null) return;
+      final msgs = _chat!.messages;
       if (msgs.isEmpty) return;
-      final system = msgs.where((m) => m['role'] == 'system').toList();
-      final conversation = msgs.where((m) => m['role'] != 'system').toList();
+      final system = msgs.where((m) => m.role == 'system').toList();
+      final conversation = msgs.where((m) => m.role != 'system').toList();
       if (conversation.length > 20) {
-        _parent!.messages = [
-          ...system,
-          ...conversation.sublist(conversation.length - 20),
-        ];
+        _chat!.clearHistory();
+        for (final m in system) _chat!.addMessage(m);
+        for (final m in conversation.sublist(conversation.length - 20)) {
+          _chat!.addMessage(m);
+        }
       }
     }
   }
@@ -606,16 +583,16 @@ class LlmService {
             ]
           : [];
     } else {
-      if (_parent == null) return;
-      _parent!.messages = _systemPrompt.isNotEmpty
-          ? [
-              {'role': 'system', 'content': _systemPrompt},
-            ]
-          : [];
+      if (_chat == null) return;
+      _chat!.clearHistory();
+      if (_systemPrompt.isNotEmpty) {
+        _chat!.addSystem(_systemPrompt);
+      }
     }
   }
 
   void updateSystemPrompt(String systemPrompt) {
+    if (systemPrompt == _systemPrompt) return;
     _systemPrompt = systemPrompt;
     if (Platform.isLinux) {
       if (_linuxMessages.isNotEmpty && _linuxMessages[0]['role'] == 'system') {
@@ -624,12 +601,17 @@ class LlmService {
         _linuxMessages.insert(0, {'role': 'system', 'content': systemPrompt});
       }
     } else {
-      if (_parent != null) {
-        final msgs = _parent!.messages;
-        if (msgs.isNotEmpty && msgs[0]['role'] == 'system') {
-          msgs[0]['content'] = systemPrompt;
-        } else if (_systemPrompt.isNotEmpty) {
-          msgs.insert(0, {'role': 'system', 'content': systemPrompt});
+      if (_chat != null) {
+        final msgs = _chat!.messages;
+        final hasSystem = msgs.isNotEmpty && msgs.first.role == 'system';
+        final nonSystem = hasSystem ? msgs.skip(1) : msgs;
+
+        _chat!.clearHistory();
+        if (systemPrompt.isNotEmpty) {
+          _chat!.addSystem(systemPrompt);
+        }
+        for (final m in nonSystem) {
+          _chat!.addMessage(m);
         }
       }
     }
@@ -660,10 +642,10 @@ class LlmService {
       }
       _linuxMessages.clear();
     } else {
-      if (_parent != null) {
-        await _parent!.dispose();
-        _parent = null;
-      }
+      await _chat?.dispose();
+      _chat = null;
+      await _engine?.dispose();
+      _engine = null;
     }
   }
 }

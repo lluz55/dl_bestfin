@@ -14,6 +14,7 @@ class ChatMessage {
   final String? toolResult;
   final bool isToolRunning;
   final bool isPostToolStreaming;
+
   /// Chain-of-thought / reasoning content emitted by the model (reasoning_content field).
   final String? thinkingContent;
 

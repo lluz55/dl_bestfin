@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -101,8 +102,8 @@ class LlmToolsService {
         final map = trimmed.isEmpty || trimmed == '{}'
             ? <String, dynamic>{}
             : trimmed.startsWith('{')
-                ? jsonDecode(trimmed) as Map<String, dynamic>
-                : _parseKeyValue(trimmed);
+            ? jsonDecode(trimmed) as Map<String, dynamic>
+            : _parseKeyValue(trimmed);
         return await _getSpendingSummary(ref, map);
       } catch (e) {
         return 'Erro ao decodificar os argumentos do GET_SPENDING_SUMMARY: $e';
@@ -140,7 +141,9 @@ class LlmToolsService {
     for (final cat in categories) {
       final typeLabel = cat.type == 'income'
           ? 'Receita / Entrada'
-          : (cat.type == 'expense' ? 'Despesa / Saída' : 'Transferência / Interna');
+          : (cat.type == 'expense'
+                ? 'Despesa / Saída'
+                : 'Transferência / Interna');
       buf.writeln('- ${cat.name} (Tipo: $typeLabel)');
     }
     return buf.toString();
@@ -150,7 +153,7 @@ class LlmToolsService {
     Ref ref,
     Map<String, dynamic> params,
   ) async {
-    final db = ref.read(databaseProvider);
+    final database = ref.read(databaseProvider);
     final fmt = NumberFormat('#,##0.00', 'pt_BR');
 
     final query = params['query'] as String?;
@@ -170,28 +173,28 @@ class LlmToolsService {
       }
     }
 
-    final txQuery = db.select(db.transactions).join([
+    final txQuery = database.select(database.transactions).join([
       leftOuterJoin(
-        db.categories,
-        db.categories.id.equalsExp(db.transactions.categoryId),
+        database.categories,
+        database.categories.id.equalsExp(database.transactions.categoryId),
       ),
       leftOuterJoin(
-        db.entities,
-        db.entities.id.equalsExp(db.transactions.entityId),
+        database.entities,
+        database.entities.id.equalsExp(database.transactions.entityId),
       ),
     ]);
 
-    txQuery.where(db.transactions.isConfirmed.equals(true));
+    txQuery.where(database.transactions.isConfirmed.equals(true));
 
     if (query != null && query.isNotEmpty) {
       txQuery.where(
-        db.transactions.description.like('%$query%') |
-        db.entities.name.like('%$query%'),
+        database.transactions.description.like('%$query%') |
+            database.entities.name.like('%$query%'),
       );
     }
 
     if (matchedCategoryIds.isNotEmpty) {
-      txQuery.where(db.transactions.categoryId.isIn(matchedCategoryIds));
+      txQuery.where(database.transactions.categoryId.isIn(matchedCategoryIds));
     } else if (categoryName != null && categoryName.isNotEmpty) {
       return 'Nenhuma categoria correspondente a "$categoryName" foi encontrada.';
     }
@@ -199,19 +202,22 @@ class LlmToolsService {
     if (startDateStr != null && startDateStr.isNotEmpty) {
       try {
         final date = DateTime.parse(startDateStr);
-        txQuery.where(db.transactions.date.isBiggerOrEqualValue(date));
+        txQuery.where(database.transactions.date.isBiggerOrEqualValue(date));
       } catch (_) {}
     }
 
     if (endDateStr != null && endDateStr.isNotEmpty) {
       try {
         final date = DateTime.parse(endDateStr);
-        txQuery.where(db.transactions.date.isSmallerOrEqualValue(date));
+        txQuery.where(database.transactions.date.isSmallerOrEqualValue(date));
       } catch (_) {}
     }
 
     txQuery.orderBy([
-      OrderingTerm(expression: db.transactions.date, mode: OrderingMode.desc),
+      OrderingTerm(
+        expression: database.transactions.date,
+        mode: OrderingMode.desc,
+      ),
     ]);
 
     txQuery.limit(20);
@@ -219,6 +225,17 @@ class LlmToolsService {
     final rows = await txQuery.get();
     if (rows.isEmpty) {
       return 'Nenhuma transação confirmada foi encontrada com os filtros especificados.';
+    }
+
+    final txIds = rows
+        .map((r) => r.readTable(database.transactions).id)
+        .toList();
+    final allEntries = await (database.select(
+      database.entries,
+    )..where((e) => e.transactionId.isIn(txIds))).get();
+    final entriesByTx = <String, List<db.Entry>>{};
+    for (final entry in allEntries) {
+      (entriesByTx[entry.transactionId] ??= []).add(entry);
     }
 
     final accounts = ref.read(activeAccountsProvider);
@@ -231,19 +248,17 @@ class LlmToolsService {
     int sumExpense = 0;
 
     for (final row in rows) {
-      final tx = row.readTable(db.transactions);
-      final cat = row.readTableOrNull(db.categories);
-      final entity = row.readTableOrNull(db.entities);
+      final tx = row.readTable(database.transactions);
+      final cat = row.readTableOrNull(database.categories);
+      final entity = row.readTableOrNull(database.entities);
 
-      final entries = await (db.select(
-        db.entries,
-      )..where((e) => e.transactionId.equals(tx.id))).get();
+      final entries = entriesByTx[tx.id] ?? [];
 
-      final amount = entries.isNotEmpty
+      final int amount = entries.isNotEmpty
           ? entries.first.amount
           : (tx.rawAmount ?? 0);
       final dateStr = DateFormat('dd/MM/yyyy').format(tx.date);
-      
+
       final String typeLabel;
       final String payer;
       final String payee;
@@ -251,18 +266,32 @@ class LlmToolsService {
       if (tx.type == 'income') {
         typeLabel = 'Receita (Entrada)';
         payer = entity?.name ?? 'Não especificado (Outros)';
-        final destAccountId = entries.isNotEmpty ? entries.first.accountId : null;
-        payee = (destAccountId != null ? accountMap[destAccountId] : null) ?? 'Usuário (Minha Conta)';
+        final destAccountId = entries.isNotEmpty
+            ? entries.first.accountId
+            : null;
+        payee =
+            (destAccountId != null ? accountMap[destAccountId] : null) ??
+            'Usuário (Minha Conta)';
       } else if (tx.type == 'expense') {
         typeLabel = 'Despesa (Saída)';
-        final sourceAccountId = entries.isNotEmpty ? entries.first.accountId : null;
-        payer = (sourceAccountId != null ? accountMap[sourceAccountId] : null) ?? 'Usuário (Minha Conta)';
+        final sourceAccountId = entries.isNotEmpty
+            ? entries.first.accountId
+            : null;
+        payer =
+            (sourceAccountId != null ? accountMap[sourceAccountId] : null) ??
+            'Usuário (Minha Conta)';
         payee = entity?.name ?? 'Não especificado';
       } else {
         typeLabel = 'Transferência (Movimentação Interna)';
         if (entries.length >= 2) {
-          final creditEntry = entries.firstWhere((e) => e.type == 'credit', orElse: () => entries.first);
-          final debitEntry = entries.firstWhere((e) => e.type == 'debit', orElse: () => entries.last);
+          final creditEntry = entries.firstWhere(
+            (e) => e.type == 'credit',
+            orElse: () => entries.first,
+          );
+          final debitEntry = entries.firstWhere(
+            (e) => e.type == 'debit',
+            orElse: () => entries.last,
+          );
           payer = accountMap[creditEntry.accountId] ?? 'Conta de Origem';
           payee = accountMap[debitEntry.accountId] ?? 'Conta de Destino';
         } else if (entries.isNotEmpty) {
@@ -297,8 +326,12 @@ class LlmToolsService {
     }
 
     buf.writeln('\nResumo dos resultados listados:');
-    buf.writeln('- Soma total de Receitas (Entradas): R\$ ${fmt.format(sumIncome / 100)}');
-    buf.writeln('- Soma total de Despesas (Saídas): R\$ ${fmt.format(sumExpense / 100)}');
+    buf.writeln(
+      '- Soma total de Receitas (Entradas): R\$ ${fmt.format(sumIncome / 100)}',
+    );
+    buf.writeln(
+      '- Soma total de Despesas (Saídas): R\$ ${fmt.format(sumExpense / 100)}',
+    );
 
     return buf.toString();
   }
@@ -324,9 +357,12 @@ class LlmToolsService {
       final monthlyNeeded = monthsLeft != null && monthsLeft > 0
           ? fmt.format(g.remainingInCents / 100 / monthsLeft)
           : null;
-      buf.write('- "${g.name}": R\$ $current de R\$ $target ($pct%) — faltam R\$ $remaining');
+      buf.write(
+        '- "${g.name}": R\$ $current de R\$ $target ($pct%) — faltam R\$ $remaining',
+      );
       buf.write(' | Prazo: $dateStr');
-      if (monthlyNeeded != null) buf.write(' | Necessário/mês: R\$ $monthlyNeeded');
+      if (monthlyNeeded != null)
+        buf.write(' | Necessário/mês: R\$ $monthlyNeeded');
       buf.write(g.isCompleted ? ' ✅ CONCLUÍDA' : '');
       buf.writeln();
     }
@@ -351,9 +387,13 @@ class LlmToolsService {
           : 'valor variável';
       final typeLabel = r.type == 'income'
           ? 'Receita (Entrada)'
-          : (r.type == 'expense' ? 'Despesa (Saída)' : 'Transferência (Interna)');
+          : (r.type == 'expense'
+                ? 'Despesa (Saída)'
+                : 'Transferência (Interna)');
       final catLabel = r.categoryName != null ? ' [${r.categoryName}]' : '';
-      buf.writeln('- "$desc"$catLabel: $amount — $freq — próxima: $next ($typeLabel)');
+      buf.writeln(
+        '- "$desc"$catLabel: $amount — $freq — próxima: $next ($typeLabel)',
+      );
     }
     return buf.toString();
   }
@@ -362,7 +402,7 @@ class LlmToolsService {
     Ref ref,
     Map<String, dynamic> params,
   ) async {
-    final db = ref.read(databaseProvider);
+    final database = ref.read(databaseProvider);
     final fmt = NumberFormat('#,##0.00', 'pt_BR');
 
     final startDateStr = params['start_date'] as String?;
@@ -377,20 +417,20 @@ class LlmToolsService {
         ? DateTime.tryParse(endDateStr) ?? DateTime(now.year, now.month + 1, 0)
         : DateTime(now.year, now.month + 1, 0);
 
-    final txQuery = db.select(db.transactions).join([
+    final txQuery = database.select(database.transactions).join([
       leftOuterJoin(
-        db.categories,
-        db.categories.id.equalsExp(db.transactions.categoryId),
+        database.categories,
+        database.categories.id.equalsExp(database.transactions.categoryId),
       ),
       innerJoin(
-        db.entries,
-        db.entries.transactionId.equalsExp(db.transactions.id),
+        database.entries,
+        database.entries.transactionId.equalsExp(database.transactions.id),
       ),
     ]);
-    txQuery.where(db.transactions.isConfirmed.equals(true));
-    txQuery.where(db.transactions.type.equals('expense'));
-    txQuery.where(db.transactions.date.isBiggerOrEqualValue(start));
-    txQuery.where(db.transactions.date.isSmallerOrEqualValue(end));
+    txQuery.where(database.transactions.isConfirmed.equals(true));
+    txQuery.where(database.transactions.type.equals('expense'));
+    txQuery.where(database.transactions.date.isBiggerOrEqualValue(start));
+    txQuery.where(database.transactions.date.isSmallerOrEqualValue(end));
 
     final rows = await txQuery.get();
 
@@ -398,9 +438,9 @@ class LlmToolsService {
     final Map<String, String> categoryNames = {};
 
     for (final row in rows) {
-      final tx = row.readTable(db.transactions);
-      final cat = row.readTableOrNull(db.categories);
-      final entry = row.readTable(db.entries);
+      final tx = row.readTable(database.transactions);
+      final cat = row.readTableOrNull(database.categories);
+      final entry = row.readTable(database.entries);
 
       final catId = tx.categoryId ?? 'sem_categoria';
       final catName = cat?.name ?? 'Sem categoria';
@@ -422,14 +462,18 @@ class LlmToolsService {
     final endStr = DateFormat('dd/MM/yyyy').format(end);
 
     final buf = StringBuffer();
-    buf.writeln('Resumo de despesas (gastos) por categoria ($startStr a $endStr):');
+    buf.writeln(
+      'Resumo de despesas (gastos) por categoria ($startStr a $endStr):',
+    );
     for (final entry in sorted) {
       final name = categoryNames[entry.key]!;
       final amount = fmt.format(entry.value / 100);
       final pct = (entry.value / total * 100).toStringAsFixed(1);
       buf.writeln('- $name: R\$ $amount ($pct%)');
     }
-    buf.writeln('Total despendido (gasto) no período: R\$ ${fmt.format(total / 100)}');
+    buf.writeln(
+      'Total despendido (gasto) no período: R\$ ${fmt.format(total / 100)}',
+    );
     return buf.toString();
   }
 }

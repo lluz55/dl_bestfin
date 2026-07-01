@@ -8,7 +8,10 @@ class MathEvaluator {
     // Brazilian thousand-separator: 1.500,00 → 1500.00
     // Detect by presence of comma — assume comma is decimal, dots are thousands.
     if (s.contains(',')) {
-      s = s.replaceAllMapped(RegExp(r'(\d)\.(\d{3})(?=\D|$)'), (m) => '${m.group(1)}${m.group(2)}');
+      s = s.replaceAllMapped(
+        RegExp(r'(\d)\.(\d{3})(?=\D|$)'),
+        (m) => '${m.group(1)}${m.group(2)}',
+      );
       s = s.replaceAll(',', '.');
     }
 

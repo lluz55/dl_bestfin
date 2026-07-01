@@ -33,7 +33,8 @@ final llmHealthNarrativeProvider = FutureProvider<String>((ref) async {
       ? 'sem anomalias detectadas'
       : '${anomalies.length} anomalia(s) detectada(s)';
 
-  final prompt = '''Você é um consultor financeiro. Com base nos dados abaixo, escreva UMA frase curta e personalizada de recomendação em português (máximo 25 palavras). Seja direto, encorajador e específico. Não use jargão técnico.
+  final prompt =
+      '''Você é um consultor financeiro. Com base nos dados abaixo, escreva UMA frase curta e personalizada de recomendação em português (máximo 25 palavras). Seja direto, encorajador e específico. Não use jargão técnico.
 
 Dados:
 - Nota de saúde financeira: ${health.score}/100 (grau ${health.grade})
@@ -48,7 +49,10 @@ Escreva apenas a frase de recomendação, sem explicações adicionais.''';
     final clean = response.trim();
     if (clean.isEmpty) return '';
     await prefs.setString(_healthNarrativeKey, clean);
-    await prefs.setInt(_healthNarrativeTsKey, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+      _healthNarrativeTsKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
     return clean;
   } catch (_) {
     return '';
@@ -72,7 +76,8 @@ final llmSentimentNarrativeProvider = FutureProvider<List<String>>((ref) async {
   final sentiments = ref.read(sentimentCorrelationProvider);
   final fmt = NumberFormat('#,##0', 'pt_BR');
 
-  final prompt = '''Você é um psicólogo financeiro. Com base nos dados de sentimento abaixo, escreva exatamente 2 insights curtos em português sobre o comportamento financeiro do usuário. Cada insight deve ser de no máximo 2 linhas e começar com um emoji. Separe com linha em branco. Seja empático e construtivo.
+  final prompt =
+      '''Você é um psicólogo financeiro. Com base nos dados de sentimento abaixo, escreva exatamente 2 insights curtos em português sobre o comportamento financeiro do usuário. Cada insight deve ser de no máximo 2 linhas e começar com um emoji. Separe com linha em branco. Seja empático e construtivo.
 
 Dados:
 - Gastos com bem-estar: ${fmt.format(sentiments.positivePercentage * 100)}%
@@ -92,7 +97,10 @@ Escreva apenas os 2 insights, sem título ou texto adicional.''';
         .toList();
     if (insights.isEmpty) return [];
     await prefs.setStringList(_sentimentNarrativeKey, insights);
-    await prefs.setInt(_sentimentNarrativeTsKey, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+      _sentimentNarrativeTsKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
     return insights;
   } catch (_) {
     return [];
@@ -108,9 +116,11 @@ final llmNarrativeCacheInvalidatorProvider = Provider<void Function()>((ref) {
       final ts = prefs.getInt(tsKey) ?? 0;
       final cachedAt = DateTime.fromMillisecondsSinceEpoch(ts);
       if (now.difference(cachedAt).inHours >= _narrativeTtlHours) {
-        await prefs.remove(tsKey == _healthNarrativeTsKey
-            ? _healthNarrativeKey
-            : _sentimentNarrativeKey);
+        await prefs.remove(
+          tsKey == _healthNarrativeTsKey
+              ? _healthNarrativeKey
+              : _sentimentNarrativeKey,
+        );
         await prefs.remove(tsKey);
       }
     }

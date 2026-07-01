@@ -6,19 +6,24 @@ import 'package:bestfin/features/categories/presentation/providers/categories_pr
 import 'package:bestfin/features/llm/domain/models/llm_state.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
 
-/// Wraps [autoCategorizeProvider] and falls back to the LLM when confidence < 0.5.
+/// Categorization pipeline: heuristic → Naive Bayes → LLM.
+/// Each stage runs only when the previous returns confidence < 0.5.
 final llmEnhancedCategorizeProvider =
     FutureProvider.family<AiCategorySuggestion?, String>((ref, query) async {
-      // Heuristic result
+      // 1. Keyword + history heuristic
       final heuristic = ref.read(autoCategorizeProvider(query));
       if (heuristic != null && heuristic.confidence >= 0.5) return heuristic;
 
-      // Only call LLM when model is ready
+      // 2. Naive Bayes (trained on user history, no LLM cost)
+      final nb = ref.read(naiveBayesCategorizeProvider(query));
+      if (nb != null && nb.confidence >= 0.55) return nb;
+
+      // 3. LLM fallback — only when model is ready
       final llmState = ref.read(llmStateProvider);
-      if (llmState.status != LlmStatus.ready) return heuristic;
+      if (llmState.status != LlmStatus.ready) return heuristic ?? nb;
 
       final categories = ref.read(allFlatCategoriesProvider);
-      if (categories.isEmpty) return heuristic;
+      if (categories.isEmpty) return heuristic ?? nb;
 
       final categoryList = categories
           .map((c) => '${c.name} (${c.type})')
@@ -53,5 +58,5 @@ Responda apenas com o nome exato da categoria, nada mais.''';
         debugPrint('[LLM] Falha na categorização: $e\n$st');
       }
 
-      return heuristic;
+      return heuristic ?? nb;
     });

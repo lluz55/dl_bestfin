@@ -56,59 +56,63 @@ class ChatBubble extends StatelessWidget {
                   ? null
                   : () => _copyToClipboard(context),
               child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: borderRadius,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (message.toolCall != null) ...[
-                    if (message.isToolRunning)
-                      _ToolRunningChip(
-                        toolCall: message.toolCall!,
-                        textColor: textColor,
-                        cs: cs,
-                        isUser: isUser,
-                      )
-                    else
-                      _buildToolCallCard(context, cs, isUser),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: borderRadius,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (message.toolCall != null) ...[
+                      if (message.isToolRunning)
+                        _ToolRunningChip(
+                          toolCall: message.toolCall!,
+                          textColor: textColor,
+                          cs: cs,
+                          isUser: isUser,
+                        )
+                      else
+                        _buildToolCallCard(context, cs, isUser),
+                    ],
+                    if (!message.isToolRunning) ...[
+                      // Thinking/reasoning block shown in debug mode
+                      if (showDebug && !isUser && _hasThinking)
+                        _ThinkingBlock(
+                          content: message.thinkingContent!,
+                          isStreaming: isStreaming && message.content.isEmpty,
+                          textColor: textColor,
+                          cs: cs,
+                        ),
+                      if (message.toolCall != null &&
+                          message.content.isNotEmpty)
+                        const SizedBox(height: 8),
+                      if (isStreaming &&
+                          message.content.isEmpty &&
+                          message.toolCall == null &&
+                          !_hasThinking)
+                        _ThinkingIndicator(
+                          color: textColor,
+                          label: message.isPostToolStreaming
+                              ? 'Formulando resposta...'
+                              : 'Pensando...',
+                          icon: message.isPostToolStreaming
+                              ? Icons.edit_rounded
+                              : Icons.psychology_rounded,
+                        )
+                      else if (message.content.isNotEmpty)
+                        Text(
+                          message.content,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                        ),
+                    ],
                   ],
-                  if (!message.isToolRunning) ...[
-                    // Thinking/reasoning block shown in debug mode
-                    if (showDebug && !isUser && _hasThinking)
-                      _ThinkingBlock(
-                        content: message.thinkingContent!,
-                        isStreaming: isStreaming && message.content.isEmpty,
-                        textColor: textColor,
-                        cs: cs,
-                      ),
-                    if (message.toolCall != null && message.content.isNotEmpty)
-                      const SizedBox(height: 8),
-                    if (isStreaming &&
-                        message.content.isEmpty &&
-                        message.toolCall == null &&
-                        !_hasThinking)
-                      _ThinkingIndicator(
-                        color: textColor,
-                        label: message.isPostToolStreaming
-                            ? 'Formulando resposta...'
-                            : 'Pensando...',
-                        icon: message.isPostToolStreaming
-                            ? Icons.edit_rounded
-                            : Icons.psychology_rounded,
-                      )
-                    else if (message.content.isNotEmpty)
-                      Text(
-                        message.content,
-                        style: TextStyle(color: textColor, fontSize: 14),
-                      ),
-                  ],
-                ],
+                ),
               ),
-            ),
             ),
           ),
           if (isStreaming && message.content.isNotEmpty)
@@ -259,7 +263,10 @@ class _ThinkingBlockState extends State<_ThinkingBlock> {
               onTap: () => setState(() => _expanded = !_expanded),
               borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

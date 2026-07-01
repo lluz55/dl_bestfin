@@ -45,15 +45,17 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
         text,
         onMetrics: (m) => collectedMetrics = m,
         enableThinking: enableThinking,
-        onThinkingToken: enableThinking ? (token) {
-          thinkingBuffer.write(token);
-          final updated = state.toList();
-          updated[updated.length - 1] = assistantMsg.copyWith(
-            thinkingContent: thinkingBuffer.toString(),
-          );
-          state = updated;
-          assistantMsg = state.last;
-        } : null,
+        onThinkingToken: enableThinking
+            ? (token) {
+                thinkingBuffer.write(token);
+                final updated = state.toList();
+                updated[updated.length - 1] = assistantMsg.copyWith(
+                  thinkingContent: thinkingBuffer.toString(),
+                );
+                state = updated;
+                assistantMsg = state.last;
+              }
+            : null,
       );
       var buffer = StringBuffer();
 
@@ -78,7 +80,8 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
           'CALCULATE' => 'Calculando "${parsed.argument}"...',
           'GET_GOALS' => 'Buscando suas metas financeiras...',
           'GET_RECURRING' => 'Buscando transações recorrentes...',
-          'GET_SPENDING_SUMMARY' => 'Calculando resumo de gastos por categoria...',
+          'GET_SPENDING_SUMMARY' =>
+            'Calculando resumo de gastos por categoria...',
           _ => 'Buscando informações no banco de dados...',
         };
 

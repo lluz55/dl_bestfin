@@ -108,10 +108,10 @@ class ModelDownloadService {
     while (!completed) {
       await Future.delayed(const Duration(seconds: 1));
       try {
-        final Map<dynamic, dynamic>? progress =
-            await _channel.invokeMethod<Map<dynamic, dynamic>>('getDownloadProgress', {
-          'downloadId': downloadId,
-        });
+        final Map<dynamic, dynamic>? progress = await _channel
+            .invokeMethod<Map<dynamic, dynamic>>('getDownloadProgress', {
+              'downloadId': downloadId,
+            });
 
         if (progress == null) {
           throw Exception('Não foi possível obter o progresso do download');
@@ -123,12 +123,17 @@ class ModelDownloadService {
 
         if (status == 'successful') {
           await clearActiveDownloadId(prefKey);
-          yield DownloadProgress(bytesDownloaded, bytesDownloaded > 0 ? bytesDownloaded : 1);
+          yield DownloadProgress(
+            bytesDownloaded,
+            bytesDownloaded > 0 ? bytesDownloaded : 1,
+          );
           completed = true;
         } else if (status == 'failed') {
           await clearActiveDownloadId(prefKey);
           final reason = progress['reason'] as int? ?? 0;
-          throw Exception('Download falhou no Android DownloadManager (erro: $reason)');
+          throw Exception(
+            'Download falhou no Android DownloadManager (erro: $reason)',
+          );
         } else {
           yield DownloadProgress(
             bytesDownloaded,
@@ -221,7 +226,8 @@ class ModelDownloadService {
   }
 
   static Future<bool> isMmProjPresent(AiModelType modelType) async {
-    if (modelType.mmProjFileName == null || modelType.mmProjSizeMb == null) return false;
+    if (modelType.mmProjFileName == null || modelType.mmProjSizeMb == null)
+      return false;
     final minBytes = (modelType.mmProjSizeMb! * 1024 * 1024 * 0.95).round();
 
     if (Platform.isAndroid) {
@@ -243,7 +249,9 @@ class ModelDownloadService {
     final url = modelType.mmProjUrl;
     final fileName = modelType.mmProjFileName;
     if (url == null || fileName == null) {
-      throw UnsupportedError('Model ${modelType.id} does not have a vision projector.');
+      throw UnsupportedError(
+        'Model ${modelType.id} does not have a vision projector.',
+      );
     }
 
     if (Platform.isAndroid) {
