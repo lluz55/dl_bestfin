@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/color_picker.dart';
 import 'package:bestfin/core/widgets/icon_picker.dart';
@@ -72,10 +73,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   }
 
   void _showPersonalizarSheet() {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _PersonalizarSheet(
         selectedIconCodePoint: _iconCodePoint,
         selectedColorHex: _colorHex,

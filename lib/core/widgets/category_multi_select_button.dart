@@ -143,18 +143,19 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (ctx, scrollController) {
-        return Container(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Container(
           decoration: BoxDecoration(
             color: cs.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _Handle(cs: cs),
               Padding(
@@ -172,7 +173,7 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                     TextButton(
                       onPressed: () {
                         widget.onConfirm(_selected);
-                        Navigator.pop(ctx);
+                        Navigator.pop(context);
                       },
                       child: const Text('Confirmar'),
                     ),
@@ -191,7 +192,7 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                   ),
                 ),
               ),
-              Expanded(
+              Flexible(
                 child: _filtered.isEmpty
                     ? Center(
                         child: Text(
@@ -202,7 +203,7 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                         ),
                       )
                     : ListView.builder(
-                        controller: scrollController,
+                        shrinkWrap: true,
                         padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
                         itemCount: _filtered.length,
                         itemBuilder: (ctx, i) {
@@ -236,8 +237,8 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

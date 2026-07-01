@@ -9,8 +9,13 @@ import 'package:bestfin/features/transactions/presentation/widgets/amount_input.
 
 class InvestmentFormScreen extends ConsumerStatefulWidget {
   final Investment? existingInvestment;
+  final VoidCallback? onClose;
 
-  const InvestmentFormScreen({super.key, this.existingInvestment});
+  const InvestmentFormScreen({
+    super.key,
+    this.existingInvestment,
+    this.onClose,
+  });
 
   @override
   ConsumerState<InvestmentFormScreen> createState() =>
@@ -144,192 +149,197 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    final isInModal = widget.onClose != null;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppPageAppBar(
-        title: _isEditing ? 'Editar Ativo' : 'Novo Investimento',
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            // Name
-            TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Nome do Investimento',
-                hintText: 'Ex: Tesouro Selic 2029, Ações PETR4',
-                prefixIcon: const Icon(Icons.title_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
+        backgroundColor: cs.surface,
+        appBar: isInModal
+            ? null
+            : AppPageAppBar(
+                title: _isEditing ? 'Editar Ativo' : 'Novo Investimento',
+              ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              // Name
+              TextFormField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: 'Nome do Investimento',
+                  hintText: 'Ex: Tesouro Selic 2029, Ações PETR4',
+                  prefixIcon: const Icon(Icons.title_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Informe o nome';
+                  }
+                  return null;
+                },
               ),
-              validator: (val) {
-                if (val == null || val.trim().isEmpty) {
-                  return 'Informe o nome';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Type Dropdown
-            DropdownButtonFormField<String>(
-              value: _type,
-              decoration: InputDecoration(
-                labelText: 'Tipo de Ativo',
-                prefixIcon: const Icon(Icons.pie_chart_outline_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
+              // Type Dropdown
+              DropdownButtonFormField<String>(
+                value: _type,
+                decoration: InputDecoration(
+                  labelText: 'Tipo de Ativo',
+                  prefixIcon: const Icon(Icons.pie_chart_outline_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
+                items: _types.map((t) {
+                  return DropdownMenuItem<String>(
+                    value: t['value'],
+                    child: Text(t['label']!),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _type = val;
+                    });
+                  }
+                },
               ),
-              items: _types.map((t) {
-                return DropdownMenuItem<String>(
-                  value: t['value'],
-                  child: Text(t['label']!),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _type = val;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Invested Amount
-            AmountInput(
-              amountInCents: _investedAmountCents,
-              label: 'Valor Aplicado',
-              color: context.colorScheme.primary,
-              onChanged: (val) => setState(() => _investedAmountCents = val),
-            ),
-            const SizedBox(height: 24),
-
-            // Current Yield Card
-            Card(
-              elevation: 0,
-              color: cs.surfaceContainerLow,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: cs.outlineVariant, width: 1),
+              // Invested Amount
+              AmountInput(
+                amountInCents: _investedAmountCents,
+                label: 'Valor Aplicado',
+                color: context.colorScheme.primary,
+                onChanged: (val) => setState(() => _investedAmountCents = val),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Rendimento Acumulado (Opcional)',
-                      style: tt.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+              const SizedBox(height: 24),
+
+              // Current Yield Card
+              Card(
+                elevation: 0,
+                color: cs.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: cs.outlineVariant, width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rendimento Acumulado (Opcional)',
+                        style: tt.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Lucro ou perda acumulado sobre o valor aplicado',
-                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        // Toggle Profit/Loss
-                        ToggleButtons(
-                          isSelected: [_isProfit, !_isProfit],
-                          onPressed: (index) {
-                            setState(() {
-                              _isProfit = index == 0;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          constraints: const BoxConstraints(
-                            minHeight: 48,
-                            minWidth: 64,
-                          ),
-                          selectedColor: _isProfit
-                              ? Colors.green.shade800
-                              : Colors.red.shade800,
-                          fillColor: _isProfit
-                              ? Colors.green.withValues(alpha: 0.1)
-                              : Colors.red.withValues(alpha: 0.1),
-                          children: const [
-                            Text(
-                              'Lucro (+)',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              'Perda (-)',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Lucro ou perda acumulado sobre o valor aplicado',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: AmountInput(
-                            amountInCents: _currentYieldCents,
-                            label: 'Rendimento',
-                            color: context.colorScheme.primary,
-                            onChanged: (val) =>
-                                setState(() => _currentYieldCents = val),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          // Toggle Profit/Loss
+                          ToggleButtons(
+                            isSelected: [_isProfit, !_isProfit],
+                            onPressed: (index) {
+                              setState(() {
+                                _isProfit = index == 0;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            constraints: const BoxConstraints(
+                              minHeight: 48,
+                              minWidth: 64,
+                            ),
+                            selectedColor: _isProfit
+                                ? Colors.green.shade800
+                                : Colors.red.shade800,
+                            fillColor: _isProfit
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.red.withValues(alpha: 0.1),
+                            children: const [
+                              Text(
+                                'Lucro (+)',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                'Perda (-)',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: AmountInput(
+                              amountInCents: _currentYieldCents,
+                              label: 'Rendimento',
+                              color: context.colorScheme.primary,
+                              onChanged: (val) =>
+                                  setState(() => _currentYieldCents = val),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Maturity Date Selection
-            ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: cs.outlineVariant, width: 1),
-              ),
-              leading: const Icon(Icons.calendar_month_rounded),
-              title: const Text('Data de Vencimento'),
-              subtitle: Text(
-                _maturityDate == null
-                    ? 'Sem vencimento (Ex: Ações, Cripto)'
-                    : '${_maturityDate!.day.toString().padLeft(2, '0')}/${_maturityDate!.month.toString().padLeft(2, '0')}/${_maturityDate!.year}',
-              ),
-              trailing: _maturityDate != null
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded),
-                      onPressed: () => setState(() => _maturityDate = null),
-                    )
-                  : const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-              onTap: _selectMaturityDate,
-            ),
-            const SizedBox(height: 32),
-
-            // Save Button
-            ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+              // Maturity Date Selection
+              ListTile(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: cs.outlineVariant, width: 1),
+                ),
+                leading: const Icon(Icons.calendar_month_rounded),
+                title: const Text('Data de Vencimento'),
+                subtitle: Text(
+                  _maturityDate == null
+                      ? 'Sem vencimento (Ex: Ações, Cripto)'
+                      : '${_maturityDate!.day.toString().padLeft(2, '0')}/${_maturityDate!.month.toString().padLeft(2, '0')}/${_maturityDate!.year}',
+                ),
+                trailing: _maturityDate != null
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: () => setState(() => _maturityDate = null),
+                      )
+                    : const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                onTap: _selectMaturityDate,
+              ),
+              const SizedBox(height: 32),
+
+              // Save Button
+              ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  _isEditing ? 'Salvar Alterações' : 'Cadastrar Investimento',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              child: Text(
-                _isEditing ? 'Salvar Alterações' : 'Cadastrar Investimento',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
     );
   }
 }

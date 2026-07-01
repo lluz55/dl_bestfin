@@ -46,6 +46,23 @@ class MoreScreen extends StatelessWidget {
               ),
             ],
           ),
+          _SectionHeader(title: 'Planejamento', cs: cs, tt: tt),
+          _MenuGrid(
+            items: [
+              _MenuItem(
+                icon: Icons.account_balance_wallet_rounded,
+                label: 'Orçamento',
+                color: const Color(0xFF4CAF50),
+                onTap: () => context.push('/budgets'),
+              ),
+              _MenuItem(
+                icon: Icons.waterfall_chart_rounded,
+                label: 'Projeção',
+                color: cs.primary,
+                onTap: () => context.push('/cashflow'),
+              ),
+            ],
+          ),
           _SectionHeader(title: 'Objetivos', cs: cs, tt: tt),
           _MenuGrid(
             items: [

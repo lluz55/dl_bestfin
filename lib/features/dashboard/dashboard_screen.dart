@@ -5,11 +5,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/staggered_transaction_list.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 
 import 'package:bestfin/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
@@ -24,8 +27,11 @@ import 'package:bestfin/features/dashboard/presentation/widgets/upcoming_bills.d
 import 'package:bestfin/features/dashboard/presentation/widgets/goals_progress.dart';
 import 'package:bestfin/features/dashboard/presentation/widgets/insight_card.dart';
 import 'package:bestfin/features/dashboard/presentation/widgets/chart_widgets_wrapper.dart';
+import 'package:bestfin/features/dashboard/presentation/widgets/dashboard_grid.dart';
 import 'package:bestfin/features/gamification/presentation/widgets/streaks_dashboard_widget.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
+import 'package:bestfin/features/budgets/presentation/widgets/budgets_overview_card.dart';
+import 'package:bestfin/features/cashflow/presentation/widgets/cashflow_projection_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -38,25 +44,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const _filters = ['Este mês', 'Semana', '3 meses', 'Ano'];
 
   static String _getGreeting() {
-    final now = DateTime.now();
-    final months = [
-      'jan',
-      'fev',
-      'mar',
-      'abr',
-      'mai',
-      'jun',
-      'jul',
-      'ago',
-      'set',
-      'out',
-      'nov',
-      'dez',
-    ];
-    final month = months[now.month - 1];
-    if (now.hour < 12) return 'Bom dia, $month';
-    if (now.hour < 18) return 'Boa tarde, $month';
-    return 'Boa noite, $month';
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
   }
 
   @override
@@ -91,57 +82,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 onCustomize: () => showHomeWidgetsEditSheet(context),
               ),
             ),
-
             SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final dashboardAsync = ref.watch(dashboardProvider);
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final dashboardAsync = ref.watch(dashboardProvider);
 
-                      return dashboardAsync.when(
-                        data: (data) => Column(
-                          children: [
-                            BalanceCard(
-                                  balanceInCents: data.totalBalance,
-                                  monthlyIncome: data.monthlyIncome,
-                                  monthlyExpense: data.monthlyExpense,
-                                )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: 100.ms)
-                                .slideY(
-                                  begin: 0.1,
-                                  end: 0,
-                                  curve: Curves.easeOutCubic,
-                                ),
-
-                            for (int i = 0; i < visibleWidgets.length; i++) ...[
-                              const SizedBox(height: 8),
-                              _buildWidget(visibleWidgets[i], data, i)
-                                  .animate()
-                                  .fadeIn(
-                                    duration: 400.ms,
-                                    delay: Duration(milliseconds: 150 + i * 50),
-                                  )
-                                  .slideY(
-                                    begin: 0.1,
-                                    end: 0,
-                                    curve: Curves.easeOutCubic,
-                                  ),
-                            ],
-                            const SizedBox(height: 100),
-                          ],
-                        ),
-                        loading: () => const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 64),
-                          child: Center(child: AppLoadingIndicator()),
-                        ),
-                        error: (err, stack) => _buildError(err, cs, tt),
-                      );
-                    },
-                  ),
-                ],
+                  return dashboardAsync.when(
+                    data: (data) => _buildResponsiveContent(
+                      data: data,
+                      visibleWidgets: visibleWidgets,
+                      cs: cs,
+                      tt: tt,
+                    ),
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 64),
+                      child: Center(child: AppLoadingIndicator()),
+                    ),
+                    error: (err, stack) => _buildError(err, cs, tt),
+                  );
+                },
               ),
             ),
           ],
@@ -150,8 +109,94 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  List<TransactionItem> _buildTransactionItems(dynamic data) {
-    final accounts = ref.watch(activeAccountsProvider);
+  Widget _buildResponsiveContent({
+    required dynamic data,
+    required List<HomeWidgetId> visibleWidgets,
+    required ColorScheme cs,
+    required TextTheme tt,
+  }) {
+    if (Breakpoints.isCompact(context)) {
+      return _buildCompactLayout(data, visibleWidgets, cs, tt);
+    }
+    return _buildMediumLayout(data, visibleWidgets, cs, tt);
+  }
+
+  Widget _buildCompactLayout(
+    dynamic data,
+    List<HomeWidgetId> visibleWidgets,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          BalanceCard(
+                balanceInCents: data.totalBalance,
+                monthlyIncome: data.monthlyIncome,
+                monthlyExpense: data.monthlyExpense,
+              )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: 100.ms)
+              .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+          for (int i = 0; i < visibleWidgets.length; i++) ...[
+            const SizedBox(height: 8),
+            _buildWidget(visibleWidgets[i], data, i)
+                .animate()
+                .fadeIn(
+                  duration: 400.ms,
+                  delay: Duration(milliseconds: 150 + i * 50),
+                )
+                .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+          ],
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediumLayout(
+    dynamic data,
+    List<HomeWidgetId> visibleWidgets,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          BalanceCard(
+                balanceInCents: data.totalBalance,
+                monthlyIncome: data.monthlyIncome,
+                monthlyExpense: data.monthlyExpense,
+              )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: 100.ms)
+              .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+          const SizedBox(height: 16),
+          DashboardGrid(
+            children: [
+              for (int i = 0; i < visibleWidgets.length; i++)
+                _buildWidget(visibleWidgets[i], data, i)
+                    .animate()
+                    .fadeIn(
+                      duration: 400.ms,
+                      delay: Duration(milliseconds: 150 + i * 50),
+                    )
+                    .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+            ],
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  List<TransactionItem> _buildTransactionItems(
+    dynamic data,
+    Map<dynamic, dynamic> accountsById,
+  ) {
     return data.recentTransactions.map<TransactionItem>((tx) {
       final isExpense = tx.type == TransactionType.expense;
       final amountInCents = isExpense ? -tx.amount : tx.amount;
@@ -161,14 +206,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final dateStr = '$day/$month';
 
       if (tx.type == TransactionType.transfer) {
-        final fromAccount = accounts
-            .where((a) => a.id == tx.fromAccountId)
-            .firstOrNull;
-        final toAccount = accounts
-            .where((a) => a.id == tx.toAccountId)
-            .firstOrNull;
-        final fromName = fromAccount?.name ?? '—';
-        final toName = toAccount?.name ?? '—';
+        final fromName = accountsById[tx.fromAccountId]?.name ?? '—';
+        final toName = accountsById[tx.toAccountId]?.name ?? '—';
         return TransactionItem(
           title: '$fromName → $toName',
           category: 'Transferência',
@@ -210,7 +249,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              err.toString(),
+              'Não foi possível carregar os dados. Tente novamente.',
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
@@ -230,7 +269,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final tt = context.textTheme;
     final periodIndex = ref.watch(dashboardPeriodProvider);
 
-    return switch (id) {
+    final widget = switch (id) {
       HomeWidgetId.freeToSpend => FreeToSpendCard(
         amountInCents: data.freeToSpendAmount,
         percentage: data.freeToSpendPercentage,
@@ -238,6 +277,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       HomeWidgetId.incomeExpenseBar => IncomeExpenseBar(
         monthlyIncome: data.monthlyIncome,
         monthlyExpense: data.monthlyExpense,
+        periodLabel: _filters[periodIndex],
       ),
       HomeWidgetId.spendingDonut => SpendingDonut(
         categoryExpenses: data.categoryExpenses,
@@ -287,10 +327,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               title: 'Ações rápidas',
               actionLabel: 'Editar',
               onAction: () {
-                showModalBottomSheet(
+                showAdaptiveModal(
                   context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
                   builder: (context) => const ShortcutsEditSheet(),
                 );
               },
@@ -316,9 +354,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               tt: tt,
             ),
             const SizedBox(height: 8),
-            Builder(
-              builder: (context) {
-                final transactionItems = _buildTransactionItems(data);
+            Consumer(
+              builder: (context, ref, _) {
+                final accounts = ref.watch(activeAccountsProvider);
+                final accountsById = {for (final a in accounts) a.id: a};
+                final transactionItems = _buildTransactionItems(
+                  data,
+                  accountsById,
+                );
                 if (transactionItems.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
@@ -339,10 +382,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   items: transactionItems,
                   onItemTap: (item) {
                     if (item.rawTransaction != null) {
-                      context.push(
-                        '/transaction/edit',
-                        extra: item.rawTransaction,
-                      );
+                      if (Breakpoints.isCompact(context)) {
+                        context.push(
+                          '/transaction/edit',
+                          extra: item.rawTransaction,
+                        );
+                      } else {
+                        ref
+                            .read(transactionFormModalProvider.notifier)
+                            .open(transaction: item.rawTransaction);
+                      }
                     }
                   },
                 );
@@ -351,7 +400,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       ),
+      HomeWidgetId.budgetsOverview => const BudgetsOverviewCard(),
+      HomeWidgetId.cashFlowProjection => const CashFlowProjectionCard(),
     };
+
+    return widget;
   }
 }
 
@@ -543,37 +596,42 @@ class _ShortcutsRow extends ConsumerWidget {
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: GestureDetector(
-                    onTap: () => context.push(shortcut.route),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
+                  child: Material(
+                    color: cs.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      onTap: () => context.push(shortcut.route),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                shortcut.icon,
+                                size: 20,
+                                color: color,
+                              ),
                             ),
-                            child: Icon(shortcut.icon, size: 20, color: color),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            shortcut.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.labelSmall?.copyWith(
-                              color: cs.onSurface,
-                              fontWeight: FontWeight.w600,
+                            const SizedBox(height: 8),
+                            Text(
+                              shortcut.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -583,7 +641,7 @@ class _ShortcutsRow extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (e, s) => const SizedBox.shrink(),
     );
   }
@@ -599,68 +657,71 @@ class _SectionHeader extends StatelessWidget {
   });
 
   final String title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
   final ColorScheme cs;
   final TextTheme tt;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 2,
-                  decoration: BoxDecoration(
-                    color: cs.primary,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: tt.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (actionLabel != null)
-            TextButton(
-              onPressed: onAction,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    actionLabel!,
-                    style: tt.labelMedium?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 14,
-                    color: cs.primary,
-                  ),
-                ],
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          children: [
+            Container(
+              width: 2,
+              height: 18,
+              decoration: BoxDecoration(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(1),
               ),
             ),
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: tt.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (actionLabel != null) ...[
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: onAction,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        actionLabel!,
+                        style: tt.labelMedium?.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: cs.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -690,7 +751,7 @@ class _QuickActionsRow extends StatelessWidget {
           label: filters[i],
           selected: selectedIndex == i,
           onTap: () => onSelect(i),
-          delay: Duration(milliseconds: 200 + i * 60),
+          delay: Duration(milliseconds: 200 + i.clamp(0, 4) * 60),
         ),
       ),
     );

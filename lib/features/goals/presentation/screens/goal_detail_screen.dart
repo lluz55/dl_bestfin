@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
+import 'package:bestfin/features/goals/presentation/providers/goal_form_modal_provider.dart';
 import 'package:bestfin/features/goals/presentation/widgets/progress_ring_widget.dart';
 import 'package:bestfin/features/goals/presentation/widgets/monthly_simulator_widget.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_celebration_widget.dart';
@@ -82,7 +84,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             onPressed: () =>
-                context.push('/goals/${goal.id}/edit', extra: goal),
+                ref.read(goalFormModalProvider.notifier).open(goal: goal),
           ),
         ],
       ),
@@ -193,9 +195,8 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
   }
 
   Future<void> _showContributeSheet(GoalModel goal) async {
-    final result = await showModalBottomSheet<bool>(
+    final result = await showAdaptiveModal<bool>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => _ContributeSheetDetail(goal: goal),
     );
     if (result == true && mounted) {

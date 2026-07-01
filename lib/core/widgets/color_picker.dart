@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 
-class AppColorPicker extends StatelessWidget {
+class AppColorPicker extends StatefulWidget {
   const AppColorPicker({
     super.key,
     required this.selectedColorHex,
@@ -35,31 +36,87 @@ class AppColorPicker extends StatelessWidget {
     return Color(int.parse(buffer.toString(), radix: 16));
   }
 
+  static String colorToHex(Color color) {
+    return '#${color.r.toInt().toRadixString(16).padLeft(2, '0')}${color.g.toInt().toRadixString(16).padLeft(2, '0')}${color.b.toInt().toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
+  }
+
+  @override
+  State<AppColorPicker> createState() => _AppColorPickerState();
+}
+
+class _AppColorPickerState extends State<AppColorPicker> {
+  bool get _isCustom => !AppColorPicker.colors.any(
+    (c) => c.$1.toLowerCase() == widget.selectedColorHex.toLowerCase(),
+  );
+
+  Future<void> _openCustomPicker() async {
+    Color pickerColor = AppColorPicker.hexToColor(widget.selectedColorHex);
+    Color confirmedColor = pickerColor;
+
+    final picked = await showDialog<Color>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Escolha uma cor'),
+        content: SingleChildScrollView(
+          child: StatefulBuilder(
+            builder: (_, setState) => ColorPicker(
+              pickerColor: pickerColor,
+              onColorChanged: (c) {
+                setState(() => pickerColor = c);
+                confirmedColor = c;
+              },
+              enableAlpha: false,
+              labelTypes: const [],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(confirmedColor),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (picked != null) {
+      widget.onColorSelected(AppColorPicker.colorToHex(picked));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final cs = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (previewIcon != null) ...[
+        if (widget.previewIcon != null) ...[
           Center(
             child: Container(
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: hexToColor(selectedColorHex).withValues(alpha: 0.15),
+                color: AppColorPicker.hexToColor(
+                  widget.selectedColorHex,
+                ).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: hexToColor(selectedColorHex),
+                  color: AppColorPicker.hexToColor(widget.selectedColorHex),
                   width: 2,
                 ),
               ),
               child: Icon(
-                previewIcon,
+                widget.previewIcon,
                 size: 32,
-                color: hexToColor(selectedColorHex),
+                color: AppColorPicker.hexToColor(widget.selectedColorHex),
               ),
             ),
           ),
@@ -69,44 +126,71 @@ class AppColorPicker extends StatelessWidget {
           'Selecione uma cor',
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurfaceVariant,
+            color: cs.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: colors.map((item) {
-            final isSelected =
-                item.$1.toLowerCase() == selectedColorHex.toLowerCase();
-            final color = hexToColor(item.$1);
+          children: [
+            ...AppColorPicker.colors.map((item) {
+              final isSelected =
+                  item.$1.toLowerCase() ==
+                  widget.selectedColorHex.toLowerCase();
+              final color = AppColorPicker.hexToColor(item.$1);
 
-            return Tooltip(
-              message: item.$2,
+              return Tooltip(
+                message: item.$2,
+                child: InkWell(
+                  onTap: () => widget.onColorSelected(item.$1),
+                  customBorder: const CircleBorder(),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? cs.outline : cs.outlineVariant,
+                        width: isSelected ? 2.5 : 1,
+                      ),
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 20)
+                        : null,
+                  ),
+                ),
+              );
+            }),
+            // Custom color swatch
+            Tooltip(
+              message: 'Cor personalizada',
               child: InkWell(
-                onTap: () => onColorSelected(item.$1),
+                onTap: _openCustomPicker,
                 customBorder: const CircleBorder(),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: color,
+                    color: _isCustom
+                        ? AppColorPicker.hexToColor(widget.selectedColorHex)
+                        : cs.surfaceContainerHighest,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected
-                          ? theme.colorScheme.outline
-                          : Colors.transparent,
-                      width: 2,
+                      color: _isCustom ? cs.outline : cs.outlineVariant,
+                      width: _isCustom ? 2.5 : 1.5,
                     ),
                   ),
-                  child: isSelected
+                  child: _isCustom
                       ? const Icon(Icons.check, color: Colors.white, size: 20)
-                      : null,
+                      : Icon(Icons.add, color: cs.onSurfaceVariant, size: 20),
                 ),
               ),
-            );
-          }).toList(),
+            ),
+          ],
         ),
       ],
     );

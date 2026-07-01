@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/breakpoints.dart';
 import '../theme/color_schemes.dart';
 import '../theme/motion.dart';
 import '../theme/shapes.dart';
@@ -29,4 +30,11 @@ extension ThemeContextExtension on BuildContext {
     end: Alignment.bottomRight,
     colors: [colorScheme.primary, colorScheme.secondary],
   );
+
+  bool get isCompact => Breakpoints.isCompact(this);
+  bool get isMedium => Breakpoints.isMedium(this);
+  bool get isExpanded => Breakpoints.isExpanded(this);
+  bool get isWide => Breakpoints.isWide(this);
+  double get screenWidth => MediaQuery.sizeOf(this).width;
+  double get screenHeight => MediaQuery.sizeOf(this).height;
 }

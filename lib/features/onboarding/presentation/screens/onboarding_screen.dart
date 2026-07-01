@@ -30,6 +30,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  void _prevPage() {
+    if (_currentPage > 0) {
+      _controller.previousPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
   Future<void> _finish() async {
     await OnboardingActions.complete(ref);
     // Router guard will automatically navigate to /home
@@ -53,15 +62,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _PageDots(
-                    currentPage: _currentPage,
-                    totalPages: _totalPages,
-                    activeColor: cs.primary,
-                    inactiveColor: cs.surfaceContainerHighest,
+                  if (_currentPage > 0)
+                    IconButton(
+                      onPressed: _prevPage,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      color: cs.onSurfaceVariant,
+                    )
+                  else
+                    const SizedBox(width: 48),
+                  Expanded(
+                    child: _PageDots(
+                      currentPage: _currentPage,
+                      totalPages: _totalPages,
+                      activeColor: cs.primary,
+                      inactiveColor: cs.surfaceContainerHighest,
+                    ),
                   ),
-                  if (_currentPage > 0 && _currentPage < _totalPages - 1)
+                  if (_currentPage > 1 && _currentPage < _totalPages - 1)
                     TextButton(
                       onPressed: _finish,
                       child: Text(
@@ -70,7 +88,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           color: cs.onSurfaceVariant,
                         ),
                       ),
-                    ),
+                    )
+                  else
+                    const SizedBox(width: 48),
                 ],
               ),
             ),

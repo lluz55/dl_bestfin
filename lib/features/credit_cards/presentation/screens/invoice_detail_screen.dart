@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
@@ -56,9 +57,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       _PaymentType.custom => paymentAmountCents,
     };
 
-    await showModalBottomSheet<void>(
+    await showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {

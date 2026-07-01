@@ -11,12 +11,15 @@ import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
 import 'package:bestfin/features/goals/presentation/widgets/monthly_simulator_widget.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_category_selector.dart';
+import 'package:bestfin/core/providers/default_account_provider.dart';
+import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class GoalFormScreen extends ConsumerStatefulWidget {
   final GoalModel? existingGoal;
+  final VoidCallback? onClose;
 
-  const GoalFormScreen({super.key, this.existingGoal});
+  const GoalFormScreen({super.key, this.existingGoal, this.onClose});
 
   @override
   ConsumerState<GoalFormScreen> createState() => _GoalFormScreenState();
@@ -56,6 +59,21 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
       _recurrenceFrequency =
           g.recurrenceFrequency ?? GoalRecurrenceFrequency.monthly;
       _categoryIds = List<String>.from(g.categoryIds);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _accountId != null) return;
+        final accounts = ref.read(activeAccountsProvider);
+        if (accounts.isEmpty) return;
+        final defaultId = ref.read(defaultAccountIdProvider);
+        setState(() {
+          if (accounts.length == 1) {
+            _accountId = accounts.first.id;
+          } else if (defaultId != null &&
+              accounts.any((a) => a.id == defaultId)) {
+            _accountId = defaultId;
+          }
+        });
+      });
     }
   }
 
@@ -163,179 +181,139 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
     final tt = context.textTheme;
     final isEditing = widget.existingGoal != null;
     final goalColor = _parseColor(_color, cs.primary);
+    final isInModal = widget.onClose != null;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppPageAppBar(title: isEditing ? 'Editar Meta' : 'Nova Meta'),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
-          children: [
-            // Ícone e cor (preview)
-            Center(
-              child: GestureDetector(
-                onTap: _pickIconAndColor,
-                child: Column(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: goalColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: goalColor.withValues(alpha: 0.4),
-                          width: 2,
+        backgroundColor: cs.surface,
+        appBar: isInModal
+            ? null
+            : AppPageAppBar(title: isEditing ? 'Editar Meta' : 'Nova Meta'),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
+            children: [
+              // Ícone e cor (preview)
+              Center(
+                child: GestureDetector(
+                  onTap: _pickIconAndColor,
+                  child: Column(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: goalColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: goalColor.withValues(alpha: 0.4),
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          IconMapper.fromString(_icon),
+                          size: 36,
+                          color: goalColor,
                         ),
                       ),
-                      child: Icon(
-                        IconMapper.fromString(_icon),
-                        size: 36,
-                        color: goalColor,
+                      const SizedBox(height: 6),
+                      Text(
+                        'Toque para personalizar',
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Toque para personalizar',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Nome
-            TextFormField(
-              controller: _nameController,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: 'Nome da meta *',
-                hintText: 'Ex: Viagem de férias',
-                prefixIcon: const Icon(Icons.flag_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Informe um nome' : null,
-            ),
-            const SizedBox(height: 14),
-
-            // Descrição
-            TextFormField(
-              controller: _descController,
-              maxLines: 2,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: 'Descrição (opcional)',
-                hintText: 'Por que esse objetivo é importante?',
-                prefixIcon: const Icon(Icons.notes_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Valor alvo
-            AmountInput(
-              amountInCents: _targetAmountInCents,
-              label: 'Valor Alvo',
-              color: context.colorScheme.primary,
-              onChanged: (val) => setState(() => _targetAmountInCents = val),
-            ),
-            const SizedBox(height: 14),
-
-            // Prazo (oculto se recorrente, pois o período define o ciclo)
-            if (!_isRecurring) ...[
-              _DateField(
-                label: 'Prazo (opcional)',
-                date: _targetDate,
-                icon: Icons.calendar_month_rounded,
-                placeholder: 'Sem prazo definido',
-                onTap: _pickTargetDate,
-                onClear: _targetDate != null
-                    ? () => setState(() => _targetDate = null)
-                    : null,
               ),
               const SizedBox(height: 24),
-            ] else
-              const SizedBox(height: 24),
 
-            // ── Tipo de Meta ─────────────────────────────────────────────────
-            Text(
-              'Tipo de Meta',
-              style: tt.labelLarge?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.bold,
+              // Nome
+              TextFormField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Nome da meta *',
+                  hintText: 'Ex: Viagem de férias',
+                  prefixIcon: const Icon(Icons.flag_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Informe um nome' : null,
               ),
-            ),
-            const SizedBox(height: 8),
-            SegmentedButton<GoalType>(
-              segments: const [
-                ButtonSegment<GoalType>(
-                  value: GoalType.saving,
-                  label: Text('Economia'),
-                  icon: Icon(Icons.savings_rounded),
-                ),
-                ButtonSegment<GoalType>(
-                  value: GoalType.spending,
-                  label: Text('Orçamento'),
-                  icon: Icon(Icons.shopping_bag_rounded),
-                ),
-              ],
-              selected: {_type},
-              onSelectionChanged: (newSelection) {
-                setState(() => _type = newSelection.first);
-              },
-              showSelectedIcon: false,
-              style: SegmentedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 14),
 
-            // ── Recorrência ──────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.repeat_rounded, label: 'Recorrência'),
-            const SizedBox(height: 8),
-            SwitchListTile.adaptive(
-              value: _isRecurring,
-              onChanged: (v) => setState(() => _isRecurring = v),
-              title: const Text('Meta recorrente'),
-              subtitle: Text(
-                _isRecurring
-                    ? 'O progresso reseta automaticamente a cada período'
-                    : 'A meta não se repete automaticamente',
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              // Descrição
+              TextFormField(
+                controller: _descController,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Descrição (opcional)',
+                  hintText: 'Por que esse objetivo é importante?',
+                  prefixIcon: const Icon(Icons.notes_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               ),
-              contentPadding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: 14),
+
+              // Valor alvo
+              AmountInput(
+                amountInCents: _targetAmountInCents,
+                label: 'Valor Alvo',
+                color: context.colorScheme.primary,
+                onChanged: (val) => setState(() => _targetAmountInCents = val),
               ),
-            ),
-            if (_isRecurring) ...[
-              const SizedBox(height: 10),
-              SegmentedButton<GoalRecurrenceFrequency>(
-                segments: GoalRecurrenceFrequency.values
-                    .map(
-                      (f) => ButtonSegment<GoalRecurrenceFrequency>(
-                        value: f,
-                        label: Text(f.label),
-                      ),
-                    )
-                    .toList(),
-                selected: {
-                  _recurrenceFrequency ?? GoalRecurrenceFrequency.monthly,
+              const SizedBox(height: 14),
+
+              // Prazo (oculto se recorrente, pois o período define o ciclo)
+              if (!_isRecurring) ...[
+                _DateField(
+                  label: 'Prazo (opcional)',
+                  date: _targetDate,
+                  icon: Icons.calendar_month_rounded,
+                  placeholder: 'Sem prazo definido',
+                  onTap: _pickTargetDate,
+                  onClear: _targetDate != null
+                      ? () => setState(() => _targetDate = null)
+                      : null,
+                ),
+                const SizedBox(height: 24),
+              ] else
+                const SizedBox(height: 24),
+
+              // ── Tipo de Meta ─────────────────────────────────────────────────
+              Text(
+                'Tipo de Meta',
+                style: tt.labelLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<GoalType>(
+                segments: const [
+                  ButtonSegment<GoalType>(
+                    value: GoalType.saving,
+                    label: Text('Economia'),
+                    icon: Icon(Icons.savings_rounded),
+                  ),
+                  ButtonSegment<GoalType>(
+                    value: GoalType.spending,
+                    label: Text('Orçamento'),
+                    icon: Icon(Icons.shopping_bag_rounded),
+                  ),
+                ],
+                selected: {_type},
+                onSelectionChanged: (newSelection) {
+                  setState(() => _type = newSelection.first);
                 },
-                onSelectionChanged: (s) =>
-                    setState(() => _recurrenceFrequency = s.first),
                 showSelectedIcon: false,
                 style: SegmentedButton.styleFrom(
                   shape: RoundedRectangleBorder(
@@ -343,85 +321,129 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
                   ),
                 ),
               ),
-            ],
-            const SizedBox(height: 24),
-
-            // ── Categorias absorvidas ─────────────────────────────────────────
-            _SectionHeader(
-              icon: Icons.category_outlined,
-              label: 'Absorção automática',
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Transações com as categorias abaixo serão automaticamente '
-              'contabilizadas nesta meta.',
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 10),
-            GoalCategorySelector(
-              selectedCategoryIds: _categoryIds,
-              onChanged: (ids) => setState(() => _categoryIds = ids),
-            ),
-            const SizedBox(height: 24),
-
-            // ── Conta vinculada ───────────────────────────────────────────────
-            Text(
-              'Conta vinculada (opcional)',
-              style: tt.labelLarge?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            AccountSelector(
-              selectedAccountId: _accountId,
-              onAccountSelected: (acc) => setState(() => _accountId = acc?.id),
-            ),
-            const SizedBox(height: 24),
-
-            // Simulador mensal (somente se tem prazo, valor e não é recorrente)
-            if (_targetAmountInCents > 0 &&
-                _targetDate != null &&
-                !_isRecurring) ...[
-              MonthlySimulatorWidget(
-                remainingInCents: _targetAmountInCents,
-                initialMonths: _monthsToTarget(),
-              ),
               const SizedBox(height: 24),
-            ],
 
-            // Botão salvar
-            SizedBox(
-              height: 54,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+              // ── Recorrência ──────────────────────────────────────────────────
+              _SectionHeader(icon: Icons.repeat_rounded, label: 'Recorrência'),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                value: _isRecurring,
+                onChanged: (v) => setState(() => _isRecurring = v),
+                title: const Text('Meta recorrente'),
+                subtitle: Text(
+                  _isRecurring
+                      ? 'O progresso reseta automaticamente a cada período'
+                      : 'A meta não se repete automaticamente',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
+                contentPadding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              if (_isRecurring) ...[
+                const SizedBox(height: 10),
+                SegmentedButton<GoalRecurrenceFrequency>(
+                  segments: GoalRecurrenceFrequency.values
+                      .map(
+                        (f) => ButtonSegment<GoalRecurrenceFrequency>(
+                          value: f,
+                          label: Text(f.label),
                         ),
                       )
-                    : Text(
-                        isEditing ? 'Salvar Alterações' : 'Criar Meta',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      .toList(),
+                  selected: {
+                    _recurrenceFrequency ?? GoalRecurrenceFrequency.monthly,
+                  },
+                  onSelectionChanged: (s) =>
+                      setState(() => _recurrenceFrequency = s.first),
+                  showSelectedIcon: false,
+                  style: SegmentedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+
+              // ── Categorias absorvidas ─────────────────────────────────────────
+              _SectionHeader(
+                icon: Icons.category_outlined,
+                label: 'Absorção automática',
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Transações com as categorias abaixo serão automaticamente '
+                'contabilizadas nesta meta.',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 10),
+              GoalCategorySelector(
+                selectedCategoryIds: _categoryIds,
+                onChanged: (ids) => setState(() => _categoryIds = ids),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Conta vinculada ───────────────────────────────────────────────
+              Text(
+                'Conta vinculada (opcional)',
+                style: tt.labelLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              AccountSelector(
+                selectedAccountId: _accountId,
+                onAccountSelected: (acc) =>
+                    setState(() => _accountId = acc?.id),
+              ),
+              const SizedBox(height: 24),
+
+              // Simulador mensal (somente se tem prazo, valor e não é recorrente)
+              if (_targetAmountInCents > 0 &&
+                  _targetDate != null &&
+                  !_isRecurring) ...[
+                MonthlySimulatorWidget(
+                  remainingInCents: _targetAmountInCents,
+                  initialMonths: _monthsToTarget(),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Botão salvar
+              SizedBox(
+                height: 54,
+                child: FilledButton(
+                  onPressed: _saving ? null : _save,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                       : Text(
+                          isEditing ? 'Salvar Alterações' : 'Criar Meta',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
     );
   }
 
@@ -612,18 +634,19 @@ class _IconColorPickerState extends State<_IconColorPicker> {
     final tt = Theme.of(context).textTheme;
     final goalColor = _hex(_color);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (ctx, scrollController) {
-        return Container(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
+        child: Container(
           decoration: BoxDecoration(
             color: cs.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Center(
                 child: Container(
@@ -667,7 +690,7 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                     FilledButton(
                       onPressed: () {
                         widget.onSelected(_icon, _color);
-                        Navigator.pop(ctx);
+                        Navigator.pop(context);
                       },
                       style: FilledButton.styleFrom(backgroundColor: goalColor),
                       child: const Text(
@@ -692,9 +715,9 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                 ),
               ),
               const SizedBox(height: 4),
-              Expanded(
+              Flexible(
                 child: ListView(
-                  controller: scrollController,
+                  shrinkWrap: true,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   children: [
                     for (final entry in _displayMap.entries)
@@ -796,8 +819,8 @@ class _IconColorPickerState extends State<_IconColorPicker> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

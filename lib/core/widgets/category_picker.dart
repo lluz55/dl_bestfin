@@ -87,19 +87,20 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
         ? ref.watch(categoriesByTypeProvider(widget.typeFilter!))
         : ref.watch(categoriesTreeProvider);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        return Container(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Container(
           decoration: BoxDecoration(
             color: cs.surfaceContainerLow,
             borderRadius: shapes.bottomSheet,
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Handle
               Center(
                 child: Container(
                   margin: const EdgeInsets.only(top: 12, bottom: 4),
@@ -135,7 +136,7 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                   ],
                 ),
               ),
-              Expanded(
+              Flexible(
                 child: asyncTree.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
@@ -150,7 +151,7 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                     }
 
                     return ListView.builder(
-                      controller: scrollController,
+                      shrinkWrap: true,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       itemCount: items.length,
                       itemBuilder: (context, i) {
@@ -177,8 +178,8 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

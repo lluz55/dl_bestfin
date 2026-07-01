@@ -18,7 +18,7 @@ class MonthlyBarChartWidgetWrapper extends StatelessWidget {
     final hasData = bars.isNotEmpty;
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +97,7 @@ class CategoryRankingWidgetWrapper extends StatelessWidget {
     }).toList();
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +153,7 @@ class NetWorthLineChartWidgetWrapper extends StatelessWidget {
     final hasData = points.isNotEmpty;
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +209,7 @@ class CashFlowLineChartWidgetWrapper extends StatelessWidget {
     final hasData = points.isNotEmpty;
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

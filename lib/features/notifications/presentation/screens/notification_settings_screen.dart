@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/notifications/domain/models/notification_pattern.dart';
 import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
@@ -96,10 +97,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     NotificationPatternModel? existing,
   ) {
-    showModalBottomSheet(
+    showAdaptiveModal(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => PatternEditor(
         existing: existing,
         onSave: (pattern) => ref.read(savePatternProvider)(pattern),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -9,6 +10,8 @@ import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
+import 'package:bestfin/features/goals/presentation/providers/goal_form_modal_provider.dart';
+import 'package:bestfin/features/goals/presentation/widgets/goal_form_modal_overlay.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_card.dart';
 import 'package:bestfin/features/goals/presentation/widgets/goal_celebration_widget.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
@@ -56,9 +59,8 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
   }
 
   Future<bool?> _showContributeSheet(GoalModel goal) {
-    return showModalBottomSheet<bool>(
+    return showAdaptiveModal<bool>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => _ContributeSheet(goal: goal),
     );
   }
@@ -130,7 +132,7 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
             showVisibilityToggle: true,
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => context.push('/goals/new'),
+            onPressed: () => ref.read(goalFormModalProvider.notifier).open(),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Nova Meta'),
           ),
@@ -157,7 +159,8 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
                       emptyDescription:
                           'Crie seu primeiro objetivo financeiro e acompanhe o progresso!',
                       emptyIcon: Icons.flag_rounded,
-                      onAction: () => context.push('/goals/new'),
+                      onAction: () =>
+                          ref.read(goalFormModalProvider.notifier).open(),
                       actionLabel: 'Criar meta',
                     ),
                     _GoalsList(
@@ -183,6 +186,8 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
             goalName: _celebratingGoal!.name,
             onDismiss: () => setState(() => _celebratingGoal = null),
           ),
+
+        const GoalFormModalOverlay(),
       ],
     );
   }

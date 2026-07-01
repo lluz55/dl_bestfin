@@ -48,7 +48,7 @@ class StaggeredTransactionList extends StatelessWidget {
         for (int i = 0; i < items.length; i++)
           _TransactionTile(
             item: items[i],
-            delay: context.motion.staggerInterval * i,
+            delay: context.motion.staggerInterval * i.clamp(0, 5),
             onTap: onItemTap != null ? () => onItemTap!(items[i]) : null,
           ),
       ],

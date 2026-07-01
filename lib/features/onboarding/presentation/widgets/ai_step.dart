@@ -31,22 +31,22 @@ class AiStep extends ConsumerWidget {
 
           // Icon
           Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [cs.tertiary, cs.primary],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Icon(
-              Icons.psychology_outlined,
-              size: 40,
-              color: cs.onPrimary,
-            ),
-          )
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [cs.tertiary, cs.primary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Icon(
+                  Icons.psychology_outlined,
+                  size: 40,
+                  color: cs.onPrimary,
+                ),
+              )
               .animate()
               .scaleXY(
                 begin: 0.6,
@@ -59,13 +59,13 @@ class AiStep extends ConsumerWidget {
           const SizedBox(height: 16),
 
           Text(
-            'Assistente Financeiro com IA',
-            textAlign: TextAlign.center,
-            style: tt.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: cs.onSurface,
-            ),
-          )
+                'Assistente Financeiro com IA',
+                textAlign: TextAlign.center,
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                ),
+              )
               .animate(delay: 200.ms)
               .fadeIn(duration: 400.ms)
               .slideY(begin: 0.2, end: 0, curve: Curves.easeOut),
@@ -73,13 +73,13 @@ class AiStep extends ConsumerWidget {
           const SizedBox(height: 8),
 
           Text(
-            'O BestFin inclui uma IA local para analisar suas finanças de forma 100% privada e offline.',
-            textAlign: TextAlign.center,
-            style: tt.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-              height: 1.45,
-            ),
-          )
+                'O BestFin inclui uma IA local para analisar suas finanças de forma 100% privada e offline.',
+                textAlign: TextAlign.center,
+                style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              )
               .animate(delay: 350.ms)
               .fadeIn(duration: 400.ms)
               .slideY(begin: 0.2, end: 0, curve: Curves.easeOut),
@@ -95,13 +95,18 @@ class AiStep extends ConsumerWidget {
                   onTap: isDownloading || isLoading || isReady
                       ? null
                       : () {
-                          ref.read(selectedModelProvider.notifier).setModel(model);
+                          ref
+                              .read(selectedModelProvider.notifier)
+                              .setModel(model);
                         },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 6),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: isCurrent 
+                      color: isCurrent
                           ? cs.primaryContainer.withValues(alpha: 0.15)
                           : cs.surfaceContainerLow,
                       border: Border.all(
@@ -122,7 +127,9 @@ class AiStep extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          model == AiModelType.minicpmV4_6 ? 'Multimodal' : 'Apenas Texto',
+                          model == AiModelType.minicpmV4_6
+                              ? 'Multimodal'
+                              : 'Apenas Texto',
                           style: tt.labelLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: isCurrent ? cs.primary : cs.onSurface,
@@ -166,7 +173,9 @@ class AiStep extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text(
                       'Uso Recomendado',
-                      style: tt.labelMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: tt.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -187,7 +196,11 @@ class AiStep extends ConsumerWidget {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.check_circle_outline, size: 12, color: Colors.green),
+                              const Icon(
+                                Icons.check_circle_outline,
+                                size: 12,
+                                color: Colors.green,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Vantagens',
@@ -199,19 +212,24 @@ class AiStep extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          ... (selectedModel == AiModelType.minicpmV4_6
-                              ? [
-                                  '• Lê faturas por foto',
-                                  '• Suporte multimodal',
-                                ]
-                              : [
-                                  '• Respostas super rápidas',
-                                  '• Menor uso de RAM',
-                                ]
-                          ).map((p) => Text(
-                                p,
-                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 11),
-                              )),
+                          ...(selectedModel == AiModelType.minicpmV4_6
+                                  ? [
+                                      '• Lê faturas por foto',
+                                      '• Suporte multimodal',
+                                    ]
+                                  : [
+                                      '• Respostas super rápidas',
+                                      '• Menor uso de RAM',
+                                    ])
+                              .map(
+                                (p) => Text(
+                                  p,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
                         ],
                       ),
                     ),
@@ -222,7 +240,11 @@ class AiStep extends ConsumerWidget {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.remove_circle_outline, size: 12, color: cs.error),
+                              Icon(
+                                Icons.remove_circle_outline,
+                                size: 12,
+                                color: cs.error,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Desvantagens',
@@ -234,19 +256,24 @@ class AiStep extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          ... (selectedModel == AiModelType.minicpmV4_6
-                              ? [
-                                  '• Arquivo um pouco maior',
-                                  '• Maior uso de memória',
-                                ]
-                              : [
-                                  '• Apenas texto puro',
-                                  '• Sem leitura de fotos',
-                                ]
-                          ).map((p) => Text(
-                                p,
-                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 11),
-                              )),
+                          ...(selectedModel == AiModelType.minicpmV4_6
+                                  ? [
+                                      '• Arquivo um pouco maior',
+                                      '• Maior uso de memória',
+                                    ]
+                                  : [
+                                      '• Apenas texto puro',
+                                      '• Sem leitura de fotos',
+                                    ])
+                              .map(
+                                (p) => Text(
+                                  p,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
                         ],
                       ),
                     ),
@@ -299,34 +326,34 @@ class AiStep extends ConsumerWidget {
           // Action buttons
           if (isReady) ...[
             FilledButton.icon(
-              onPressed: onNext,
-              icon: const Icon(Icons.check_rounded),
-              label: const Text('Modelo instalado — Continuar'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                backgroundColor: cs.tertiary,
-                foregroundColor: cs.onTertiary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            )
+                  onPressed: onNext,
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Modelo instalado — Continuar'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    backgroundColor: cs.tertiary,
+                    foregroundColor: cs.onTertiary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                )
                 .animate()
                 .fadeIn(duration: 300.ms)
                 .slideY(begin: 0.2, end: 0, curve: Curves.easeOut),
           ] else if (!isDownloading && !isLoading) ...[
             FilledButton.icon(
-              onPressed: () =>
-                  ref.read(llmStateProvider.notifier).downloadAndLoad(),
-              icon: const Icon(Icons.download_rounded),
-              label: const Text('Baixar modelo agora'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            )
+                  onPressed: () =>
+                      ref.read(llmStateProvider.notifier).downloadAndLoad(),
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Baixar modelo agora'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                )
                 .animate(delay: 700.ms)
                 .fadeIn()
                 .slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack),

@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class FinancingFormScreen extends ConsumerStatefulWidget {
-  const FinancingFormScreen({super.key});
+  final VoidCallback? onClose;
+
+  const FinancingFormScreen({super.key, this.onClose});
 
   @override
   ConsumerState<FinancingFormScreen> createState() =>
@@ -43,6 +46,20 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
     _totalAmountCents = 0;
     _installmentsController.text = '12';
     _rateController.text = '1,00';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _selectedAccountId != null) return;
+      final accounts = ref.read(activeAccountsProvider);
+      if (accounts.isEmpty) return;
+      final defaultId = ref.read(defaultAccountIdProvider);
+      setState(() {
+        if (accounts.length == 1) {
+          _selectedAccountId = accounts.first.id;
+        } else if (defaultId != null &&
+            accounts.any((a) => a.id == defaultId)) {
+          _selectedAccountId = defaultId;
+        }
+      });
+    });
   }
 
   @override
@@ -137,192 +154,195 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final activeAccounts = ref.watch(activeAccountsProvider);
+    final isInModal = widget.onClose != null;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Novo Financiamento'),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            // Name
-            TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Nome do Financiamento',
-                hintText: 'Ex: Apartamento, Carro Novo',
-                prefixIcon: const Icon(Icons.title_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              validator: (val) {
-                if (val == null || val.trim().isEmpty) {
-                  return 'Informe o nome do contrato';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Amortization System
-            DropdownButtonFormField<String>(
-              value: _amortizationSystem,
-              decoration: InputDecoration(
-                labelText: 'Sistema de Amortização',
-                prefixIcon: const Icon(Icons.calculate_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              items: _systems.map((s) {
-                return DropdownMenuItem<String>(
-                  value: s['value'],
-                  child: Text(
-                    s['label']!,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _amortizationSystem = val;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Total Amount Financed
-            AmountInput(
-              amountInCents: _totalAmountCents,
-              label: 'Valor Total Financiado',
-              color: context.colorScheme.primary,
-              onChanged: (val) => setState(() => _totalAmountCents = val),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                // Installments (months)
-                Expanded(
-                  child: TextFormField(
-                    controller: _installmentsController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Parcelas (Meses)',
-                      prefixIcon: const Icon(Icons.calendar_today_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onChanged: (val) {
-                      final parsed = int.tryParse(val) ?? 12;
-                      setState(() {
-                        _totalInstallments = parsed;
-                      });
-                    },
-                    validator: (val) {
-                      if (_totalInstallments <= 0) {
-                        return 'Mínimo 1 parcela';
-                      }
-                      return null;
-                    },
+        backgroundColor: cs.surface,
+        appBar: isInModal
+            ? null
+            : const AppPageAppBar(title: 'Novo Financiamento'),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              // Name
+              TextFormField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: 'Nome do Financiamento',
+                  hintText: 'Ex: Apartamento, Carro Novo',
+                  prefixIcon: const Icon(Icons.title_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Interest Rate
-                Expanded(
-                  child: TextFormField(
-                    controller: _rateController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Taxa (% a.m.)',
-                      suffixText: '%',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onChanged: _onRateChanged,
-                    validator: (val) {
-                      if (_interestRate < 0) {
-                        return 'Informe a taxa';
-                      }
-                      return null;
-                    },
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Informe o nome do contrato';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Amortization System
+              DropdownButtonFormField<String>(
+                value: _amortizationSystem,
+                decoration: InputDecoration(
+                  labelText: 'Sistema de Amortização',
+                  prefixIcon: const Icon(Icons.calculate_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Linked Account
-            DropdownButtonFormField<String>(
-              value: _selectedAccountId,
-              decoration: InputDecoration(
-                labelText: 'Conta Bancária Vinculada',
-                prefixIcon: const Icon(Icons.account_balance_wallet_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              items: [
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('Nenhuma conta vinculada'),
-                ),
-                ...activeAccounts.map((acc) {
+                items: _systems.map((s) {
                   return DropdownMenuItem<String>(
-                    value: acc.id,
-                    child: Text(acc.name),
+                    value: s['value'],
+                    child: Text(
+                      s['label']!,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   );
-                }),
-              ],
-              onChanged: (val) {
-                setState(() {
-                  _selectedAccountId = val;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // First Payment Date Selection
-            ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: cs.outlineVariant, width: 1),
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _amortizationSystem = val;
+                    });
+                  }
+                },
               ),
-              leading: const Icon(Icons.event_note_rounded),
-              title: const Text('Primeiro Pagamento'),
-              subtitle: Text(
-                '${_firstDueDate.day.toString().padLeft(2, '0')}/${_firstDueDate.month.toString().padLeft(2, '0')}/${_firstDueDate.year}',
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-              onTap: _selectFirstDueDate,
-            ),
-            const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
-            // Save Button
-            ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+              // Total Amount Financed
+              AmountInput(
+                amountInCents: _totalAmountCents,
+                label: 'Valor Total Financiado',
+                color: context.colorScheme.primary,
+                onChanged: (val) => setState(() => _totalAmountCents = val),
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  // Installments (months)
+                  Expanded(
+                    child: TextFormField(
+                      controller: _installmentsController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Parcelas (Meses)',
+                        prefixIcon: const Icon(Icons.calendar_today_rounded),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val) ?? 12;
+                        setState(() {
+                          _totalInstallments = parsed;
+                        });
+                      },
+                      validator: (val) {
+                        if (_totalInstallments <= 0) {
+                          return 'Mínimo 1 parcela';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Interest Rate
+                  Expanded(
+                    child: TextFormField(
+                      controller: _rateController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Taxa (% a.m.)',
+                        suffixText: '%',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onChanged: _onRateChanged,
+                      validator: (val) {
+                        if (_interestRate < 0) {
+                          return 'Informe a taxa';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Linked Account
+              DropdownButtonFormField<String>(
+                value: _selectedAccountId,
+                decoration: InputDecoration(
+                  labelText: 'Conta Bancária Vinculada',
+                  prefixIcon: const Icon(Icons.account_balance_wallet_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('Nenhuma conta vinculada'),
+                  ),
+                  ...activeAccounts.map((acc) {
+                    return DropdownMenuItem<String>(
+                      value: acc.id,
+                      child: Text(acc.name),
+                    );
+                  }),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    _selectedAccountId = val;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // First Payment Date Selection
+              ListTile(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: cs.outlineVariant, width: 1),
+                ),
+                leading: const Icon(Icons.event_note_rounded),
+                title: const Text('Primeiro Pagamento'),
+                subtitle: Text(
+                  '${_firstDueDate.day.toString().padLeft(2, '0')}/${_firstDueDate.month.toString().padLeft(2, '0')}/${_firstDueDate.year}',
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                onTap: _selectFirstDueDate,
+              ),
+              const SizedBox(height: 32),
+
+              // Save Button
+              ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Cadastrar Contrato',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-              child: const Text(
-                'Cadastrar Contrato',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
     );
   }
 }

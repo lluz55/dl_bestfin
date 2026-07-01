@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 
 class SuggestionCard extends ConsumerWidget {
   final TransactionModel suggestion;
@@ -93,7 +95,7 @@ class SuggestionCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _edit(context),
+                    onPressed: () => _edit(context, ref),
                     icon: const Icon(Icons.edit_rounded, size: 18),
                     label: const Text('Editar'),
                   ),
@@ -127,7 +129,13 @@ class SuggestionCard extends ConsumerWidget {
     await ref.read(discardSuggestionProvider)(suggestion.id);
   }
 
-  void _edit(BuildContext context) {
-    context.push('/transaction/edit', extra: suggestion);
+  void _edit(BuildContext context, WidgetRef ref) {
+    if (Breakpoints.isCompact(context)) {
+      context.push('/transaction/edit', extra: suggestion);
+    } else {
+      ref
+          .read(transactionFormModalProvider.notifier)
+          .open(transaction: suggestion);
+    }
   }
 }

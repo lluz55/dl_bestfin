@@ -17,7 +17,7 @@ class CreateAccountStep extends ConsumerStatefulWidget {
 
 class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'Conta Principal');
+  final _nameController = TextEditingController();
   AccountType _selectedType = AccountType.checking;
   late String _selectedColorHex;
   int _balanceCents = 0;
@@ -161,15 +161,6 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: widget.onNext,
-            style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            child: Text(
-              'Pular por enquanto',
-              style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-            ),
           ),
           const SizedBox(height: 24),
         ],

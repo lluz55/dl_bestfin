@@ -212,120 +212,125 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: const AppPageAppBar(title: 'Configurações'),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [
-          _SectionHeader(title: 'Aparência', tt: tt, cs: cs),
-          _SettingsTile(
-            icon: Icons.dark_mode_outlined,
-            title: 'Tema',
-            subtitle: _themeLabel(themeState.mode),
-            cs: cs,
-            tt: tt,
-            onTap: () => _showThemePicker(context, ref, themeState),
-          ),
-          _SettingsTile(
-            icon: Icons.palette_outlined,
-            title: 'Cor dinâmica',
-            subtitle: 'Usar cor do sistema',
-            cs: cs,
-            tt: tt,
-            trailing: Switch(
-              value: themeState.useDynamicColor,
-              onChanged: (v) =>
-                  ref.read(themeProvider.notifier).setDynamicColor(v),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _SectionHeader(title: 'Privacidade', tt: tt, cs: cs),
-          _SettingsTile(
-            icon: Icons.visibility_off_outlined,
-            title: 'Ocultar valores',
-            subtitle: 'Ocultar saldos por padrão ao abrir',
-            cs: cs,
-            tt: tt,
-            trailing: Switch(
-              value: ref.watch(alwaysHideValuesProvider),
-              onChanged: (v) =>
-                  ref.read(alwaysHideValuesProvider.notifier).set(v),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (_biometricsAvailable) ...[
-            _SectionHeader(title: 'Segurança', tt: tt, cs: cs),
-            _SettingsTile(
-              icon: Icons.fingerprint_rounded,
-              title: 'Biometria',
-              subtitle: biometricsEnabled
-                  ? 'Ativada'
-                  : 'Exigir biometria ao abrir o app',
-              cs: cs,
-              tt: tt,
-              trailing: Switch(
-                value: biometricsEnabled,
-                onChanged: _toggleBiometrics,
-              ),
-            ),
-            if (biometricsEnabled)
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            children: [
+              _SectionHeader(title: 'Aparência', tt: tt, cs: cs),
               _SettingsTile(
-                icon: Icons.pin_outlined,
-                title: 'Alterar PIN',
-                subtitle: 'Mudar o PIN de desbloqueio',
+                icon: Icons.dark_mode_outlined,
+                title: 'Tema',
+                subtitle: _themeLabel(themeState.mode),
                 cs: cs,
                 tt: tt,
-                onTap: _changePin,
+                onTap: () => _showThemePicker(context, ref, themeState),
               ),
-            const SizedBox(height: 8),
-          ],
-          _SectionHeader(title: 'Transações', tt: tt, cs: cs),
-          _DefaultAccountTile(cs: cs, tt: tt),
-          const SizedBox(height: 8),
-          _SectionHeader(title: 'Dados', tt: tt, cs: cs),
-          _SettingsTile(
-            icon: Icons.upload_rounded,
-            title: 'Exportar dados',
-            subtitle: 'Salvar backup em JSON, CSV ou PDF',
-            cs: cs,
-            tt: tt,
-            onTap: () => context.push('/backup'),
+              _SettingsTile(
+                icon: Icons.palette_outlined,
+                title: 'Cor dinâmica',
+                subtitle: 'Usar cor do sistema',
+                cs: cs,
+                tt: tt,
+                trailing: Switch(
+                  value: themeState.useDynamicColor,
+                  onChanged: (v) =>
+                      ref.read(themeProvider.notifier).setDynamicColor(v),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _SectionHeader(title: 'Privacidade', tt: tt, cs: cs),
+              _SettingsTile(
+                icon: Icons.visibility_off_outlined,
+                title: 'Ocultar valores',
+                subtitle: 'Ocultar saldos por padrão ao abrir',
+                cs: cs,
+                tt: tt,
+                trailing: Switch(
+                  value: ref.watch(alwaysHideValuesProvider),
+                  onChanged: (v) =>
+                      ref.read(alwaysHideValuesProvider.notifier).set(v),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_biometricsAvailable) ...[
+                _SectionHeader(title: 'Segurança', tt: tt, cs: cs),
+                _SettingsTile(
+                  icon: Icons.fingerprint_rounded,
+                  title: 'Biometria',
+                  subtitle: biometricsEnabled
+                      ? 'Ativada'
+                      : 'Exigir biometria ao abrir o app',
+                  cs: cs,
+                  tt: tt,
+                  trailing: Switch(
+                    value: biometricsEnabled,
+                    onChanged: _toggleBiometrics,
+                  ),
+                ),
+                if (biometricsEnabled)
+                  _SettingsTile(
+                    icon: Icons.pin_outlined,
+                    title: 'Alterar PIN',
+                    subtitle: 'Mudar o PIN de desbloqueio',
+                    cs: cs,
+                    tt: tt,
+                    onTap: _changePin,
+                  ),
+                const SizedBox(height: 8),
+              ],
+              _SectionHeader(title: 'Transações', tt: tt, cs: cs),
+              _DefaultAccountTile(cs: cs, tt: tt),
+              const SizedBox(height: 8),
+              _SectionHeader(title: 'Dados', tt: tt, cs: cs),
+              _SettingsTile(
+                icon: Icons.upload_rounded,
+                title: 'Exportar dados',
+                subtitle: 'Salvar backup em JSON, CSV ou PDF',
+                cs: cs,
+                tt: tt,
+                onTap: () => context.push('/backup'),
+              ),
+              _SettingsTile(
+                icon: Icons.download_rounded,
+                title: 'Importar dados',
+                subtitle: 'Restaurar CSV, JSON ou banco SQLite',
+                cs: cs,
+                tt: tt,
+                onTap: () => context.push('/backup'),
+              ),
+              _SettingsTile(
+                icon: Icons.delete_sweep_rounded,
+                title: 'Limpar todos os dados',
+                subtitle: 'Apaga tudo permanentemente',
+                cs: cs,
+                tt: tt,
+                iconColor: cs.error,
+                onTap: _clearAllData,
+              ),
+              const SizedBox(height: 8),
+              _SectionHeader(title: 'Inteligência Artificial', tt: tt, cs: cs),
+              _AiModelTile(cs: cs, tt: tt),
+              const SizedBox(height: 8),
+              _SectionHeader(title: 'Sobre', tt: tt, cs: cs),
+              _SettingsTile(
+                icon: Icons.info_outline_rounded,
+                title: 'Versão',
+                subtitle: '1.0.0',
+                cs: cs,
+                tt: tt,
+              ),
+              _SettingsTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Política de Privacidade',
+                subtitle: 'Seus dados ficam apenas no dispositivo',
+                cs: cs,
+                tt: tt,
+              ),
+            ],
           ),
-          _SettingsTile(
-            icon: Icons.download_rounded,
-            title: 'Importar dados',
-            subtitle: 'Restaurar CSV, JSON ou banco SQLite',
-            cs: cs,
-            tt: tt,
-            onTap: () => context.push('/backup'),
-          ),
-          _SettingsTile(
-            icon: Icons.delete_sweep_rounded,
-            title: 'Limpar todos os dados',
-            subtitle: 'Apaga tudo permanentemente',
-            cs: cs,
-            tt: tt,
-            iconColor: cs.error,
-            onTap: _clearAllData,
-          ),
-          const SizedBox(height: 8),
-          _SectionHeader(title: 'Inteligência Artificial', tt: tt, cs: cs),
-          _AiModelTile(cs: cs, tt: tt),
-          const SizedBox(height: 8),
-          _SectionHeader(title: 'Sobre', tt: tt, cs: cs),
-          _SettingsTile(
-            icon: Icons.info_outline_rounded,
-            title: 'Versão',
-            subtitle: '1.0.0',
-            cs: cs,
-            tt: tt,
-          ),
-          _SettingsTile(
-            icon: Icons.privacy_tip_outlined,
-            title: 'Política de Privacidade',
-            subtitle: 'Seus dados ficam apenas no dispositivo',
-            cs: cs,
-            tt: tt,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -642,7 +647,7 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
 
   Future<void> _changeModel() async {
     final selectedModel = ref.read(selectedModelProvider);
-    
+
     final presenceMap = <AiModelType, bool>{};
     for (final type in AiModelType.values) {
       presenceMap[type] = await ModelDownloadService.isModelPresent(type);
@@ -656,7 +661,9 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
         final cs = Theme.of(ctx).colorScheme;
         final tt = Theme.of(ctx).textTheme;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: Text(
             'Selecione o Modelo de IA',
             style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -666,7 +673,7 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
             children: AiModelType.values.map((model) {
               final isCurrent = model == selectedModel;
               final isPresent = presenceMap[model] ?? false;
-              
+
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
@@ -675,13 +682,18 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
                     width: isCurrent ? 2 : 1,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  color: isCurrent 
+                  color: isCurrent
                       ? cs.primaryContainer.withValues(alpha: 0.15)
                       : cs.surfaceContainerLow,
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   title: Row(
                     children: [
                       Expanded(
@@ -695,7 +707,10 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
                       ),
                       if (isPresent)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: cs.secondaryContainer,
                             borderRadius: BorderRadius.circular(6),
@@ -824,23 +839,15 @@ class _AiModelTileState extends ConsumerState<_AiModelTile> {
               color: cs.surfaceContainerLow,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.swap_horiz_rounded,
-              size: 20,
-              color: cs.primary,
-            ),
+            child: Icon(Icons.swap_horiz_rounded, size: 20, color: cs.primary),
           ),
           title: Text(
             'Alterar modelo',
-            style: tt.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           subtitle: Text(
             'Escolha outro modelo GGUF local',
-            style: tt.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: _changeModel,

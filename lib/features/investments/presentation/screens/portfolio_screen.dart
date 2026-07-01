@@ -5,10 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/modal_overlay_wrapper.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/features/investments/presentation/providers/investments_provider.dart';
+import 'package:bestfin/features/investments/presentation/providers/investment_form_modal_provider.dart';
+import 'package:bestfin/features/investments/presentation/widgets/investment_form_modal_overlay.dart';
 import 'package:bestfin/features/investments/domain/models/investment.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -23,111 +26,116 @@ class PortfolioScreen extends ConsumerWidget {
     final investmentsAsync = ref.watch(investmentsStreamProvider);
     final summary = ref.watch(portfolioSummaryProvider);
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(
-        title: 'Meus Investimentos',
-        showVisibilityToggle: true,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/investments/new'),
-        icon: const Icon(Icons.add_chart_rounded),
-        label: const Text('Novo Ativo'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(investmentsStreamProvider);
-        },
-        child: investmentsAsync.when(
-          data: (investmentsList) {
-            if (investmentsList.isEmpty) {
-              return Center(
-                child: EmptyState(
-                  title: 'Nenhum Investimento',
-                  description:
-                      'Acompanhe seus investimentos em Renda Fixa, Ações, FIIs, Cripto e mais.',
-                  icon: Icons.trending_up_rounded,
-                  actionLabel: 'Adicionar Investimento',
-                  onAction: () => context.push('/investments/new'),
-                ),
-              );
-            }
+    return ModalOverlayWrapper(
+      overlay: const InvestmentFormModalOverlay(),
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        appBar: const AppPageAppBar(
+          title: 'Meus Investimentos',
+          showVisibilityToggle: true,
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () =>
+              ref.read(investmentFormModalProvider.notifier).open(),
+          icon: const Icon(Icons.add_chart_rounded),
+          label: const Text('Novo Ativo'),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(investmentsStreamProvider);
+          },
+          child: investmentsAsync.when(
+            data: (investmentsList) {
+              if (investmentsList.isEmpty) {
+                return Center(
+                  child: EmptyState(
+                    title: 'Nenhum Investimento',
+                    description:
+                        'Acompanhe seus investimentos em Renda Fixa, Ações, FIIs, Cripto e mais.',
+                    icon: Icons.trending_up_rounded,
+                    actionLabel: 'Adicionar Investimento',
+                    onAction: () =>
+                        ref.read(investmentFormModalProvider.notifier).open(),
+                  ),
+                );
+              }
 
-            return CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // Portfolio Header Card
-                SliverToBoxAdapter(
-                  child: _PortfolioHeaderCard(summary: summary)
-                      .animate()
-                      .fadeIn(duration: 400.ms)
-                      .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
-                ),
-
-                // Donut Chart Allocation
-                if (summary.totalValue > 0)
+              return CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Portfolio Header Card
                   SliverToBoxAdapter(
-                    child: Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Alocação por Tipo',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _AllocationDonutChart(summary: summary),
-                          ],
-                        ),
-                      ),
-                    ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+                    child: _PortfolioHeaderCard(summary: summary)
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                   ),
 
-                // Section title
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: Text(
-                      'Meus Ativos',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface,
+                  // Donut Chart Allocation
+                  if (summary.totalValue > 0)
+                    SliverToBoxAdapter(
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Alocação por Tipo',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _AllocationDonutChart(summary: summary),
+                            ],
+                          ),
+                        ),
+                      ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+                    ),
+
+                  // Section title
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Text(
+                        'Meus Ativos',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                // Assets list
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final inv = investmentsList[index];
-                    return _InvestmentAssetCard(
-                      investment: inv,
-                      onTap: () => context.push('/investments/${inv.id}'),
-                    ).animate().fadeIn(
-                      duration: 300.ms,
-                      delay: Duration(milliseconds: index * 50),
-                    );
-                  }, childCount: investmentsList.length),
-                ),
+                  // Assets list
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final inv = investmentsList[index];
+                      return _InvestmentAssetCard(
+                        investment: inv,
+                        onTap: () => context.push('/investments/${inv.id}'),
+                      ).animate().fadeIn(
+                        duration: 300.ms,
+                        delay: Duration(milliseconds: index * 50),
+                      );
+                    }, childCount: investmentsList.length),
+                  ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
-            );
-          },
-          loading: () => Center(child: AppLoadingIndicator()),
-          error: (e, _) => Center(child: Text('Erro: $e')),
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              );
+            },
+            loading: () => Center(child: AppLoadingIndicator()),
+            error: (e, _) => Center(child: Text('Erro: $e')),
+          ),
         ),
       ),
     );

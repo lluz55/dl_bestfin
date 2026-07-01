@@ -7,7 +7,10 @@ import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
+import 'package:bestfin/features/recurring/presentation/providers/recurring_form_modal_provider.dart';
 import 'package:bestfin/features/recurring/presentation/widgets/recurring_card.dart';
+import 'package:bestfin/features/recurring/presentation/widgets/recurring_discovery_banner.dart';
+import 'package:bestfin/features/recurring/presentation/widgets/recurring_form_modal_overlay.dart';
 
 class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
@@ -90,73 +93,83 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppPageAppBar(
-        title: 'Recorrentes',
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.dashboard_rounded),
-            tooltip: 'Hub de Assinaturas',
-            onPressed: () => context.push('/recurring/subscriptions'),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/recurring/new'),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nova'),
-      ),
-      body: Column(
-        children: [
-          TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: 'Ativas'),
-              Tab(text: 'Pausadas'),
-              Tab(text: 'Finalizadas'),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: cs.surface,
+          appBar: AppPageAppBar(
+            title: 'Recorrentes',
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.dashboard_rounded),
+                tooltip: 'Hub de Assinaturas',
+                onPressed: () => context.push('/recurring/subscriptions'),
+              ),
             ],
-            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _RuleList(
-                  watchProvider: (ref) => ref.watch(activeRecurringProvider),
-                  onPause: _pause,
-                  onResume: _resume,
-                  onDelete: _delete,
-                  emptyTitle: 'Nenhuma recorrência ativa',
-                  emptyDescription:
-                      'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
-                  emptyIcon: Icons.repeat_rounded,
-                ),
-                _RuleList(
-                  watchProvider: (ref) => ref.watch(pausedRecurringProvider),
-                  onPause: _pause,
-                  onResume: _resume,
-                  onDelete: _delete,
-                  emptyTitle: 'Nenhuma recorrência pausada',
-                  emptyDescription:
-                      'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
-                  emptyIcon: Icons.pause_circle_outline_rounded,
-                ),
-                _RuleList(
-                  watchProvider: (ref) => ref.watch(finishedRecurringProvider),
-                  onPause: _pause,
-                  onResume: _resume,
-                  onDelete: _delete,
-                  emptyTitle: 'Nenhuma recorrência finalizada',
-                  emptyDescription:
-                      'Recorrências que atingiram a data de término aparecem aqui.',
-                  emptyIcon: Icons.check_circle_outline_rounded,
-                ),
-              ],
-            ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () =>
+                ref.read(recurringFormModalProvider.notifier).open(),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Nova'),
           ),
-        ],
-      ),
+          body: Column(
+            children: [
+              const RecurringDiscoveryBanner(),
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Ativas'),
+                  Tab(text: 'Pausadas'),
+                  Tab(text: 'Finalizadas'),
+                ],
+                labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _RuleList(
+                      watchProvider: (ref) =>
+                          ref.watch(activeRecurringProvider),
+                      onPause: _pause,
+                      onResume: _resume,
+                      onDelete: _delete,
+                      emptyTitle: 'Nenhuma recorrência ativa',
+                      emptyDescription:
+                          'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
+                      emptyIcon: Icons.repeat_rounded,
+                    ),
+                    _RuleList(
+                      watchProvider: (ref) =>
+                          ref.watch(pausedRecurringProvider),
+                      onPause: _pause,
+                      onResume: _resume,
+                      onDelete: _delete,
+                      emptyTitle: 'Nenhuma recorrência pausada',
+                      emptyDescription:
+                          'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
+                      emptyIcon: Icons.pause_circle_outline_rounded,
+                    ),
+                    _RuleList(
+                      watchProvider: (ref) =>
+                          ref.watch(finishedRecurringProvider),
+                      onPause: _pause,
+                      onResume: _resume,
+                      onDelete: _delete,
+                      emptyTitle: 'Nenhuma recorrência finalizada',
+                      emptyDescription:
+                          'Recorrências que atingiram a data de término aparecem aqui.',
+                      emptyIcon: Icons.check_circle_outline_rounded,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const RecurringFormModalOverlay(),
+      ],
     );
   }
 }

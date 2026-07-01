@@ -125,18 +125,19 @@ class _IconColorSheetState extends State<_IconColorSheet> {
     final tt = Theme.of(context).textTheme;
     final selectedColor = _hex(_color);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (ctx, scrollController) {
-        return Container(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
+        child: Container(
           decoration: BoxDecoration(
             color: cs.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _Handle(cs: cs),
               Padding(
@@ -170,7 +171,7 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                     FilledButton(
                       onPressed: () {
                         widget.onConfirm(_icon, _color);
-                        Navigator.pop(ctx);
+                        Navigator.pop(context);
                       },
                       child: const Text('Confirmar'),
                     ),
@@ -191,9 +192,9 @@ class _IconColorSheetState extends State<_IconColorSheet> {
                 ),
               ),
               const SizedBox(height: 4),
-              Expanded(
+              Flexible(
                 child: ListView(
-                  controller: scrollController,
+                  shrinkWrap: true,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   children: [
                     for (final entry in _displayMap.entries)
@@ -300,8 +301,8 @@ class _IconColorSheetState extends State<_IconColorSheet> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

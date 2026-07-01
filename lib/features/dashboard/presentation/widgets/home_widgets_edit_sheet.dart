@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
 
 void showHomeWidgetsEditSheet(BuildContext context) {
-  showModalBottomSheet<void>(
+  showAdaptiveModal<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (_) => const HomeWidgetsEditSheet(),
   );
 }

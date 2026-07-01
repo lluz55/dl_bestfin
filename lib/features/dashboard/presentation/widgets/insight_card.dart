@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
-import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
-import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
+import 'package:bestfin/features/ai/presentation/providers/budget_pacing_provider.dart';
+import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 
 class InsightCard extends ConsumerWidget {
   const InsightCard({super.key});
@@ -20,6 +21,7 @@ class InsightCard extends ConsumerWidget {
     final anomalies = ref.watch(anomalyDetectionProvider);
     final sentiments = ref.watch(sentimentCorrelationProvider);
     final gamificationInsightsAsync = ref.watch(insightsFutureProvider);
+    final budgetPacing = ref.watch(budgetPacingProvider);
 
     // Resolve which insight to display
     String title = 'Central de IA';
@@ -38,6 +40,15 @@ class InsightCard extends ConsumerWidget {
       iconColor = cs.error;
       bgIconColor = cs.errorContainer.withValues(alpha: 0.3);
       badgeText = 'Crítico';
+    } else if (budgetPacing.isNotEmpty) {
+      final top = budgetPacing.first;
+      title = 'Ritmo de Gastos: ${top.categoryName}';
+      message =
+          'No ritmo atual, você projetará R\$ ${(top.projectedMonthTotal / 100).toStringAsFixed(0)} em ${top.categoryName} este mês — ${top.overspendPercent.toStringAsFixed(0)}% acima da sua média. Faltam ${top.daysRemaining} dias.';
+      icon = Icons.speed_rounded;
+      iconColor = Colors.orange;
+      bgIconColor = Colors.orange.withValues(alpha: 0.15);
+      badgeText = 'Orçamento';
     } else if (anomalies.isNotEmpty) {
       final topAnomaly = anomalies.first;
       title = topAnomaly.title;
@@ -69,7 +80,7 @@ class InsightCard extends ConsumerWidget {
     }
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(20),
       onTap: () => context.push('/ai'),
       child: Column(
@@ -105,9 +116,7 @@ class InsightCard extends ConsumerWidget {
                 child: Text(
                   badgeText,
                   style: tt.labelSmall?.copyWith(
-                    color: iconColor == cs.error
-                        ? cs.onErrorContainer
-                        : cs.onSurface,
+                    color: cs.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

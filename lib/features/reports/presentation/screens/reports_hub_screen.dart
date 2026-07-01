@@ -1,104 +1,261 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bestfin/core/widgets/app_page_appbar.dart';
-import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
-import 'package:bestfin/features/reports/presentation/widgets/report_filters_widget.dart';
-import 'package:bestfin/features/reports/presentation/widgets/heatmap_widget.dart';
-import 'package:bestfin/features/reports/presentation/widgets/treemap_widget.dart';
-import 'package:bestfin/features/reports/domain/models/report_models.dart';
+
 import 'package:bestfin/core/constants/transaction_types.dart';
-import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
-import 'package:bestfin/features/reports/presentation/screens/screens.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/features/reports/domain/models/report_models.dart';
+import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
+import 'package:bestfin/features/reports/presentation/widgets/heatmap_widget.dart';
+import 'package:bestfin/features/reports/presentation/widgets/report_filters_widget.dart';
+import 'package:bestfin/features/reports/presentation/widgets/treemap_widget.dart';
+import 'package:bestfin/features/reports/presentation/screens/screens.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 
-class ReportsHubScreen extends ConsumerStatefulWidget {
-  const ReportsHubScreen({super.key});
+// ─── Entry model ─────────────────────────────────────────────────────────────
 
-  @override
-  ConsumerState<ReportsHubScreen> createState() => _ReportsHubScreenState();
+class _ReportEntry {
+  const _ReportEntry({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.colorFn,
+    required this.buildContent,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color Function(ColorScheme) colorFn;
+  final Widget Function() buildContent;
 }
 
-class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+// ─── Hub screen ───────────────────────────────────────────────────────────────
 
-  static final _tabs = [
-    (icon: Icons.pie_chart_outline, label: 'Categorias'),
-    (icon: Icons.bar_chart_rounded, label: 'Mensal'),
-    (icon: Icons.show_chart, label: 'Caixa'),
-    (icon: Icons.account_balance_wallet_outlined, label: 'Patrimônio'),
-    (icon: Icons.grid_view_outlined, label: 'Mapa'),
-    (icon: Icons.account_tree_outlined, label: 'Fluxo'),
+class ReportsHubScreen extends ConsumerWidget {
+  const ReportsHubScreen({super.key});
+
+  static final List<_ReportEntry> _entries = [
+    _ReportEntry(
+      title: 'Categorias',
+      description: 'Gastos por categoria com drill-down',
+      icon: Icons.pie_chart_outline,
+      colorFn: (cs) => cs.primary,
+      buildContent: () => const CategoryReportScreen(),
+    ),
+    _ReportEntry(
+      title: 'Mensal',
+      description: 'Comparativo receita × despesa mês a mês',
+      icon: Icons.bar_chart_rounded,
+      colorFn: (cs) => cs.tertiary,
+      buildContent: () => const MonthlyReportScreen(),
+    ),
+    _ReportEntry(
+      title: 'Fluxo de Caixa',
+      description: 'Projeção de entradas e saídas futuras',
+      icon: Icons.show_chart,
+      colorFn: (cs) => cs.secondary,
+      buildContent: () => const CashFlowScreen(),
+    ),
+    _ReportEntry(
+      title: 'Patrimônio',
+      description: 'Evolução do patrimônio líquido ao longo do tempo',
+      icon: Icons.account_balance_wallet_outlined,
+      colorFn: (cs) => cs.primary,
+      buildContent: () => const NetWorthScreen(),
+    ),
+    _ReportEntry(
+      title: 'Mapa de Calor',
+      description: 'Quando e quanto você gasta por dia e hora',
+      icon: Icons.grid_4x4_outlined,
+      colorFn: (cs) => cs.tertiary,
+      buildContent: () => const _MapaContent(),
+    ),
+    _ReportEntry(
+      title: 'Sankey',
+      description: 'Fluxo visual de dinheiro entre contas e categorias',
+      icon: Icons.account_tree_outlined,
+      colorFn: (cs) => cs.secondary,
+      buildContent: () => const SankeyScreen(),
+    ),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+  void _openReport(BuildContext context, _ReportEntry entry) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            _ReportDetailPage(title: entry.title, child: entry.buildContent()),
+      ),
+    );
   }
 
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = context.colorScheme;
 
-  @override
-  Widget build(BuildContext context) {
-    ref.watch(valuesHiddenProvider);
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: const AppPageAppBar(
         title: 'Relatórios',
         showVisibilityToggle: true,
       ),
+      body: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 350,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.95,
+        ),
+        itemCount: _entries.length,
+        itemBuilder: (context, i) => _ReportHubCard(
+          entry: _entries[i],
+          delay: Duration(milliseconds: 60 * i.clamp(0, 5)),
+          onTap: () => _openReport(context, _entries[i]),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Hub card ─────────────────────────────────────────────────────────────────
+
+class _ReportHubCard extends StatefulWidget {
+  const _ReportHubCard({
+    required this.entry,
+    required this.delay,
+    required this.onTap,
+  });
+
+  final _ReportEntry entry;
+  final Duration delay;
+  final VoidCallback onTap;
+
+  @override
+  State<_ReportHubCard> createState() => _ReportHubCardState();
+}
+
+class _ReportHubCardState extends State<_ReportHubCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final shapes = context.shapes;
+    final motion = context.motion;
+    final color = widget.entry.colorFn(cs);
+
+    return AnimatedScale(
+          scale: _pressed ? 0.96 : 1.0,
+          duration: motion.fastDuration,
+          curve: Curves.easeOut,
+          child: Material(
+            color: cs.surfaceContainerLow,
+            borderRadius: shapes.card,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.onTap,
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapUp: (_) => setState(() => _pressed = false),
+              onTapCancel: () => setState(() => _pressed = false),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Icon(
+                      widget.entry.icon,
+                      size: 120,
+                      color: color.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Spacer(),
+                        Text(
+                          widget.entry.title,
+                          style: tt.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.entry.description,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
+        .animate(delay: widget.delay)
+        .fadeIn(duration: motion.fastDuration)
+        .slideY(
+          begin: 0.08,
+          end: 0,
+          curve: Curves.easeOutCubic,
+          duration: motion.mediumDuration,
+        );
+  }
+}
+
+// ─── Detail page wrapper ──────────────────────────────────────────────────────
+
+class _ReportDetailPage extends StatelessWidget {
+  const _ReportDetailPage({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppPageAppBar(title: title, showVisibilityToggle: true),
       body: Column(
         children: [
           const ReportFiltersWidget(),
-          const SizedBox(height: 4),
-          TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: _tabs
-                .map(
-                  (t) => Tab(
-                    icon: Icon(t.icon, size: 20),
-                    text: t.label,
-                    iconMargin: const EdgeInsets.only(bottom: 2),
-                  ),
-                )
-                .toList(),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                const CategoryReportScreen(),
-                const MonthlyReportScreen(),
-                const CashFlowScreen(),
-                const NetWorthScreen(),
-                _HeatmapAndTreemapTab(),
-                const SankeyScreen(),
-              ],
-            ),
-          ),
+          const Divider(height: 1, thickness: 0.5),
+          Expanded(child: child),
         ],
       ),
     );
   }
 }
 
-class _HeatmapAndTreemapTab extends ConsumerWidget {
+// ─── Mapa de Calor + Treemap (conteúdo combinado) ────────────────────────────
+
+class _MapaContent extends ConsumerWidget {
+  const _MapaContent();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(valuesHiddenProvider);
     final filters = ref.watch(reportFiltersProvider);
     final allTxAsync = ref.watch(filteredTransactionsProvider);
-    final tt = Theme.of(context).textTheme;
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
 
     return allTxAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erro: $e')),
+      error: (e, _) => Center(
+        child: Text(
+          'Não foi possível carregar os dados.',
+          style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      ),
       data: (txs) {
         final filtered = txs.where((tx) {
           if (!tx.isCompleted) return false;
@@ -108,7 +265,6 @@ class _HeatmapAndTreemapTab extends ConsumerWidget {
           return true;
         }).toList();
 
-        // Build heatmap cells (weekday × hour)
         final Map<String, HeatmapCell> heatCells = {};
         for (final tx in filtered) {
           if (tx.type != TransactionType.expense) continue;
@@ -131,7 +287,6 @@ class _HeatmapAndTreemapTab extends ConsumerWidget {
           }
         }
 
-        // Build treemap nodes (category → total)
         final Map<String, _CatGroup> catGroups = {};
         for (final tx in filtered) {
           if (tx.type != TransactionType.expense) continue;
@@ -170,20 +325,17 @@ class _HeatmapAndTreemapTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Mapa de calor — quando você gasta',
-                      style: tt.titleMedium,
-                    ),
+                    Text('Quando você gasta', style: tt.titleMedium),
                     const SizedBox(height: 4),
                     Text(
                       'Dia da semana × hora do dia',
                       style: tt.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 16),
                     if (heatCells.isEmpty)
-                      const _EmptyChip(message: 'Nenhuma despesa no período')
+                      const _EmptyMessage(message: 'Nenhuma despesa no período')
                     else
                       SpendingHeatmapWidget(cells: heatCells.values.toList()),
                   ],
@@ -202,12 +354,12 @@ class _HeatmapAndTreemapTab extends ConsumerWidget {
                     Text(
                       'Área proporcional ao gasto',
                       style: tt.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 16),
                     if (treemapNodes.isEmpty)
-                      const _EmptyChip(message: 'Nenhuma despesa no período')
+                      const _EmptyMessage(message: 'Nenhuma despesa no período')
                     else
                       SizedBox(
                         height: 280,
@@ -225,15 +377,15 @@ class _HeatmapAndTreemapTab extends ConsumerWidget {
 }
 
 class _CatGroup {
+  const _CatGroup(this.name, this.color, this.total);
   final String name;
   final String color;
   final int total;
-  const _CatGroup(this.name, this.color, this.total);
 }
 
-class _EmptyChip extends StatelessWidget {
+class _EmptyMessage extends StatelessWidget {
+  const _EmptyMessage({required this.message});
   final String message;
-  const _EmptyChip({required this.message});
 
   @override
   Widget build(BuildContext context) {

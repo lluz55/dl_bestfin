@@ -12,8 +12,9 @@ import 'package:bestfin/features/transactions/presentation/widgets/amount_input.
 
 class CreditCardFormScreen extends ConsumerStatefulWidget {
   final CreditCardModel? card;
+  final VoidCallback? onClose;
 
-  const CreditCardFormScreen({super.key, this.card});
+  const CreditCardFormScreen({super.key, this.card, this.onClose});
 
   @override
   ConsumerState<CreditCardFormScreen> createState() =>
@@ -147,6 +148,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final isEditing = widget.card != null;
+    final isInModal = widget.onClose != null;
 
     final List<int> days = List.generate(28, (i) => i + 1);
 
@@ -161,197 +163,203 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
     }
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppPageAppBar(title: isEditing ? 'Editar Cartão' : 'Novo Cartão'),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(20.0),
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Nome do Cartão',
-                      hintText: 'Ex: Inter Black, Nubank Platinum',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Por favor, insira o nome do cartão';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  AmountInput(
-                    amountInCents: _limitCents,
-                    label: 'Limite do Cartão',
-                    color: context.colorScheme.primary,
-                    onChanged: (val) => setState(() => _limitCents = val),
-                  ),
-                  const SizedBox(height: 18),
-                  buildAccountField(),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Configuração do Fechamento',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<ClosingDayMode>(
-                    segments: const [
-                      ButtonSegment<ClosingDayMode>(
-                        value: ClosingDayMode.fixed,
-                        label: Text('Dia Fixo'),
-                        icon: Icon(Icons.calendar_today_rounded),
-                      ),
-                      ButtonSegment<ClosingDayMode>(
-                        value: ClosingDayMode.dynamicOffset,
-                        label: Text('Antes do Vencimento'),
-                        icon: Icon(Icons.history_rounded),
-                      ),
-                    ],
-                    selected: {_closingMode},
-                    onSelectionChanged: (Set<ClosingDayMode> newSelection) {
-                      setState(() {
-                        _closingMode = newSelection.first;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _closingMode == ClosingDayMode.fixed
-                            ? DropdownButtonFormField<int>(
-                                value: _closingDay,
-                                decoration: InputDecoration(
-                                  labelText: 'Dia de Fechamento',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: days.map((day) {
-                                  return DropdownMenuItem<int>(
-                                    value: day,
-                                    child: Text(day.toString().padLeft(2, '0')),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() => _closingDay = val);
-                                  }
-                                },
-                              )
-                            : DropdownButtonFormField<int>(
-                                value: _closingOffset,
-                                decoration: InputDecoration(
-                                  labelText: 'Dias Antes',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: List.generate(20, (i) => i + 1).map((
-                                  offset,
-                                ) {
-                                  return DropdownMenuItem<int>(
-                                    value: offset,
-                                    child: Text(
-                                      '$offset ${offset == 1 ? 'dia' : 'dias'}',
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() => _closingOffset = val);
-                                  }
-                                },
-                              ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          value: _dueDay,
-                          decoration: InputDecoration(
-                            labelText: 'Dia de Vencimento',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          items: days.map((day) {
-                            return DropdownMenuItem<int>(
-                              value: day,
-                              child: Text(day.toString().padLeft(2, '0')),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _dueDay = val);
-                            }
-                          },
+        backgroundColor: cs.surface,
+        appBar: isInModal
+            ? null
+            : AppPageAppBar(title: isEditing ? 'Editar Cartão' : 'Novo Cartão'),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(20.0),
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nome do Cartão',
+                        hintText: 'Ex: Inter Black, Nubank Platinum',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    controller: _minPaymentController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Pagamento mínimo (%)',
-                      hintText: 'Ex: 15',
-                      suffixText: '%',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Por favor, insira o nome do cartão';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    AmountInput(
+                      amountInCents: _limitCents,
+                      label: 'Limite do Cartão',
+                      color: context.colorScheme.primary,
+                      onChanged: (val) => setState(() => _limitCents = val),
+                    ),
+                    const SizedBox(height: 18),
+                    buildAccountField(),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Configuração do Fechamento',
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    onChanged: (val) {
-                      final parsed = int.tryParse(val);
-                      if (parsed != null && parsed >= 1 && parsed <= 100) {
-                        setState(() => _minPaymentPercent = parsed);
-                      }
-                    },
-                    validator: (val) {
-                      final parsed = int.tryParse(val ?? '');
-                      if (parsed == null || parsed < 1 || parsed > 100) {
-                        return 'Informe um percentual entre 1 e 100';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  AppColorPicker(
-                    selectedColorHex: _selectedColorHex,
-                    onColorSelected: (hex) {
-                      setState(() => _selectedColorHex = hex);
-                    },
-                    previewIcon: Icons.credit_card_rounded,
-                  ),
-                  const SizedBox(height: 36),
-                  ElevatedButton(
-                    onPressed: _saveForm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.primary,
-                      foregroundColor: cs.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 8),
+                    SegmentedButton<ClosingDayMode>(
+                      segments: const [
+                        ButtonSegment<ClosingDayMode>(
+                          value: ClosingDayMode.fixed,
+                          label: Text('Dia Fixo'),
+                          icon: Icon(Icons.calendar_today_rounded),
+                        ),
+                        ButtonSegment<ClosingDayMode>(
+                          value: ClosingDayMode.dynamicOffset,
+                          label: Text('Antes do Vencimento'),
+                          icon: Icon(Icons.history_rounded),
+                        ),
+                      ],
+                      selected: {_closingMode},
+                      onSelectionChanged: (Set<ClosingDayMode> newSelection) {
+                        setState(() {
+                          _closingMode = newSelection.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _closingMode == ClosingDayMode.fixed
+                              ? DropdownButtonFormField<int>(
+                                  value: _closingDay,
+                                  decoration: InputDecoration(
+                                    labelText: 'Dia de Fechamento',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  items: days.map((day) {
+                                    return DropdownMenuItem<int>(
+                                      value: day,
+                                      child: Text(
+                                        day.toString().padLeft(2, '0'),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() => _closingDay = val);
+                                    }
+                                  },
+                                )
+                              : DropdownButtonFormField<int>(
+                                  value: _closingOffset,
+                                  decoration: InputDecoration(
+                                    labelText: 'Dias Antes',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  items: List.generate(20, (i) => i + 1).map((
+                                    offset,
+                                  ) {
+                                    return DropdownMenuItem<int>(
+                                      value: offset,
+                                      child: Text(
+                                        '$offset ${offset == 1 ? 'dia' : 'dias'}',
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() => _closingOffset = val);
+                                    }
+                                  },
+                                ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: _dueDay,
+                            decoration: InputDecoration(
+                              labelText: 'Dia de Vencimento',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: days.map((day) {
+                              return DropdownMenuItem<int>(
+                                value: day,
+                                child: Text(day.toString().padLeft(2, '0')),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _dueDay = val);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _minPaymentController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Pagamento mínimo (%)',
+                        hintText: 'Ex: 15',
+                        suffixText: '%',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val);
+                        if (parsed != null && parsed >= 1 && parsed <= 100) {
+                          setState(() => _minPaymentPercent = parsed);
+                        }
+                      },
+                      validator: (val) {
+                        final parsed = int.tryParse(val ?? '');
+                        if (parsed == null || parsed < 1 || parsed > 100) {
+                          return 'Informe um percentual entre 1 e 100';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    AppColorPicker(
+                      selectedColorHex: _selectedColorHex,
+                      onColorSelected: (hex) {
+                        setState(() => _selectedColorHex = hex);
+                      },
+                      previewIcon: Icons.credit_card_rounded,
+                    ),
+                    const SizedBox(height: 36),
+                    ElevatedButton(
+                      onPressed: _saveForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: cs.primary,
+                        foregroundColor: cs.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR CARTÃO',
+                        style: tt.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR CARTÃO',
-                      style: tt.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
     );
   }
 }

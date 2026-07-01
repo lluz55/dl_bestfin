@@ -25,7 +25,7 @@ class StreaksDashboardWidget extends ConsumerWidget {
         );
 
         return AnimatedCard(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           onTap: () => context.push('/gamification'),
           child: Row(

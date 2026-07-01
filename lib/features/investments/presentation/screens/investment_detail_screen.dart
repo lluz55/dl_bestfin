@@ -7,6 +7,7 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/investments/presentation/providers/investments_provider.dart';
+import 'package:bestfin/features/investments/presentation/providers/investment_form_modal_provider.dart';
 import 'package:bestfin/features/investments/domain/models/investment.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -202,7 +203,9 @@ class InvestmentDetailScreen extends ConsumerWidget {
           investmentAsync.when(
             data: (inv) => IconButton(
               icon: const Icon(Icons.edit_note_rounded),
-              onPressed: () => context.push('/investments/edit', extra: inv),
+              onPressed: () => ref
+                  .read(investmentFormModalProvider.notifier)
+                  .open(investment: inv),
             ),
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),

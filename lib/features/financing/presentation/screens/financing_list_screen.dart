@@ -4,10 +4,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/modal_overlay_wrapper.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_provider.dart';
+import 'package:bestfin/features/financing/presentation/providers/financing_form_modal_provider.dart';
+import 'package:bestfin/features/financing/presentation/widgets/financing_form_modal_overlay.dart';
 import 'package:bestfin/features/financing/domain/models/financing.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -22,80 +25,84 @@ class FinancingListScreen extends ConsumerWidget {
     final financingsAsync = ref.watch(financingsStreamProvider);
     final summary = ref.watch(financingSummaryProvider);
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(
-        title: 'Financiamentos',
-        showVisibilityToggle: true,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/financing/new'),
-        icon: const Icon(Icons.add_home_work_rounded),
-        label: const Text('Novo Contrato'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(financingsStreamProvider);
-        },
-        child: financingsAsync.when(
-          data: (list) {
-            if (list.isEmpty) {
-              return Center(
-                child: EmptyState(
-                  title: 'Nenhum Financiamento',
-                  description:
-                      'Acompanhe seus financiamentos de imóveis ou veículos com tabela de amortização e simulador.',
-                  icon: Icons.home_work_rounded,
-                  actionLabel: 'Adicionar Financiamento',
-                  onAction: () => context.push('/financing/new'),
-                ),
-              );
-            }
+    return ModalOverlayWrapper(
+      overlay: const FinancingFormModalOverlay(),
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        appBar: const AppPageAppBar(
+          title: 'Financiamentos',
+          showVisibilityToggle: true,
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => ref.read(financingFormModalProvider.notifier).open(),
+          icon: const Icon(Icons.add_home_work_rounded),
+          label: const Text('Novo Contrato'),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(financingsStreamProvider);
+          },
+          child: financingsAsync.when(
+            data: (list) {
+              if (list.isEmpty) {
+                return Center(
+                  child: EmptyState(
+                    title: 'Nenhum Financiamento',
+                    description:
+                        'Acompanhe seus financiamentos de imóveis ou veículos com tabela de amortização e simulador.',
+                    icon: Icons.home_work_rounded,
+                    actionLabel: 'Adicionar Financiamento',
+                    onAction: () =>
+                        ref.read(financingFormModalProvider.notifier).open(),
+                  ),
+                );
+              }
 
-            return CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // Consolidated Summary Header Card
-                SliverToBoxAdapter(
-                  child: _FinancingSummaryCard(summary: summary)
-                      .animate()
-                      .fadeIn(duration: 400.ms)
-                      .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
-                ),
+              return CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Consolidated Summary Header Card
+                  SliverToBoxAdapter(
+                    child: _FinancingSummaryCard(summary: summary)
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+                  ),
 
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: Text(
-                      'Meus Contratos',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Text(
+                        'Meus Contratos',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                // Financing contracts list
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, idx) {
-                    final financing = list[idx];
-                    return _FinancingContractCard(
-                      financing: financing,
-                      onTap: () => context.push('/financing/${financing.id}'),
-                    ).animate().fadeIn(
-                      duration: 350.ms,
-                      delay: Duration(milliseconds: idx * 60),
-                    );
-                  }, childCount: list.length),
-                ),
+                  // Financing contracts list
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate((context, idx) {
+                      final financing = list[idx];
+                      return _FinancingContractCard(
+                        financing: financing,
+                        onTap: () => context.push('/financing/${financing.id}'),
+                      ).animate().fadeIn(
+                        duration: 350.ms,
+                        delay: Duration(milliseconds: idx * 60),
+                      );
+                    }, childCount: list.length),
+                  ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
-            );
-          },
-          loading: () => Center(child: AppLoadingIndicator()),
-          error: (e, _) => Center(child: Text('Erro: $e')),
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              );
+            },
+            loading: () => Center(child: AppLoadingIndicator()),
+            error: (e, _) => Center(child: Text('Erro: $e')),
+          ),
         ),
       ),
     );

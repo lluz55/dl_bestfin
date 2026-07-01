@@ -41,7 +41,7 @@ class _GlobalFABState extends State<GlobalFAB>
         if (_isExpanded) ...[
           _FABOption(
             label: 'Nova Receita',
-            icon: Icons.arrow_downward_rounded,
+            icon: Icons.arrow_circle_down_rounded,
             color: cs.tertiary,
             onTap: () => _select(widget.onIncome),
             delay: const Duration(milliseconds: 80),
@@ -49,7 +49,7 @@ class _GlobalFABState extends State<GlobalFAB>
           const SizedBox(height: 8),
           _FABOption(
             label: 'Nova Despesa',
-            icon: Icons.arrow_upward_rounded,
+            icon: Icons.arrow_circle_up_rounded,
             color: cs.error,
             onTap: () => _select(widget.onExpense),
             delay: const Duration(milliseconds: 40),

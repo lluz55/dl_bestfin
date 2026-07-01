@@ -41,6 +41,12 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
     }
   }
 
+  Future<void> _setupPin() async {
+    final result = await context.push<bool>('/security/pin-setup');
+    if (result != true || !mounted) return;
+    widget.onFinish();
+  }
+
   Future<void> _enableBiometrics() async {
     try {
       final authenticated = await _auth.authenticate(
@@ -96,7 +102,9 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Proteja seus dados financeiros com biometria.',
+            _biometricsAvailable
+                ? 'Proteja seus dados financeiros com biometria.'
+                : 'Biometria não disponível. Configure um PIN para proteger seus dados.',
             textAlign: TextAlign.center,
             style: tt.bodyLarge?.copyWith(
               color: cs.onSurfaceVariant,
@@ -142,45 +150,32 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           else
             Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
+                FilledButton.icon(
+                  onPressed: _setupPin,
+                  icon: const Icon(Icons.pin_outlined),
+                  label: Text(
+                    'Configurar PIN',
+                    style: tt.titleMedium?.copyWith(
+                      color: cs.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Biometria não disponível neste dispositivo.',
-                          style: tt.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: widget.onFinish,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(56),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: widget.onFinish,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
                   child: Text(
                     'Continuar sem segurança',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ),
               ],
