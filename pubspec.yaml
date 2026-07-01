@@ -60,6 +60,10 @@ dependencies:
   notification_listener_service: ^0.3.5
   path: ^1.9.0
   llama_cpp_dart: 0.9.0-dev.8
+  mcp_toolkit: ^3.0.0
+  flutter_colorpicker: ^1.1.0
+  cryptography: ^2.9.0
+  bip39: ^1.0.6
 
 dev_dependencies:
   flutter_test:
