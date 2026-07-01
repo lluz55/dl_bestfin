@@ -119,9 +119,9 @@ Conflito resolvido por last-write-wins: o upsert só atualiza se `excluded.updat
 ## Variáveis de Ambiente
 
 ```
-PORT=8080           # porta HTTP (padrão: 8080)
-DATA_DIR=./data     # diretório do SQLite (padrão: ./data)
-JWT_SECRET=...      # obrigatório, mín. 32 chars
+LISTEN_ADDR=127.0.0.1:8080  # bind HTTP (padrão: localhost:8080)
+DATA_DIR=./data             # diretório do SQLite (padrão: ./data)
+JWT_SECRET=...              # obrigatório, mín. 32 chars
 ```
 
 ## Integração Nix
@@ -130,6 +130,7 @@ O `flake.nix` do projeto inclui:
 - `packages.backend` — `buildGoModule` do diretório `backend/`
 - `apps.backend` — `nix run .#backend`
 - `nixosModules.backend` — `import ./backend/nix/module.nix`
+- `nixosModules.cloudflareTunnel` — `import ./backend/nix/cloudflare-tunnel.nix`, com token e URL pública lidos de arquivos de segredo (`sops-nix`)
 - `go` adicionado ao `devShells.default` para desenvolvimento
 
 ## Setup após implementar
@@ -156,12 +157,14 @@ JWT_SECRET=dev-secret-32-chars-minimum nix develop -c sh -c "cd backend && go ru
 
 ## Acceptance Criteria
 
-- [ ] `nix run .#backend` inicia servidor em :8080 (com JWT_SECRET definido)
-- [ ] `POST /auth/register` retorna token + kdf_salt
-- [ ] `POST /auth/login` retorna mesmo kdf_salt para o mesmo usuário
-- [ ] `GET /sync/pull?since=0` retorna `{"records":[], "server_time":...}` para usuário novo
-- [ ] `POST /sync/push` com 1 record retorna `{"synced":1, ...}`
-- [ ] `GET /sync/pull?since=0` após push retorna o record enviado
-- [ ] Payload no SQLite é ilegível (blob base64 opaco)
-- [ ] `nix build .#backend` produz binário estático funcional
-- [ ] NixOS module disponível via `nixosModules.backend`
+- [x] `nix run .#backend` inicia servidor em :8080 (com JWT_SECRET definido)
+- [x] `POST /auth/register` retorna token + kdf_salt
+- [x] `POST /auth/login` retorna mesmo kdf_salt para o mesmo usuário
+- [x] `GET /sync/pull?since=0` retorna `{"records":[], "server_time":...}` para usuário novo
+- [x] `POST /sync/push` com 1 record retorna `{"synced":1, ...}`
+- [x] `GET /sync/pull?since=0` após push retorna o record enviado
+- [x] Payload no SQLite é ilegível (blob base64 opaco)
+- [x] `nix build .#backend` produz binário estático funcional
+- [x] NixOS module disponível via `nixosModules.backend`
+- [x] Cloudflare Tunnel module disponível via `nixosModules.cloudflareTunnel`
+- [x] Token e URL pública do Cloudflare Tunnel vêm de arquivos de segredo compatíveis com `sops-nix`

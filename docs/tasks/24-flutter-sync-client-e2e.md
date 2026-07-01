@@ -157,11 +157,20 @@ class SyncRecord {
 
 ## Acceptance Criteria
 
-- [ ] `CryptoService.encrypt` + `decrypt` são inversos (teste unitário)
-- [ ] `deriveKey` com mesma senha + salt retorna mesma chave (deterministico)
-- [ ] Login no app salva token em secure storage
-- [ ] Push de uma transação cifra o payload (verificável: payload no servidor é base64 ilegível)
-- [ ] Pull decifra e upsert no Drift local (transação aparece no app após pull em outro device)
-- [ ] Trocar URL do servidor nas configurações redireciona o sync corretamente
-- [ ] Sync offline: transações criadas sem internet aparecem na fila e são enviadas ao reconectar
-- [ ] Nenhum dado financeiro em texto claro em logs ou SharedPreferences
+- [x] `CryptoService.encrypt` + `decrypt` são inversos (teste unitário)
+- [x] `deriveKey` com mesma senha + salt retorna mesma chave (deterministico)
+- [x] Login no app salva token em secure storage
+- [x] Push de uma transação cifra o payload (verificável: payload no servidor é base64 ilegível)
+- [x] Pull decifra e upsert no Drift local (transação aparece no app após pull em outro device)
+- [x] Trocar URL do servidor nas configurações redireciona o sync corretamente
+- [x] Sync offline: transações criadas sem internet aparecem na fila e são enviadas ao reconectar
+- [x] Nenhum dado financeiro em texto claro em logs ou SharedPreferences
+
+## Status Atual
+
+- Implementado para `account`, `transaction` e `category`.
+- Transações sincronizam o cabeçalho e as `entries` para preservar a partida dobrada.
+- O backend exige payload base64 opaco; payload JSON em texto claro é rejeitado.
+- O cadastro envia o `kdf_salt` usado para embrulhar a master key, garantindo que login posterior consiga descriptografá-la.
+- O app inicializa a configuração do backend ao abrir e inicia auto-sync periódico.
+- Cartões de crédito, metas completas e households remotos ficam para uma próxima expansão de escopo.
