@@ -49,6 +49,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
       return 'E-mail ou senha incorretos.';
     }
+    if (msg.contains('account_pending_approval')) {
+      return 'Conta pendente de aprovação. Aguarde o administrador liberar seu acesso.';
+    }
+    if (msg.contains('account_rejected')) {
+      return 'Conta rejeitada. Entre em contato com o administrador.';
+    }
     if (msg.contains('network') || msg.contains('connection')) {
       return 'Sem conexão com a internet.';
     }

@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
-import 'package:bestfin/features/sync/presentation/screens/mnemonic_display_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -40,17 +41,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     try {
       final backend = ref.read(backendSyncServiceProvider);
-      final result = await backend.signUpWithEmail(
+      await backend.signUpWithEmail(
         _emailCtrl.text.trim(),
         _passwordCtrl.text,
         displayName: _nameCtrl.text.trim(),
       );
       if (mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => MnemonicDisplayScreen(mnemonic: result.mnemonic),
+        unawaited(showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            icon: const Icon(Icons.hourglass_top_rounded, size: 48),
+            title: const Text('Conta criada!'),
+            content: const Text(
+              'Sua conta foi criada com sucesso. Aguarde a aprovação do administrador para acessar.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.pop();
+                },
+                child: const Text('Voltar ao login'),
+              ),
+            ],
           ),
-        );
+        ));
       }
     } catch (e) {
       setState(() => _error = _friendlyError(e));
@@ -63,6 +79,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final msg = e.toString().toLowerCase();
     if (msg.contains('already registered') || msg.contains('duplicate')) {
       return 'Este e-mail já está cadastrado.';
+    }
+    if (msg.contains('account_pending_approval')) {
+      return 'Conta pendente de aprovação. Aguarde o administrador liberar seu acesso.';
     }
     if (msg.contains('network') || msg.contains('connection')) {
       return 'Sem conexão com a internet.';

@@ -50,14 +50,6 @@ class BackendSyncRecord {
   }
 }
 
-/// Result returned after a successful registration, carries the one-time mnemonic.
-class RegisterResult {
-  final SyncUser user;
-  final String mnemonic;
-
-  const RegisterResult({required this.user, required this.mnemonic});
-}
-
 class BackendSyncService {
   static const _storage = FlutterSecureStorage();
   static const _baseUrlKey = 'backend_base_url';
@@ -69,7 +61,7 @@ class BackendSyncService {
   static const _encryptedMasterKeyKey = 'backend_encrypted_master_key';
   static const _defaultBaseUrl = String.fromEnvironment(
     'BESTFIN_BACKEND_URL',
-    defaultValue: 'http://10.0.2.2:8080',
+    defaultValue: 'http://10.0.2.2:28083',
   );
 
   final _authController = StreamController<SyncUser?>.broadcast();
@@ -125,7 +117,7 @@ class BackendSyncService {
   }
 
   /// Register a new account. Returns user + one-time 24-word mnemonic.
-  Future<RegisterResult> signUpWithEmail(
+  Future<void> signUpWithEmail(
     String email,
     String password, {
     String? displayName,
@@ -140,9 +132,8 @@ class BackendSyncService {
     final recoveryVerifier = await E2ECryptoService.computeRecoveryVerifier(
       masterKey,
     );
-    final mnemonic = E2ECryptoService.masterKeyToMnemonic(masterKey);
 
-    final body = await _request(
+    await _request(
       'POST',
       '/auth/register',
       body: {
@@ -155,14 +146,6 @@ class BackendSyncService {
       },
       authenticated: false,
     );
-
-    final user = await _storeAuth(
-      body,
-      fallbackEmail: email,
-      masterKey: masterKey,
-    );
-    if (user == null) throw Exception('Resposta de autenticação inválida');
-    return RegisterResult(user: user, mnemonic: mnemonic);
   }
 
   Future<SyncUser?> signInWithEmail(String email, String password) async {
@@ -442,6 +425,22 @@ class BackendSyncService {
         authenticated: authenticated,
         retried: true,
       );
+    }
+    if (response.statusCode == HttpStatus.forbidden) {
+      final decoded = jsonDecode(responseBody);
+      final error = decoded is Map ? decoded['error'] as String? ?? '' : '';
+      if (error == 'account_pending_approval') {
+        throw Exception('account_pending_approval');
+      }
+      if (error == 'account_rejected') {
+        throw Exception('account_rejected');
+      }
+      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    }
+    if (response.statusCode == HttpStatus.accepted) {
+      if (responseBody.isEmpty) return {};
+      final decoded = jsonDecode(responseBody);
+      return decoded is Map<String, dynamic> ? decoded : {};
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
