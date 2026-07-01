@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/sync/data/repositories/household_repository.dart';
@@ -99,11 +101,12 @@ class SyncStateNotifier extends Notifier<SyncState> {
   @override
   SyncState build() {
     // Watch pending count from DB
-    ref
+    final pendingSub = ref
         .watch(databaseProvider)
         .syncQueueDao
         .watchPendingCount()
         .listen((count) => state = state.copyWith(pendingCount: count));
+    ref.onDispose(pendingSub.cancel);
     _loadLastSync();
     return const SyncState();
   }

@@ -48,6 +48,9 @@ class SyncService {
     if (!_backend.isInitialized || !_backend.isSignedIn) {
       return SyncResult.notConfigured;
     }
+    if (!_backend.hasEncryptionKey) {
+      return SyncResult.notAuthenticated;
+    }
     if (_syncing) return SyncResult.alreadyRunning;
     _syncing = true;
 
@@ -97,6 +100,9 @@ class SyncService {
     if (!_backend.isInitialized || !_backend.isSignedIn) {
       return SyncResult.notConfigured;
     }
+    if (!_backend.hasEncryptionKey) {
+      return SyncResult.notAuthenticated;
+    }
 
     final since = await _getLastSyncAt();
     int pulled = 0;
@@ -117,6 +123,8 @@ class SyncService {
             await _mergeTransactionFromRemote(row);
           case 'account':
             await _mergeAccountFromRemote(row);
+          case 'category':
+            await _mergeCategoryFromRemote(row);
           default:
             continue;
         }
@@ -196,6 +204,14 @@ class SyncService {
             sentiment: Value(row['sentiment'] as String?),
             notes: Value(row['notes'] as String?),
             categoryId: Value(row['category_id'] as String?),
+            entityId: Value(row['entity_id'] as String?),
+            goalId: Value(row['goal_id'] as String?),
+            installmentPlanId: Value(row['installment_plan_id'] as String?),
+            installmentNumber: Value(row['installment_number'] as int?),
+            recurringRuleId: Value(row['recurring_rule_id'] as String?),
+            creditCardId: Value(row['credit_card_id'] as String?),
+            rawAmount: Value(row['raw_amount'] as int?),
+            invoiceId: Value(row['invoice_id'] as String?),
             isCompleted: Value(row['is_completed'] as bool? ?? true),
             isConfirmed: Value(row['is_confirmed'] as bool? ?? true),
             source: Value(row['source'] as String?),
@@ -206,6 +222,35 @@ class SyncService {
             ),
           ),
         );
+
+    final rawEntries = row['entries'];
+    if (rawEntries is List) {
+      await (_db.delete(
+        _db.entries,
+      )..where((e) => e.transactionId.equals(id))).go();
+      for (final rawEntry in rawEntries.whereType<Map>()) {
+        final entry = Map<String, dynamic>.from(rawEntry);
+        final accountId = entry['account_id'] as String?;
+        final amount = entry['amount'] as int?;
+        final type = entry['type'] as String?;
+        if (accountId == null || amount == null || type == null) continue;
+        await _db
+            .into(_db.entries)
+            .insertOnConflictUpdate(
+              EntriesCompanion.insert(
+                id: entry['id'] as String? ?? const Uuid().v4(),
+                transactionId: id,
+                accountId: accountId,
+                amount: amount,
+                type: type,
+                createdAt: Value(
+                  DateTime.tryParse(entry['created_at'] as String? ?? '') ??
+                      DateTime.now(),
+                ),
+              ),
+            );
+      }
+    }
   }
 
   Future<void> _mergeAccountFromRemote(Map<String, dynamic> row) async {
@@ -238,6 +283,7 @@ class SyncService {
             type: Value(row['type'] as String? ?? 'checking'),
             color: Value(row['color'] as String? ?? '#6750A4'),
             icon: Value(row['icon'] as String? ?? '984168'),
+            isArchived: Value(row['is_archived'] as bool? ?? false),
             updatedAt: Value(remoteUpdatedAt ?? DateTime.now()),
             createdAt: Value(
               DateTime.tryParse(row['created_at'] as String? ?? '') ??
@@ -245,6 +291,66 @@ class SyncService {
             ),
           ),
         );
+  }
+
+  Future<void> _mergeCategoryFromRemote(Map<String, dynamic> row) async {
+    final id = row['id'] as String?;
+    if (id == null) return;
+
+    final local = await (_db.select(
+      _db.categories,
+    )..where((c) => c.id.equals(id))).getSingleOrNull();
+
+    final remoteUpdatedAt = DateTime.tryParse(
+      row['updated_at'] as String? ?? '',
+    );
+    if (local != null && remoteUpdatedAt != null) {
+      if (local.updatedAt.isAfter(remoteUpdatedAt)) return;
+    }
+
+    final isDeleted = row['is_deleted'] as bool? ?? false;
+    if (isDeleted) {
+      await (_db.delete(_db.categories)..where((c) => c.id.equals(id))).go();
+      return;
+    }
+
+    await _db
+        .into(_db.categories)
+        .insertOnConflictUpdate(
+          CategoriesCompanion.insert(
+            id: id,
+            name: row['name'] as String? ?? '',
+            icon: row['icon'] as String? ?? 'category',
+            color: row['color'] as String? ?? '#6750A4',
+            type: row['type'] as String? ?? 'expense',
+            isSystem: Value(row['is_system'] as bool? ?? false),
+            parentId: Value(row['parent_id'] as String?),
+            isArchived: Value(row['is_archived'] as bool? ?? false),
+            description: Value(row['description'] as String?),
+            createdAt: Value(
+              DateTime.tryParse(row['created_at'] as String? ?? '') ??
+                  DateTime.now(),
+            ),
+            updatedAt: Value(remoteUpdatedAt ?? DateTime.now()),
+          ),
+        );
+
+    final childIds = row['child_ids'];
+    if (childIds is List) {
+      await (_db.delete(
+        _db.categoryParents,
+      )..where((r) => r.parentCategoryId.equals(id))).go();
+      for (final childId in childIds.whereType<String>()) {
+        await _db
+            .into(_db.categoryParents)
+            .insertOnConflictUpdate(
+              CategoryParentsCompanion.insert(
+                parentCategoryId: id,
+                childCategoryId: childId,
+              ),
+            );
+      }
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -299,6 +405,11 @@ class SyncResult {
   static const notConfigured = SyncResult._(
     success: false,
     errorMessage: 'Backend não configurado ou usuário não autenticado',
+  );
+
+  static const notAuthenticated = SyncResult._(
+    success: false,
+    errorMessage: 'Entre novamente para desbloquear a chave de sincronização',
   );
 
   static const alreadyRunning = SyncResult._(

@@ -148,6 +148,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 onPressed: () => context.push('/sync/register'),
                 child: const Text('Criar conta'),
               ),
+              TextButton(
+                onPressed: () => context.push('/sync/recover'),
+                child: Text(
+                  'Esqueceu a senha? Recuperar com frase',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

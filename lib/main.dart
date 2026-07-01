@@ -1,11 +1,16 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/router/app_router.dart';
 import 'package:bestfin/core/theme/app_theme.dart';
+import 'package:bestfin/core/theme/custom_seed_provider.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
@@ -17,7 +22,6 @@ import 'package:bestfin/features/gamification/presentation/widgets/badge_unlock_
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
-import 'dart:io';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
@@ -27,9 +31,15 @@ import 'package:bestfin/features/llm/domain/models/llm_state.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_insights_provider.dart';
 import 'package:bestfin/features/llm/presentation/providers/llm_narrative_provider.dart';
+import 'package:bestfin/features/llm/domain/services/financial_context_builder.dart';
+import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MCPToolkitBinding.instance
+    ..initialize()
+    ..initializeFlutterToolkit();
 
   if (Platform.isAndroid) {
     try {
@@ -68,15 +78,44 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_handleEscKey);
     // Gera transações pendentes para regras de recorrência ao abrir o app
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(generateRecurringProvider);
       ref.read(gamificationServiceProvider).onAppStarted();
+      unawaited(_startSync());
     });
+  }
+
+  bool _handleEscKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.escape) return false;
+
+    final router = ref.read(appRouterProvider);
+    final context = router.routerDelegate.navigatorKey.currentContext;
+    if (context == null) return false;
+
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      router.go('/home');
+    }
+    return true;
+  }
+
+  Future<void> _startSync() async {
+    try {
+      await ref.read(backendSetupProvider.future);
+      ref.read(syncServiceProvider).startAutoSync();
+    } catch (error) {
+      debugPrint('Failed to start auto-sync: $error');
+    }
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleEscKey);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -97,6 +136,7 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
       // Trigger insight + narrative refresh if LLM is ready and cache is stale
       final llmStatus = ref.read(llmStateProvider).status;
       if (llmStatus == LlmStatus.ready) {
+        FinancialContextBuilder.invalidate();
         ref.read(llmInsightsCacheInvalidatorProvider).call();
         ref.read(llmNarrativeCacheInvalidatorProvider).call();
       }
@@ -106,6 +146,7 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
+    final customSeed = ref.watch(customSeedProvider);
     final router = ref.watch(appRouterProvider);
 
     return DynamicColorBuilder(
@@ -118,6 +159,15 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
             darkDynamic != null) {
           lightScheme = lightDynamic.harmonized();
           darkScheme = darkDynamic.harmonized();
+        } else if (customSeed.useCustomSeed && customSeed.seedColor != null) {
+          lightScheme = ColorScheme.fromSeed(
+            seedColor: customSeed.seedColor!,
+            brightness: Brightness.light,
+          );
+          darkScheme = ColorScheme.fromSeed(
+            seedColor: customSeed.seedColor!,
+            brightness: Brightness.dark,
+          );
         } else {
           lightScheme = themeState.preset.light();
           darkScheme = themeState.preset.dark();

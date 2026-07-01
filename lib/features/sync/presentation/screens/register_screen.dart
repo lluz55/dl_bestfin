@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
+import 'package:bestfin/features/sync/presentation/screens/mnemonic_display_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -39,18 +40,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     try {
       final backend = ref.read(backendSyncServiceProvider);
-      await backend.signUpWithEmail(
+      final result = await backend.signUpWithEmail(
         _emailCtrl.text.trim(),
         _passwordCtrl.text,
         displayName: _nameCtrl.text.trim(),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Conta criada. Você já pode sincronizar seus dados.'),
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MnemonicDisplayScreen(mnemonic: result.mnemonic),
           ),
         );
-        context.pop();
       }
     } catch (e) {
       setState(() => _error = _friendlyError(e));
