@@ -10,6 +10,7 @@ import 'package:bestfin/features/llm/presentation/widgets/model_setup_sheet.dart
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_form_modal_overlay.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/quick_transaction_sheet.dart';
 import 'package:bestfin/core/widgets/global_fab.dart';
+import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -50,6 +51,7 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final llmState = ref.watch(llmStateProvider);
     final selectedModel = ref.watch(selectedModelProvider);
+    final tutorialKeys = ref.watch(tutorialKeysProvider);
 
     void openQuickSheet(TransactionType type) {
       showAdaptiveModal<void>(
@@ -62,7 +64,9 @@ class AppShell extends ConsumerWidget {
       selectedIndex: navigationShell.currentIndex,
       onDestinationSelected: _onBranchTap,
       destinations: _destinations,
+      lastDestinationKey: tutorialKeys.maisTabKey,
       floatingActionButton: GlobalFAB(
+        key: tutorialKeys.fabKey,
         onExpense: () => openQuickSheet(TransactionType.expense),
         onIncome: () => openQuickSheet(TransactionType.income),
         onTransfer: () => openQuickSheet(TransactionType.transfer),

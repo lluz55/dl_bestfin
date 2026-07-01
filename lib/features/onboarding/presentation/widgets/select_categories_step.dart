@@ -83,7 +83,25 @@ class SelectCategoriesStep extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const SizedBox(),
+              error: (_, __) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline_rounded,
+                        color: cs.error, size: 40),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Não foi possível carregar as categorias',
+                      style: tt.bodyMedium?.copyWith(color: cs.error),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => ref.invalidate(categoriesTreeProvider),
+                      child: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),

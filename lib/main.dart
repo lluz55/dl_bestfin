@@ -21,6 +21,7 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/gamification/presentation/widgets/badge_unlock_overlay.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
@@ -51,6 +52,7 @@ void main() async {
 
   initialOnboardingCompleted = await OnboardingActions.readCompleted();
   initialBiometricsEnabled = await OnboardingActions.readBiometrics();
+  initialTutorialSeen = await TutorialActions.readSeen();
   initialIsLocked = initialBiometricsEnabled;
   final prefs = await SharedPreferences.getInstance();
   initialAlwaysHideValues = prefs.getBool(kAlwaysHideValuesKey) ?? false;

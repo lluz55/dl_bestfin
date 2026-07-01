@@ -30,6 +30,7 @@ class ResponsiveNavigation extends StatefulWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.bottomOverlay,
+    this.lastDestinationKey,
   });
 
   final int selectedIndex;
@@ -39,6 +40,7 @@ class ResponsiveNavigation extends StatefulWidget {
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomOverlay;
+  final GlobalKey? lastDestinationKey;
 
   @override
   State<ResponsiveNavigation> createState() => _ResponsiveNavigationState();
@@ -108,6 +110,7 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
       floatingActionButton: widget.floatingActionButton,
       floatingActionButtonLocation: widget.floatingActionButtonLocation,
       bottomOverlay: widget.bottomOverlay,
+      lastDestinationKey: widget.lastDestinationKey,
     );
   }
 }
@@ -123,6 +126,7 @@ class _CompactLayout extends StatelessWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.bottomOverlay,
+    this.lastDestinationKey,
   });
 
   final int selectedIndex;
@@ -132,6 +136,7 @@ class _CompactLayout extends StatelessWidget {
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomOverlay;
+  final GlobalKey? lastDestinationKey;
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +162,7 @@ class _CompactLayout extends StatelessWidget {
         onDestinationSelected: onDestinationSelected,
         destinations: destinations,
         cs: cs,
+        lastItemKey: lastDestinationKey,
       ),
     );
   }
@@ -409,12 +415,14 @@ class _AnimatedBottomBar extends StatelessWidget {
     required this.onDestinationSelected,
     required this.destinations,
     required this.cs,
+    this.lastItemKey,
   });
 
   final int selectedIndex;
   final void Function(int) onDestinationSelected;
   final List<NavigationDestinationItem> destinations;
   final ColorScheme cs;
+  final GlobalKey? lastItemKey;
 
   @override
   Widget build(BuildContext context) {
@@ -462,6 +470,9 @@ class _AnimatedBottomBar extends StatelessWidget {
                   children: [
                     for (int i = 0; i < destinations.length; i++)
                       Expanded(
+                        key: (i == destinations.length - 1)
+                            ? lastItemKey
+                            : null,
                         child: _NavBarItem(
                           icon: destinations[i].icon,
                           activeIcon: destinations[i].activeIcon,

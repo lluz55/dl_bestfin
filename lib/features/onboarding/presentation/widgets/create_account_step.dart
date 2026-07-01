@@ -20,6 +20,7 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
   final _nameController = TextEditingController();
   AccountType _selectedType = AccountType.checking;
   late String _selectedColorHex;
+  bool _colorCustomized = false;
   int _balanceCents = 0;
   bool _saving = false;
 
@@ -114,7 +115,9 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                       selected: selected,
                       onSelected: (_) => setState(() {
                         _selectedType = type;
-                        _selectedColorHex = type.defaultColorHex;
+                        if (!_colorCustomized) {
+                          _selectedColorHex = type.defaultColorHex;
+                        }
                       }),
                       avatar: Icon(type.defaultIcon, size: 16),
                     );
@@ -132,6 +135,7 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                   selectedColorHex: _selectedColorHex,
                   onColorSelected: (color) {
                     setState(() {
+                      _colorCustomized = true;
                       _selectedColorHex = color;
                     });
                   },

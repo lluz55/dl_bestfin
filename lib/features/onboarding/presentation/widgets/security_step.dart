@@ -103,7 +103,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           const SizedBox(height: 12),
           Text(
             _biometricsAvailable
-                ? 'Proteja seus dados financeiros com biometria.'
+                ? 'Proteja seus dados financeiros com biometria e PIN de fallback.'
                 : 'Biometria não disponível. Configure um PIN para proteger seus dados.',
             textAlign: TextAlign.center,
             style: tt.bodyLarge?.copyWith(
@@ -121,7 +121,7 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
                   onPressed: _enableBiometrics,
                   icon: const Icon(Icons.fingerprint_rounded),
                   label: Text(
-                    'Ativar Biometria',
+                    'Ativar Biometria e PIN',
                     style: tt.titleMedium?.copyWith(
                       color: cs.onPrimary,
                       fontWeight: FontWeight.w700,

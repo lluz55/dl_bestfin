@@ -1,10 +1,39 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
 
-class NotificationPermissionStep extends StatelessWidget {
+class NotificationPermissionStep extends ConsumerStatefulWidget {
   const NotificationPermissionStep({super.key, required this.onNext});
 
   final VoidCallback onNext;
+
+  @override
+  ConsumerState<NotificationPermissionStep> createState() =>
+      _NotificationPermissionStepState();
+}
+
+class _NotificationPermissionStepState
+    extends ConsumerState<NotificationPermissionStep> {
+  bool _requesting = false;
+
+  Future<void> _enableNotifications() async {
+    if (_requesting) return;
+    setState(() => _requesting = true);
+    try {
+      if (Platform.isAndroid) {
+        await ref
+            .read(androidNotificationServiceProvider)
+            .requestPermission();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _requesting = false);
+        widget.onNext();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +69,9 @@ class NotificationPermissionStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Receba lembretes de contas a vencer, alertas de gastos e resumos financeiros.',
+            Platform.isAndroid
+                ? 'Capture transações automaticamente a partir de notificações do seu banco.'
+                : 'Receba lembretes de contas a vencer, alertas de gastos e resumos financeiros.',
             textAlign: TextAlign.center,
             style: tt.bodyLarge?.copyWith(
               color: cs.onSurfaceVariant,
@@ -72,29 +103,61 @@ class NotificationPermissionStep extends StatelessWidget {
             tt: tt,
           ),
           const Spacer(),
-          FilledButton.icon(
-            onPressed: onNext,
-            icon: const Icon(Icons.notifications_rounded),
-            label: Text(
-              'Habilitar Notificações',
-              style: tt.titleMedium?.copyWith(
-                color: cs.onPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(
+          if (Platform.isLinux)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      color: cs.onSurfaceVariant, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Captura de notificações disponível apenas no Android.',
+                      style: tt.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            FilledButton.icon(
+              onPressed: _requesting ? null : _enableNotifications,
+              icon: _requesting
+                  ? SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cs.onPrimary,
+                      ),
+                    )
+                  : const Icon(Icons.notifications_rounded),
+              label: Text(
+                'Habilitar Notificações',
+                style: tt.titleMedium?.copyWith(
+                  color: cs.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: onNext,
+            onPressed: widget.onNext,
             style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)),
             child: Text(
-              'Agora não',
+              Platform.isAndroid ? 'Agora não' : 'Continuar',
               style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
             ),
           ),

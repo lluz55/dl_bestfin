@@ -32,6 +32,8 @@ import 'package:bestfin/features/gamification/presentation/widgets/streaks_dashb
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/budgets/presentation/widgets/budgets_overview_card.dart';
 import 'package:bestfin/features/cashflow/presentation/widgets/cashflow_projection_card.dart';
+import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
+import 'package:bestfin/features/onboarding/presentation/widgets/tutorial_runner.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -42,6 +44,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   static const _filters = ['Este mês', 'Semana', '3 meses', 'Ano'];
+
+  final _customizeKey = GlobalKey(debugLabel: 'tutorial_customize');
 
   static String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -56,32 +60,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final tt = context.textTheme;
     final visibleWidgets = ref.watch(homeWidgetsProvider);
     final hidden = ref.watch(valuesHiddenProvider);
+    final tutorialKeys = ref.watch(tutorialKeysProvider);
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(dashboardProvider);
-          await ref.read(dashboardProvider.future);
-        },
-        color: cs.primary,
-        backgroundColor: cs.surfaceContainerHighest,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _DashboardHeaderDelegate(
-                cs: cs,
-                tt: tt,
-                greeting: _getGreeting(),
-                hidden: hidden,
-                onToggleHidden: () =>
-                    ref.read(valuesHiddenProvider.notifier).toggle(),
-                onTheme: () => showThemeSettingsSheet(context),
-                onCustomize: () => showHomeWidgetsEditSheet(context),
+    return TutorialRunner(
+      fabKey: tutorialKeys.fabKey,
+      maisTabKey: tutorialKeys.maisTabKey,
+      customizeKey: _customizeKey,
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(dashboardProvider);
+            await ref.read(dashboardProvider.future);
+          },
+          color: cs.primary,
+          backgroundColor: cs.surfaceContainerHighest,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _DashboardHeaderDelegate(
+                  cs: cs,
+                  tt: tt,
+                  greeting: _getGreeting(),
+                  hidden: hidden,
+                  customizeKey: _customizeKey,
+                  onToggleHidden: () =>
+                      ref.read(valuesHiddenProvider.notifier).toggle(),
+                  onTheme: () => showThemeSettingsSheet(context),
+                  onCustomize: () => showHomeWidgetsEditSheet(context),
+                ),
               ),
-            ),
             SliverToBoxAdapter(
               child: Consumer(
                 builder: (context, ref, child) {
@@ -105,6 +115,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -417,6 +428,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onToggleHidden,
     required this.onTheme,
     required this.onCustomize,
+    this.customizeKey,
   });
 
   final ColorScheme cs;
@@ -426,6 +438,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onToggleHidden;
   final VoidCallback onTheme;
   final VoidCallback onCustomize;
+  final GlobalKey? customizeKey;
 
   @override
   double get maxExtent => 96.0;
@@ -516,6 +529,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                   ),
                   const SizedBox(width: 6),
                   _TonalIconButton(
+                    key: customizeKey,
                     icon: const Icon(Icons.tune_rounded, size: 18),
                     tooltip: 'Personalizar página inicial',
                     onPressed: onCustomize,
@@ -543,6 +557,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
 
 class _TonalIconButton extends StatelessWidget {
   const _TonalIconButton({
+    super.key,
     required this.icon,
     required this.tooltip,
     required this.onPressed,
