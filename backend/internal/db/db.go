@@ -60,6 +60,7 @@ func migrate(database *sql.DB) error {
 			expires_at INTEGER NOT NULL,
 			created_at INTEGER NOT NULL
 		)`,
+		`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`,
 	}
 	for _, stmt := range stmts {
 		if _, err := database.Exec(stmt); err != nil {

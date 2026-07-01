@@ -18,8 +18,8 @@ func CreateUser(database *sql.DB, id, email, passwordHash, kdfSalt, encryptedMas
 func GetUserByEmail(database *sql.DB, email string) (*User, error) {
 	u := &User{}
 	err := database.QueryRow(
-		`SELECT id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at FROM users WHERE email = ?`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.EncryptedMasterKey, &u.RecoveryVerifier, &u.CreatedAt)
+		`SELECT id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at, status FROM users WHERE email = ?`, email,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.EncryptedMasterKey, &u.RecoveryVerifier, &u.CreatedAt, &u.Status)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -45,9 +45,9 @@ func UpdateEncryptedMasterKey(database *sql.DB, userID, encryptedMasterKey strin
 func GetUserByRecoveryVerifier(database *sql.DB, email, recoveryVerifier string) (*User, error) {
 	u := &User{}
 	err := database.QueryRow(
-		`SELECT id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at FROM users WHERE email = ? AND recovery_verifier = ?`,
+		`SELECT id, email, password_hash, kdf_salt, encrypted_master_key, recovery_verifier, created_at, status FROM users WHERE email = ? AND recovery_verifier = ?`,
 		email, recoveryVerifier,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.EncryptedMasterKey, &u.RecoveryVerifier, &u.CreatedAt)
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.KdfSalt, &u.EncryptedMasterKey, &u.RecoveryVerifier, &u.CreatedAt, &u.Status)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -75,6 +75,51 @@ func GetRefreshToken(database *sql.DB, token string) (*RefreshToken, error) {
 
 func DeleteRefreshToken(database *sql.DB, token string) error {
 	_, err := database.Exec(`DELETE FROM refresh_tokens WHERE token = ?`, token)
+	return err
+}
+
+func ListUsersByStatus(database *sql.DB, status string) ([]User, error) {
+	rows, err := database.Query(
+		`SELECT id, email, created_at, status FROM users WHERE status = ? ORDER BY created_at ASC`, status,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Email, &u.CreatedAt, &u.Status); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+func ListAllUsers(database *sql.DB) ([]User, error) {
+	rows, err := database.Query(
+		`SELECT id, email, created_at, status FROM users ORDER BY created_at ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Email, &u.CreatedAt, &u.Status); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+func UpdateUserStatus(database *sql.DB, userID, status string) error {
+	_, err := database.Exec(`UPDATE users SET status = ? WHERE id = ?`, status, userID)
 	return err
 }
 

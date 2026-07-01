@@ -10,12 +10,12 @@ Na raiz do projeto:
 JWT_SECRET=dev-secret-32-chars-minimum-value nix run .#backend
 ```
 
-Por padrão o servidor escuta em `127.0.0.1:8080` e grava o SQLite em `./data/bestfin.sqlite`.
+Por padrão o servidor escuta em `127.0.0.1:28083` e grava o SQLite em `./data/bestfin.sqlite`.
 
 Variáveis:
 
 ```bash
-LISTEN_ADDR=127.0.0.1:8080
+LISTEN_ADDR=127.0.0.1:28083
 DATA_DIR=./data
 JWT_SECRET=troque-por-um-segredo-com-32-chars-ou-mais
 ```
@@ -26,16 +26,37 @@ JWT_SECRET=troque-por-um-segredo-com-32-chars-ou-mais
 
 Auth:
 
-- `POST /auth/register`
-- `POST /auth/login`
-- `POST /auth/refresh`
-- `POST /auth/recover`
+- `POST /auth/register` — cadastro (retorna 202 com status pendente)
+- `POST /auth/login` — login (verifica status do usuário)
+- `POST /auth/refresh` — renovação de token
+- `POST /auth/recover` — recuperação de conta (verifica status)
 - `PUT /auth/master-key` com `Authorization: Bearer <token>`
 
 Sync:
 
 - `GET /sync/pull?since=<unix_timestamp>` com `Authorization: Bearer <token>`
 - `POST /sync/push` com `Authorization: Bearer <token>`
+
+## CLI de Administração
+
+O CLI permite gerenciar usuários (aprovar/rejeitar cadastros pendentes):
+
+```bash
+# Compilar
+go build -o bestfin-cli ./cmd/cli/
+
+# Listar pendentes
+./bestfin-cli pending
+
+# Listar todos
+./bestfin-cli list
+
+# Aprovar
+./bestfin-cli approve user@email.com
+
+# Rejeitar
+./bestfin-cli reject user@email.com
+```
 
 `/sync/push` recebe:
 
@@ -93,14 +114,14 @@ Adicione este projeto como input do seu flake de infraestrutura:
             enable = true;
             package = bestfin.packages.x86_64-linux.backend;
             listenAddr = "127.0.0.1";
-            port = 8080;
+            port = 28083;
             dataDir = "/var/lib/bestfin-backend";
             jwtSecretFile = config.sops.secrets."bestfin/backend-env".path;
           };
 
           services.bestfin-cloudflare-tunnel = {
             enable = true;
-            localPort = 8080;
+            localPort = 28083;
             tunnelTokenFile = config.sops.secrets."bestfin/cloudflare-tunnel-token".path;
             publicUrlFile = config.sops.secrets."bestfin/cloudflare-public-url".path;
           };
@@ -215,13 +236,13 @@ O módulo escuta em `127.0.0.1` por padrão. Para acesso remoto, prefira publica
 Com o módulo `bestfin.nixosModules.cloudflareTunnel`, o serviço systemd `bestfin-cloudflared` executa:
 
 ```bash
-cloudflared tunnel --no-autoupdate run --token-file <tunnelTokenFile> --url http://127.0.0.1:8080
+cloudflared tunnel --no-autoupdate run --token-file <tunnelTokenFile> --url http://127.0.0.1:28083
 ```
 
 No painel da Cloudflare, configure o Public Hostname do túnel para encaminhar para:
 
 ```text
-http://127.0.0.1:8080
+http://127.0.0.1:28083
 ```
 
 Mantenha o mesmo hostname público no segredo `bestfin/cloudflare-public-url`. O módulo valida esse arquivo no `ExecStartPre` para evitar deploy sem a URL que o app deve usar.
@@ -238,7 +259,7 @@ Se for expor diretamente na rede local, configure:
 
 ```nix
 services.bestfin-backend.listenAddr = "0.0.0.0";
-networking.firewall.allowedTCPPorts = [ 8080 ];
+networking.firewall.allowedTCPPorts = [ 28083 ];
 ```
 
 ## Persistência

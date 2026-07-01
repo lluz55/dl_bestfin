@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	listenAddr := envOr("LISTEN_ADDR", "127.0.0.1:8080")
+	listenAddr := envOr("LISTEN_ADDR", "127.0.0.1:28083")
 	dataDir := envOr("DATA_DIR", "./data")
 	jwtSecret := mustEnv("JWT_SECRET")
 

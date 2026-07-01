@@ -54,6 +54,11 @@ type recoverRequest struct {
 	KdfSalt            string `json:"kdf_salt"`
 }
 
+type pendingResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
 func Register(database *sql.DB, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
@@ -104,7 +109,11 @@ func Register(database *sql.DB, jwtSecret string) http.HandlerFunc {
 			return
 		}
 
-		issueAuth(w, database, jwtSecret, userID, req.Email, kdfSalt, req.EncryptedMasterKey)
+		w.WriteHeader(http.StatusAccepted)
+		writeJSON(w, pendingResponse{
+			Status:  "pending",
+			Message: "Conta criada. Aguardando aprovação do administrador.",
+		})
 	}
 }
 
@@ -123,6 +132,16 @@ func Login(database *sql.DB, jwtSecret string) http.HandlerFunc {
 		}
 		if user == nil || CheckPassword(req.Password, user.PasswordHash) != nil {
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		if user.Status != "approved" {
+			w.WriteHeader(http.StatusForbidden)
+			msg := "account_pending_approval"
+			if user.Status == "rejected" {
+				msg = "account_rejected"
+			}
+			writeJSON(w, map[string]string{"error": msg})
 			return
 		}
 
@@ -219,6 +238,16 @@ func RecoverAccount(database *sql.DB) http.HandlerFunc {
 		}
 		if user == nil {
 			http.Error(w, "invalid recovery verifier", http.StatusUnauthorized)
+			return
+		}
+
+		if user.Status != "approved" {
+			w.WriteHeader(http.StatusForbidden)
+			msg := "account_pending_approval"
+			if user.Status == "rejected" {
+				msg = "account_rejected"
+			}
+			writeJSON(w, map[string]string{"error": msg})
 			return
 		}
 

@@ -8,6 +8,7 @@ type User struct {
 	CreatedAt          int64
 	EncryptedMasterKey string
 	RecoveryVerifier   string
+	Status             string
 }
 
 type RefreshToken struct {
