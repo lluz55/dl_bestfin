@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/numeric_keypad.dart';
 
@@ -63,9 +64,8 @@ class _AmountInputState extends State<AmountInput> {
   }
 
   void _showKeypad(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptiveModal(
       context: context,
-      isScrollControlled: true,
       builder: (context) {
         return _KeypadSheet(
           initialAmountInCents: widget.amountInCents,

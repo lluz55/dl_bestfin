@@ -49,6 +49,7 @@ class Transactions extends Table {
     onDelete: KeyAction.setNull,
   )();
 
+  BoolColumn get isSplit => boolean().withDefault(const Constant(false))();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(true))();
   BoolColumn get isConfirmed => boolean().withDefault(const Constant(true))();
   TextColumn get source =>

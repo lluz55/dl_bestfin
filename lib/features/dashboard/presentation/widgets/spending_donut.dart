@@ -28,7 +28,7 @@ class _SpendingDonutState extends State<SpendingDonut> {
         widget.categoryExpenses.any((e) => e.amountInCents > 0);
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

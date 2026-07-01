@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:drift/drift.dart';
@@ -151,6 +153,7 @@ class AccountRepositoryImpl implements AccountRepository {
         );
       }
     });
+    await _enqueueAccountSync(accountId, 'insert');
   }
 
   @override
@@ -174,13 +177,42 @@ class AccountRepositoryImpl implements AccountRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueAccountSync(id, 'update');
   }
 
   @override
   Future<void> deleteAccount(String id) async {
+    await _enqueueAccountSync(id, 'delete');
     await _database.accountsDao.deleteAccount(id);
   }
 
   @override
   Future<bool> canDelete(String id) async => true;
+
+  Future<void> _enqueueAccountSync(String id, String operation) async {
+    final account = await (_database.select(
+      _database.accounts,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    final payload = account == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': account.id,
+            'name': account.name,
+            'type': account.type,
+            'icon': account.icon,
+            'color': account.color,
+            'is_archived': account.isArchived,
+            'created_at': account.createdAt.toIso8601String(),
+            'updated_at': account.updatedAt.toIso8601String(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'account',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
+  }
 }

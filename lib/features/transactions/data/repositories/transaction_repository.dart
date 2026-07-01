@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
 import 'package:bestfin/features/transactions/domain/models/entry.dart';
+import 'package:bestfin/features/transactions/domain/models/split_entry.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -30,6 +33,7 @@ abstract class TransactionRepository {
     String? notes,
     String? goalId,
     String? creditCardId,
+    List<SplitEntry>? splits,
   });
   Future<String> createSuggestion({
     required DateTime date,
@@ -55,6 +59,7 @@ abstract class TransactionRepository {
     String? notes,
     String? goalId,
     String? creditCardId,
+    List<SplitEntry>? splits,
   });
   Future<void> deleteTransaction(String id);
   Future<TransactionDeleteContext> getDeleteContext(String id);
@@ -100,6 +105,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
                 _database.transactions.id,
               ),
             ),
+            leftOuterJoin(
+              _database.entries,
+              _database.entries.transactionId.equalsExp(
+                _database.transactions.id,
+              ),
+            ),
           ])
           ..where(_database.transactions.isConfirmed.equals(true))
           ..orderBy([
@@ -109,42 +120,44 @@ class TransactionRepositoryImpl implements TransactionRepository {
             ),
           ]);
 
-    return query.watch().asyncMap((rows) async {
-      final txIds = rows
-          .map((r) => r.readTable(_database.transactions).id)
-          .toList();
-      final List<db.Entry> allEntries;
-      if (txIds.isEmpty) {
-        allEntries = [];
-      } else {
-        allEntries = await (_database.select(
-          _database.entries,
-        )..where((e) => e.transactionId.isIn(txIds))).get();
-      }
+    return query.watch().map((rows) {
+      final txMap = <String, db.Transaction>{};
+      final catMap = <String, db.Category?>{};
+      final entMap = <String, db.Entity?>{};
+      final ruleMap = <String, db.RecurringRule?>{};
+      final entriesMap = <String, List<EntryModel>>{};
 
-      final List<TransactionModel> results = [];
       for (final row in rows) {
         final tx = row.readTable(_database.transactions);
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
         final rule = row.readTableOrNull(_database.recurringRules);
+        final entry = row.readTableOrNull(_database.entries);
 
-        final txEntries = allEntries
-            .where((e) => e.transactionId == tx.id)
-            .map((e) => EntryModel.fromDb(e))
-            .toList();
+        if (!txMap.containsKey(tx.id)) {
+          txMap[tx.id] = tx;
+          catMap[tx.id] = cat;
+          entMap[tx.id] = ent;
+          ruleMap[tx.id] = rule;
+          entriesMap[tx.id] = [];
+        }
 
-        results.add(
-          TransactionModel.fromDb(
-            tx,
-            category: cat != null ? CategoryModel.fromDb(cat) : null,
-            entity: ent,
-            entries: txEntries,
-            recurringRuleId: rule?.id,
-          ),
-        );
+        if (entry != null) {
+          entriesMap[tx.id]!.add(EntryModel.fromDb(entry));
+        }
       }
-      return results;
+
+      return txMap.entries.map((e) {
+        return TransactionModel.fromDb(
+          e.value,
+          category: catMap[e.key] != null
+              ? CategoryModel.fromDb(catMap[e.key]!)
+              : null,
+          entity: entMap[e.key],
+          entries: entriesMap[e.key]!,
+          recurringRuleId: ruleMap[e.key]?.id,
+        );
+      }).toList();
     });
   }
 
@@ -172,11 +185,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
           _database.transactions.id,
         ),
       ),
+      leftOuterJoin(
+        _database.entries,
+        _database.entries.transactionId.equalsExp(_database.transactions.id),
+      ),
     ]);
 
     query.where(_database.transactions.isConfirmed.equals(true));
 
-    // Filtros do Header da Transação
     if (type != null) {
       query.where(_database.transactions.type.equals(type));
     }
@@ -197,75 +213,63 @@ class TransactionRepositoryImpl implements TransactionRepository {
       ),
     ]);
 
-    return query.watch().asyncMap((rows) async {
-      final txIds = rows
-          .map((r) => r.readTable(_database.transactions).id)
-          .toList();
-      if (txIds.isEmpty) return <TransactionModel>[];
-
-      final List<db.Entry> allEntries;
+    return query.watch().map((rows) {
       final hasAccountFilter = accountIds != null && accountIds.isNotEmpty;
       final hasCardFilter = creditCardIds != null && creditCardIds.isNotEmpty;
 
-      if (hasAccountFilter || hasCardFilter) {
-        final Set<String> matchedTxIds = {};
+      final txMap = <String, db.Transaction>{};
+      final catMap = <String, db.Category?>{};
+      final entMap = <String, db.Entity?>{};
+      final ruleMap = <String, db.RecurringRule?>{};
+      final entriesMap = <String, List<EntryModel>>{};
 
-        if (hasAccountFilter) {
-          final filterEntries =
-              await (_database.select(_database.entries)..where(
-                    (e) =>
-                        e.accountId.isIn(accountIds) &
-                        e.transactionId.isIn(txIds),
-                  ))
-                  .get();
-          matchedTxIds.addAll(filterEntries.map((e) => e.transactionId));
-        }
+      for (final row in rows) {
+        final tx = row.readTable(_database.transactions);
 
-        if (hasCardFilter) {
-          for (final row in rows) {
-            final tx = row.readTable(_database.transactions);
-            if (tx.creditCardId != null &&
-                creditCardIds.contains(tx.creditCardId)) {
-              matchedTxIds.add(tx.id);
+        if (hasAccountFilter || hasCardFilter) {
+          if (hasAccountFilter) {
+            final entry = row.readTableOrNull(_database.entries);
+            if (entry == null || !accountIds.contains(entry.accountId)) {
+              continue;
+            }
+          }
+          if (hasCardFilter) {
+            if (tx.creditCardId == null ||
+                !creditCardIds.contains(tx.creditCardId)) {
+              continue;
             }
           }
         }
 
-        if (matchedTxIds.isEmpty) return <TransactionModel>[];
-
-        txIds.retainWhere((id) => matchedTxIds.contains(id));
-        if (txIds.isEmpty) return <TransactionModel>[];
-      }
-
-      allEntries = await (_database.select(
-        _database.entries,
-      )..where((e) => e.transactionId.isIn(txIds))).get();
-
-      final List<TransactionModel> results = [];
-      for (final row in rows) {
-        final tx = row.readTable(_database.transactions);
-        if (!txIds.contains(tx.id)) continue;
-
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
         final rule = row.readTableOrNull(_database.recurringRules);
+        final entry = row.readTableOrNull(_database.entries);
 
-        final txEntries = allEntries
-            .where((e) => e.transactionId == tx.id)
-            .map((e) => EntryModel.fromDb(e))
-            .toList();
+        if (!txMap.containsKey(tx.id)) {
+          txMap[tx.id] = tx;
+          catMap[tx.id] = cat;
+          entMap[tx.id] = ent;
+          ruleMap[tx.id] = rule;
+          entriesMap[tx.id] = [];
+        }
 
-        results.add(
-          TransactionModel.fromDb(
-            tx,
-            category: cat != null ? CategoryModel.fromDb(cat) : null,
-            entity: ent,
-            entries: txEntries,
-            recurringRuleId: rule?.id,
-          ),
-        );
+        if (entry != null) {
+          entriesMap[tx.id]!.add(EntryModel.fromDb(entry));
+        }
       }
-      return results;
+
+      return txMap.entries.map((e) {
+        return TransactionModel.fromDb(
+          e.value,
+          category: catMap[e.key] != null
+              ? CategoryModel.fromDb(catMap[e.key]!)
+              : null,
+          entity: entMap[e.key],
+          entries: entriesMap[e.key]!,
+          recurringRuleId: ruleMap[e.key]?.id,
+        );
+      }).toList();
     });
   }
 
@@ -289,6 +293,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
                 _database.transactions.id,
               ),
             ),
+            leftOuterJoin(
+              _database.entries,
+              _database.entries.transactionId.equalsExp(
+                _database.transactions.id,
+              ),
+            ),
           ])
           ..where(_database.transactions.isConfirmed.equals(false))
           ..orderBy([
@@ -298,31 +308,42 @@ class TransactionRepositoryImpl implements TransactionRepository {
             ),
           ]);
 
-    return query.watch().asyncMap((rows) async {
-      final txIds = rows
-          .map((r) => r.readTable(_database.transactions).id)
-          .toList();
-      if (txIds.isEmpty) return <TransactionModel>[];
+    return query.watch().map((rows) {
+      final txMap = <String, db.Transaction>{};
+      final catMap = <String, db.Category?>{};
+      final entMap = <String, db.Entity?>{};
+      final ruleMap = <String, db.RecurringRule?>{};
+      final entriesMap = <String, List<EntryModel>>{};
 
-      final allEntries = await (_database.select(
-        _database.entries,
-      )..where((e) => e.transactionId.isIn(txIds))).get();
-
-      return rows.map((row) {
+      for (final row in rows) {
         final tx = row.readTable(_database.transactions);
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
         final rule = row.readTableOrNull(_database.recurringRules);
-        final txEntries = allEntries
-            .where((e) => e.transactionId == tx.id)
-            .map((e) => EntryModel.fromDb(e))
-            .toList();
+        final entry = row.readTableOrNull(_database.entries);
+
+        if (!txMap.containsKey(tx.id)) {
+          txMap[tx.id] = tx;
+          catMap[tx.id] = cat;
+          entMap[tx.id] = ent;
+          ruleMap[tx.id] = rule;
+          entriesMap[tx.id] = [];
+        }
+
+        if (entry != null) {
+          entriesMap[tx.id]!.add(EntryModel.fromDb(entry));
+        }
+      }
+
+      return txMap.entries.map((e) {
         return TransactionModel.fromDb(
-          tx,
-          category: cat != null ? CategoryModel.fromDb(cat) : null,
-          entity: ent,
-          entries: txEntries,
-          recurringRuleId: rule?.id,
+          e.value,
+          category: catMap[e.key] != null
+              ? CategoryModel.fromDb(catMap[e.key]!)
+              : null,
+          entity: entMap[e.key],
+          entries: entriesMap[e.key]!,
+          recurringRuleId: ruleMap[e.key]?.id,
         );
       }).toList();
     });
@@ -399,8 +420,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? notes,
     String? goalId,
     String? creditCardId,
+    List<SplitEntry>? splits,
   }) async {
     final transactionId = const Uuid().v4();
+    final hasSplits = splits != null && splits.isNotEmpty;
 
     await _database.transaction(() async {
       // 1. Incrementa o uso da entity
@@ -431,13 +454,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
               type: type,
               sentiment: Value(sentiment),
               notes: Value(notes),
-              categoryId: Value(categoryId),
+              categoryId: hasSplits ? const Value(null) : Value(categoryId),
               entityId: Value(entityId),
               goalId: Value(goalId),
               creditCardId: Value(creditCardId),
               rawAmount: creditCardId != null
                   ? Value(amount)
                   : const Value.absent(),
+              isSplit: Value(hasSplits),
               isCompleted: const Value(true),
             ),
           );
@@ -500,14 +524,32 @@ class TransactionRepositoryImpl implements TransactionRepository {
         }
       }
 
-      // 4. Atualiza progresso da meta se vinculada
+      // 4. Insere splits se existirem
+      if (hasSplits) {
+        for (final split in splits!) {
+          await _database
+              .into(_database.transactionSplits)
+              .insert(
+                db.TransactionSplitsCompanion.insert(
+                  id: const Uuid().v4(),
+                  transactionId: transactionId,
+                  categoryId: Value(split.categoryId),
+                  amount: split.amount,
+                  description: Value(split.description),
+                ),
+              );
+        }
+      }
+
+      // 5. Atualiza progresso da meta se vinculada
       if (goalId != null) {
         await _updateGoalProgress(goalId, amount, type);
-      } else if (categoryId != null) {
+      } else if (categoryId != null && !hasSplits) {
         // Auto-absorção: procura goals ativos que absorvem essa categoria
         await _applyGoalAutoAbsorption(transactionId, categoryId, amount, type);
       }
     });
+    await _enqueueTransactionSync(transactionId, 'insert');
     return transactionId;
   }
 
@@ -579,7 +621,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? notes,
     String? goalId,
     String? creditCardId,
+    List<SplitEntry>? splits,
   }) async {
+    final hasSplits = splits != null && splits.isNotEmpty;
     await _database.transaction(() async {
       // 0. Busca estado anterior para desfazer impacto na meta
       final oldTx = await (_database.select(
@@ -613,13 +657,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
           date: Value(date),
           description: Value(description),
           type: Value(type),
-          categoryId: Value(categoryId),
+          categoryId: hasSplits ? const Value(null) : Value(categoryId),
           entityId: Value(entityId),
           goalId: Value(goalId),
           sentiment: Value(sentiment),
           notes: Value(notes),
           creditCardId: Value(creditCardId),
           rawAmount: creditCardId != null ? Value(amount) : const Value(null),
+          isSplit: Value(hasSplits),
           updatedAt: Value(DateTime.now()),
         ),
       );
@@ -681,17 +726,39 @@ class TransactionRepositoryImpl implements TransactionRepository {
         }
       }
 
-      // 4. Aplica novo impacto na meta
+      // 4. Atualiza splits
+      await (_database.delete(
+        _database.transactionSplits,
+      )..where((s) => s.transactionId.equals(id))).go();
+      if (hasSplits) {
+        for (final split in splits!) {
+          await _database
+              .into(_database.transactionSplits)
+              .insert(
+                db.TransactionSplitsCompanion.insert(
+                  id: const Uuid().v4(),
+                  transactionId: id,
+                  categoryId: Value(split.categoryId),
+                  amount: split.amount,
+                  description: Value(split.description),
+                ),
+              );
+        }
+      }
+
+      // 5. Aplica novo impacto na meta
       if (goalId != null) {
         await _updateGoalProgress(goalId, amount, type);
-      } else if (categoryId != null) {
+      } else if (categoryId != null && !hasSplits) {
         await _applyGoalAutoAbsorption(id, categoryId, amount, type);
       }
     });
+    await _enqueueTransactionSync(id, 'update');
   }
 
   @override
   Future<void> deleteTransaction(String id) async {
+    await _enqueueTransactionSync(id, 'delete');
     await _database.transaction(() async {
       // 0. Desfaz impacto na meta
       final tx = await (_database.select(
@@ -718,6 +785,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   Future<void> _deleteSingleTx(String id) async {
+    await _enqueueTransactionSync(id, 'delete');
     final tx = await (_database.select(
       _database.transactions,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -743,6 +811,60 @@ class TransactionRepositoryImpl implements TransactionRepository {
     await (_database.delete(
       _database.transactions,
     )..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<void> _enqueueTransactionSync(String id, String operation) async {
+    final tx = await (_database.select(
+      _database.transactions,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    final entries = await (_database.select(
+      _database.entries,
+    )..where((e) => e.transactionId.equals(id))).get();
+
+    final payload = tx == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': tx.id,
+            'date': tx.date.toIso8601String(),
+            'description': tx.description,
+            'type': tx.type,
+            'sentiment': tx.sentiment,
+            'notes': tx.notes,
+            'category_id': tx.categoryId,
+            'entity_id': tx.entityId,
+            'goal_id': tx.goalId,
+            'installment_plan_id': tx.installmentPlanId,
+            'installment_number': tx.installmentNumber,
+            'recurring_rule_id': tx.recurringRuleId,
+            'credit_card_id': tx.creditCardId,
+            'raw_amount': tx.rawAmount,
+            'invoice_id': tx.invoiceId,
+            'is_completed': tx.isCompleted,
+            'is_confirmed': tx.isConfirmed,
+            'source': tx.source,
+            'created_at': tx.createdAt.toIso8601String(),
+            'updated_at': tx.updatedAt.toIso8601String(),
+            'entries': entries
+                .map(
+                  (entry) => <String, dynamic>{
+                    'id': entry.id,
+                    'transaction_id': entry.transactionId,
+                    'account_id': entry.accountId,
+                    'amount': entry.amount,
+                    'type': entry.type,
+                    'created_at': entry.createdAt.toIso8601String(),
+                  },
+                )
+                .toList(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'transaction',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 
   @override

@@ -33,6 +33,9 @@ import 'tables/badges.dart';
 import 'tables/category_parents.dart';
 import 'tables/goal_categories.dart';
 import 'tables/chat_messages.dart';
+import 'tables/budgets.dart';
+import 'tables/transaction_splits.dart';
+import 'tables/reconciliation_checkpoints.dart';
 
 // DAOs (To be added later)
 import 'daos/accounts_dao.dart';
@@ -50,6 +53,8 @@ import 'daos/sync_queue_dao.dart';
 import 'daos/households_dao.dart';
 import 'daos/streaks_dao.dart';
 import 'daos/badges_dao.dart';
+import 'daos/budgets_dao.dart';
+import 'daos/reconciliation_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -80,6 +85,9 @@ part 'app_database.g.dart';
     CategoryParents,
     GoalCategories,
     ChatMessages,
+    Budgets,
+    TransactionSplits,
+    ReconciliationCheckpoints,
   ],
   daos: [
     AccountsDao,
@@ -97,6 +105,8 @@ part 'app_database.g.dart';
     HouseholdsDao,
     StreaksDao,
     BadgesDao,
+    BudgetsDao,
+    ReconciliationDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -105,7 +115,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration {
@@ -290,6 +300,16 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 17) {
           await m.createTable(chatMessages);
+        }
+        if (from < 18) {
+          // Feature: Orçamento Envelope
+          await m.createTable(budgets);
+          // Feature: Reconciliação de Contas
+          await m.addColumn(entries, entries.reconciledAt);
+          await m.createTable(reconciliationCheckpoints);
+          // Feature: Split de Transações
+          await m.addColumn(transactions, transactions.isSplit);
+          await m.createTable(transactionSplits);
         }
       },
       beforeOpen: (details) async {

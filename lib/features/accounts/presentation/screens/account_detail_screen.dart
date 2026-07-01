@@ -117,6 +117,12 @@ class AccountDetailScreen extends ConsumerWidget {
                   child: const Text('Editar'),
                 ),
                 MenuItemButton(
+                  leadingIcon: const Icon(Icons.fact_check_outlined),
+                  onPressed: () =>
+                      context.push('/accounts/$accountId/reconcile'),
+                  child: const Text('Reconciliar'),
+                ),
+                MenuItemButton(
                   leadingIcon: Icon(
                     account.isActive
                         ? Icons.archive_outlined

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
@@ -13,9 +14,11 @@ import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_tile.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_filters.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/duplicate_alert_banner.dart';
 
 class TransactionsListScreen extends ConsumerWidget {
   const TransactionsListScreen({super.key});
@@ -63,6 +66,7 @@ class TransactionsListScreen extends ConsumerWidget {
         children: [
           const TransactionFiltersWidget(),
           const Divider(height: 1, thickness: 0.5),
+          const DuplicateAlertBanner(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
@@ -85,7 +89,13 @@ class TransactionsListScreen extends ConsumerWidget {
                             : 'Limpar Filtros',
                         onAction: () {
                           if (filters.isEmpty) {
-                            context.push('/transaction/new');
+                            if (Breakpoints.isCompact(context)) {
+                              context.push('/transaction/new');
+                            } else {
+                              ref
+                                  .read(transactionFormModalProvider.notifier)
+                                  .open();
+                            }
                           } else {
                             ref
                                     .read(transactionFiltersProvider.notifier)
@@ -263,12 +273,31 @@ class TransactionsListScreen extends ConsumerWidget {
                             final tx = item as TransactionModel;
                             return TransactionTile(
                               transaction: tx,
-                              onTap: () =>
-                                  context.push('/transaction/edit', extra: tx),
-                              onClone: () => context.push(
-                                '/transaction/new?isCloning=true',
-                                extra: tx,
-                              ),
+                              onTap: () {
+                                if (Breakpoints.isCompact(context)) {
+                                  context.push('/transaction/edit', extra: tx);
+                                } else {
+                                  ref
+                                      .read(
+                                        transactionFormModalProvider.notifier,
+                                      )
+                                      .open(transaction: tx);
+                                }
+                              },
+                              onClone: () {
+                                if (Breakpoints.isCompact(context)) {
+                                  context.push(
+                                    '/transaction/new?isCloning=true',
+                                    extra: tx,
+                                  );
+                                } else {
+                                  ref
+                                      .read(
+                                        transactionFormModalProvider.notifier,
+                                      )
+                                      .open(transaction: tx, isCloning: true);
+                                }
+                              },
                               onDelete: () =>
                                   showDeleteTransactionSheet(context, ref, tx),
                             );
@@ -280,8 +309,41 @@ class TransactionsListScreen extends ConsumerWidget {
                   );
                 },
                 loading: () => const Center(child: AppLoadingIndicator()),
-                error: (err, stack) =>
-                    Center(child: Text('Erro ao carregar transações: $err')),
+                error: (err, stack) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 48,
+                          color: cs.error,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Erro ao carregar transações.',
+                          textAlign: TextAlign.center,
+                          style: tt.titleMedium?.copyWith(color: cs.error),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          err.toString(),
+                          textAlign: TextAlign.center,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () =>
+                              ref.invalidate(filteredTransactionsProvider),
+                          child: const Text('Tentar Novamente'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

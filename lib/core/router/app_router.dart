@@ -7,6 +7,7 @@ import 'package:bestfin/features/accounts/presentation/screens/account_form_scre
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/screens/accounts_list_screen.dart';
 import 'package:bestfin/features/accounts/presentation/screens/account_detail_screen.dart';
+import 'package:bestfin/features/accounts/presentation/screens/reconciliation_screen.dart';
 import 'package:bestfin/features/dashboard/dashboard_screen.dart';
 import 'package:bestfin/features/gamification/presentation/screens/gamification_hub_screen.dart';
 import 'package:bestfin/features/more/presentation/screens/more_screen.dart';
@@ -38,6 +39,7 @@ import 'package:bestfin/features/sync/presentation/screens/login_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/register_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/sync_settings_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/household_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/mnemonic_recovery_screen.dart';
 import 'package:bestfin/features/ai/presentation/screens/ai_dashboard_screen.dart';
 import 'package:bestfin/features/ai/presentation/widgets/ocr_scanner_widget.dart';
 import 'package:bestfin/features/llm/presentation/screens/ai_chat_screen.dart';
@@ -54,6 +56,8 @@ import 'package:bestfin/features/security/presentation/screens/pin_setup_screen.
 import 'package:bestfin/features/pdf_import/domain/models/pdf_parsed_transaction.dart';
 import 'package:bestfin/features/pdf_import/presentation/screens/pdf_import_screen.dart';
 import 'package:bestfin/features/pdf_import/presentation/screens/pdf_review_screen.dart';
+import 'package:bestfin/features/budgets/presentation/screens/budgets_list_screen.dart';
+import 'package:bestfin/features/cashflow/presentation/screens/cashflow_screen.dart';
 
 class _RouterNotifier extends ChangeNotifier {
   bool _onboardingCompleted;
@@ -183,8 +187,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/accounts/:id/reconcile',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ReconciliationScreen(accountId: id);
+        },
+      ),
+      GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/budgets',
+        builder: (context, state) => const BudgetsListScreen(),
+      ),
+      GoRoute(
+        path: '/cashflow',
+        builder: (context, state) => const CashFlowScreen(),
       ),
       GoRoute(
         path: '/ai',
@@ -312,6 +331,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sync/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/sync/recover',
+        builder: (context, state) => const MnemonicRecoveryScreen(),
       ),
       GoRoute(
         path: '/sync/household',

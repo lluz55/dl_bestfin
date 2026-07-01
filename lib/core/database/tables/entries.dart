@@ -13,6 +13,7 @@ class Entries extends Table {
       text().references(Accounts, #id, onDelete: KeyAction.restrict)();
   IntColumn get amount => integer()(); // in cents (R$ 10.50 -> 1050)
   TextColumn get type => text()(); // debit, credit
+  DateTimeColumn get reconciledAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

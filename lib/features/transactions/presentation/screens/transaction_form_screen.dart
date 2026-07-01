@@ -31,17 +31,21 @@ import 'package:bestfin/features/credit_cards/presentation/providers/credit_card
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
 import 'package:bestfin/features/recurring/presentation/widgets/recurring_wizard_sheet.dart';
+import 'package:bestfin/features/transactions/domain/models/split_entry.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/split_editor_sheet.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   final TransactionModel? transaction;
   final TransactionType? initialType;
   final bool isCloning;
+  final VoidCallback? onClose;
 
   const TransactionFormScreen({
     super.key,
     this.transaction,
     this.initialType,
     this.isCloning = false,
+    this.onClose,
   });
 
   @override
@@ -89,6 +93,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   DateTime? _recurringStartDate;
   DateTime? _recurringEndDate;
   bool _recurringAutoConfirm = false;
+
+  // Split state
+  List<SplitEntry> _splits = [];
 
   bool get _isEditing =>
       widget.transaction != null &&
@@ -139,6 +146,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _entityId = tx?.entityId;
     _goalId = tx?.goalId;
     _sentiment = tx?.sentiment;
+    _splits = List<SplitEntry>.from(tx?.splits ?? []);
     _date = _isCloningState ? DateTime.now() : (tx?.date ?? DateTime.now());
 
     _descriptionController.addListener(_onDescriptionChanged);
@@ -197,7 +205,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             _descriptionController.text.trim().isEmpty) {
           return 'Informe uma descrição.';
         }
-        if (_type != TransactionType.transfer && _categoryId == null) {
+        if (_type != TransactionType.transfer &&
+            _categoryId == null &&
+            _splits.isEmpty) {
           return 'Selecione uma categoria.';
         }
       case 2:
@@ -373,7 +383,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final result = await showModalBottomSheet<InstallmentWizardResult>(
       context: context,
-      isScrollControlled: true,
       builder: (context) => InstallmentWizardSheet(
         totalAmountInCents: _amountInCents,
         description: _descriptionController.text.trim().isNotEmpty
@@ -406,7 +415,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Future<void> _openRecurringForm() async {
     final result = await showModalBottomSheet<RecurringWizardResult>(
       context: context,
-      isScrollControlled: true,
       builder: (context) => RecurringWizardSheet(
         initialFrequency: _recurringFrequency ?? RecurringFrequency.monthly,
         initialStartDate: _recurringStartDate ?? _date,
@@ -522,7 +530,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
     if (_type != TransactionType.transfer) {
-      if (_categoryId == null) {
+      if (_categoryId == null && _splits.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Por favor, selecione uma categoria.')),
         );
@@ -634,6 +642,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             creditCardId: _type == TransactionType.expense
                 ? _selectedCreditCardId
                 : null,
+            splits: _splits.isNotEmpty ? _splits : null,
           );
         } else {
           baseTransactionId = await ref.read(createTransactionProvider)(
@@ -653,6 +662,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             creditCardId: _type == TransactionType.expense
                 ? _selectedCreditCardId
                 : null,
+            splits: _splits.isNotEmpty ? _splits : null,
           );
         }
 
@@ -709,6 +719,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           creditCardId: _type == TransactionType.expense
               ? _selectedCreditCardId
               : null,
+          splits: _splits.isNotEmpty ? _splits : null,
         );
       } else {
         await ref.read(createTransactionProvider)(
@@ -728,6 +739,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           creditCardId: _type == TransactionType.expense
               ? _selectedCreditCardId
               : null,
+          splits: _splits.isNotEmpty ? _splits : null,
         );
       }
 
@@ -788,6 +800,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    final isInModal = widget.onClose != null;
 
     ref.listen(activeAccountsProvider, (prev, next) {
       if (_accountId == null && widget.transaction == null && next.isNotEmpty) {
@@ -796,76 +809,80 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     });
 
     return PopScope(
-      canPop: _currentPage == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _goBack();
-      },
-      child: Scaffold(
-        backgroundColor: cs.surface,
-        appBar: AppPageAppBar(
-          title: _isEditing
-              ? 'Editar Transação'
-              : (_isCloningState ? 'Duplicar Transação' : 'Nova Transação'),
-          actions: [
-            if (_isEditing) ...[
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
-                tooltip: 'Excluir transação',
-                onPressed: () async {
-                  final deleted = await showDeleteTransactionSheet(
-                    context,
-                    ref,
-                    widget.transaction!,
-                  );
-                  if (deleted && context.mounted) context.pop();
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded),
-                tooltip: 'Duplicar transação',
-                onPressed: () {
-                  setState(() {
-                    _isCloningState = true;
-                    _date = DateTime.now();
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Modo de duplicação ativado. Salve para criar uma nova transação.',
+        canPop: _currentPage == 0,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _goBack();
+        },
+        child: Scaffold(
+          backgroundColor: cs.surface,
+          appBar: isInModal
+              ? null
+              : AppPageAppBar(
+                  title: _isEditing
+                      ? 'Editar Transação'
+                      : (_isCloningState
+                            ? 'Duplicar Transação'
+                            : 'Nova Transação'),
+                  actions: [
+                    if (_isEditing) ...[
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        tooltip: 'Excluir transação',
+                        onPressed: () async {
+                          final deleted = await showDeleteTransactionSheet(
+                            context,
+                            ref,
+                            widget.transaction!,
+                          );
+                          if (deleted && context.mounted) context.pop();
+                        },
                       ),
-                    ),
-                  );
-                },
+                      IconButton(
+                        icon: const Icon(Icons.copy_rounded),
+                        tooltip: 'Duplicar transação',
+                        onPressed: () {
+                          setState(() {
+                            _isCloningState = true;
+                            _date = DateTime.now();
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Modo de duplicação ativado. Salve para criar uma nova transação.',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(cs, tt),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.3),
+              ),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildPageAmount(cs, tt),
+                    _buildPageOQue(cs, tt),
+                    _buildPageComo(cs, tt),
+                    _buildPageExtras(cs, tt),
+                    _buildPageResumo(cs, tt),
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
+          bottomNavigationBar: _buildFooter(cs, tt),
         ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(cs, tt),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: cs.outlineVariant.withValues(alpha: 0.3),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPageAmount(cs, tt),
-                  _buildPageOQue(cs, tt),
-                  _buildPageComo(cs, tt),
-                  _buildPageExtras(cs, tt),
-                  _buildPageResumo(cs, tt),
-                ],
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: _buildFooter(cs, tt),
-      ),
     );
   }
 
@@ -945,17 +962,25 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ? 'Atualizar'
         : (_isCloningState ? 'Duplicar' : 'Confirmar e Salvar');
 
+    final showCancelButton = _currentPage == 0 && widget.onClose != null;
+    final showBackButton = _currentPage > 0;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Row(
           children: [
-            if (_currentPage > 0) ...[
+            if (showBackButton || showCancelButton) ...[
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _goBack,
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('Voltar'),
+                  onPressed: showCancelButton ? widget.onClose : _goBack,
+                  icon: Icon(
+                    showCancelButton
+                        ? Icons.close_rounded
+                        : Icons.arrow_back_rounded,
+                    size: 18,
+                  ),
+                  label: Text(showCancelButton ? 'Cancelar' : 'Voltar'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -1030,6 +1055,79 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     ]);
   }
 
+  // ── Split ──────────────────────────────────────────────────────────────────
+
+  Future<void> _openSplitEditor() async {
+    final result = await showModalBottomSheet<List<SplitEntry>?>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => SplitEditorSheet(totalAmount: _amountInCents),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _splits = result;
+        // Clear single category when user confirms splits
+        _categoryId = null;
+        _categoryName = null;
+        _categoryColor = null;
+        _categoryIcon = null;
+      });
+    }
+  }
+
+  Widget _buildSplitsChip(ColorScheme cs, TextTheme tt) {
+    return InkWell(
+      onTap: _openSplitEditor,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: cs.primaryContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.call_split_rounded, size: 18, color: cs.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_splits.length} categoria${_splits.length > 1 ? 's' : ''} — toque para editar',
+                    style: tt.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                  Text(
+                    _splits
+                        .where((s) => s.categoryName != null)
+                        .map((s) => s.categoryName!)
+                        .join(', '),
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => setState(() => _splits = []),
+              style: TextButton.styleFrom(
+                foregroundColor: cs.error,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Remover'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Page 1: O quê ─────────────────────────────────────────────────────────
 
   Widget _buildPageOQue(ColorScheme cs, TextTheme tt) {
@@ -1092,7 +1190,22 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       // Category button (non-transfer only)
       if (_type != TransactionType.transfer) ...[
         const SizedBox(height: 16),
-        _buildCategoryButton(cs, tt, activeColor),
+        if (_splits.isEmpty) _buildCategoryButton(cs, tt, activeColor),
+        if (_type == TransactionType.expense) ...[
+          const SizedBox(height: 8),
+          if (_splits.isEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ActionChip(
+                avatar: const Icon(Icons.call_split_rounded, size: 16),
+                label: const Text('Dividir entre categorias'),
+                onPressed: _openSplitEditor,
+                visualDensity: VisualDensity.compact,
+              ),
+            )
+          else
+            _buildSplitsChip(cs, tt),
+        ],
       ],
     ]);
   }

@@ -16,6 +16,8 @@ enum HomeWidgetId {
   periodFilter,
   quickActions,
   recentTransactions,
+  budgetsOverview,
+  cashFlowProjection,
 }
 
 extension HomeWidgetIdLabel on HomeWidgetId {
@@ -34,6 +36,8 @@ extension HomeWidgetIdLabel on HomeWidgetId {
     HomeWidgetId.periodFilter => 'Filtro de período',
     HomeWidgetId.quickActions => 'Ações rápidas',
     HomeWidgetId.recentTransactions => 'Últimas transações',
+    HomeWidgetId.budgetsOverview => 'Orçamento Envelope',
+    HomeWidgetId.cashFlowProjection => 'Projeção de Caixa',
   };
 }
 

@@ -1,4 +1,5 @@
 import 'package:bestfin/features/transactions/data/repositories/transaction_repository.dart';
+import 'package:bestfin/features/transactions/domain/models/split_entry.dart';
 
 class UpdateTransaction {
   final TransactionRepository repository;
@@ -19,6 +20,7 @@ class UpdateTransaction {
     String? notes,
     String? goalId,
     String? creditCardId,
+    List<SplitEntry>? splits,
   }) {
     return repository.updateTransaction(
       id: id,
@@ -34,6 +36,7 @@ class UpdateTransaction {
       notes: notes,
       goalId: goalId,
       creditCardId: creditCardId,
+      splits: splits,
     );
   }
 }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
+import 'package:bestfin/features/goals/presentation/providers/goal_form_modal_provider.dart';
 
 class GoalsProgress extends StatelessWidget {
   final List<GoalModel> goals;
@@ -18,7 +21,7 @@ class GoalsProgress extends StatelessWidget {
     final tt = context.textTheme;
 
     return AnimatedCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(24),
       onTap: goals.isNotEmpty ? () => context.push('/goals') : null,
       child: Column(
@@ -108,7 +111,11 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           FilledButton.tonal(
-            onPressed: () => context.push('/goals/new'),
+            onPressed: Breakpoints.isCompact(context)
+                ? () => context.push('/goals/new')
+                : () => ProviderScope.containerOf(
+                    context,
+                  ).read(goalFormModalProvider.notifier).open(),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),

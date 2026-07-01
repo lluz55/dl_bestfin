@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/theme/typography.dart';
+import 'package:bestfin/core/utils/currency_formatter.dart';
 
 class BalanceCard extends StatefulWidget {
   final int balanceInCents;
@@ -46,7 +47,7 @@ class _BalanceCardState extends State<BalanceCard> {
             child: AnimatedContainer(
               duration: motion.morphDuration,
               curve: motion.morphCurve,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: radius,
                 gradient: LinearGradient(
@@ -102,11 +103,28 @@ class _BalanceCardState extends State<BalanceCard> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'Toque para ver detalhes do mês',
-                            style: tt.bodySmall?.copyWith(
-                              color: cs.onPrimary.withValues(alpha: 0.5),
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                _expanded
+                                    ? 'Toque para fechar'
+                                    : 'Toque para ver detalhes do mês',
+                                style: tt.bodySmall?.copyWith(
+                                  color: cs.onPrimary.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              AnimatedRotation(
+                                turns: _expanded ? 0.5 : 0,
+                                duration: motion.morphDuration,
+                                curve: motion.morphCurve,
+                                child: Icon(
+                                  Icons.expand_more_rounded,
+                                  size: 16,
+                                  color: cs.onPrimary.withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ],
                           ),
                           AnimatedSize(
                             duration: motion.morphDuration,
@@ -120,7 +138,8 @@ class _BalanceCardState extends State<BalanceCard> {
                                               label: 'Receitas',
                                               amountInCents:
                                                   widget.monthlyIncome,
-                                              color: const Color(0xFF81C784),
+                                              color:
+                                                  context.customColors.income,
                                               cs: cs,
                                               tt: tt,
                                             ),
@@ -129,7 +148,8 @@ class _BalanceCardState extends State<BalanceCard> {
                                               label: 'Despesas',
                                               amountInCents:
                                                   widget.monthlyExpense,
-                                              color: const Color(0xFFE57373),
+                                              color:
+                                                  context.customColors.expense,
                                               cs: cs,
                                               tt: tt,
                                             ),
@@ -161,16 +181,40 @@ class _BalanceCardState extends State<BalanceCard> {
   }
 }
 
-class AnimatedCounter extends ConsumerWidget {
+class AnimatedCounter extends ConsumerStatefulWidget {
   final int value;
   final TextStyle? style;
 
   const AnimatedCounter({super.key, required this.value, this.style});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnimatedCounter> createState() => _AnimatedCounterState();
+}
+
+class _AnimatedCounterState extends ConsumerState<AnimatedCounter> {
+  late int _animStart;
+  late int _animEnd;
+
+  @override
+  void initState() {
+    super.initState();
+    _animStart = widget.value;
+    _animEnd = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(AnimatedCounter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _animStart = oldWidget.value;
+      _animEnd = widget.value;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final hidden = ref.watch(valuesHiddenProvider);
-    final baseStyle = (style ?? context.textTheme.displaySmall)?.merge(
+    final baseStyle = (widget.style ?? context.textTheme.displaySmall)?.merge(
       AppTypography.monospace,
     );
 
@@ -182,14 +226,16 @@ class AnimatedCounter extends ConsumerWidget {
     }
 
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: value.toDouble()),
+      key: ValueKey(_animEnd),
+      tween: Tween<double>(
+        begin: _animStart.toDouble(),
+        end: _animEnd.toDouble(),
+      ),
       duration: const Duration(milliseconds: 800),
       curve: Curves.easeOutQuart,
       builder: (context, val, child) {
-        final double amount = val / 100.0;
-        final isNegative = amount < 0;
-        final formatted =
-            'R\$ ${amount.abs().toStringAsFixed(2).replaceAll('.', ',')}';
+        final isNegative = val < 0;
+        final formatted = CurrencyFormatter.formatCents(val.round().abs());
         final sign = isNegative ? '- ' : '';
         return Text('$sign$formatted', style: baseStyle);
       },
@@ -215,10 +261,9 @@ class _MiniStat extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hidden = ref.watch(valuesHiddenProvider);
-    final double amount = amountInCents / 100.0;
     final formatted = hidden
         ? '•••••'
-        : 'R\$ ${amount.abs().toStringAsFixed(2).replaceAll('.', ',')}';
+        : CurrencyFormatter.formatCents(amountInCents.abs());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/features/categories/domain/models/category.dart';
@@ -214,6 +215,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
             : const Value.absent(),
       ),
     );
+    await _enqueueCategorySync(id, 'insert');
     return id;
   }
 
@@ -238,6 +240,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueCategorySync(id, 'update');
   }
 
   @override
@@ -249,6 +252,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     if (childIds.isNotEmpty) {
       await _database.categoriesDao.insertChildrenForParent(parentId, childIds);
     }
+    await _enqueueCategorySync(parentId, 'update');
   }
 
   @override
@@ -261,10 +265,12 @@ class CategoryRepositoryImpl implements CategoryRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueCategorySync(id, 'update');
   }
 
   @override
   Future<void> deleteCategory(String id) async {
+    await _enqueueCategorySync(id, 'delete');
     await _database.categoriesDao.deleteCategory(id);
   }
 
@@ -284,5 +290,39 @@ class CategoryRepositoryImpl implements CategoryRepository {
   Future<void> saveRootOrder(List<String> orderedIds) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_kOrderKey, orderedIds);
+  }
+
+  Future<void> _enqueueCategorySync(String id, String operation) async {
+    final category = await (_database.select(
+      _database.categories,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    final relationships = await (_database.select(
+      _database.categoryParents,
+    )..where((r) => r.parentCategoryId.equals(id))).get();
+
+    final payload = category == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': category.id,
+            'name': category.name,
+            'icon': category.icon,
+            'color': category.color,
+            'type': category.type,
+            'is_system': category.isSystem,
+            'parent_id': category.parentId,
+            'is_archived': category.isArchived,
+            'description': category.description,
+            'created_at': category.createdAt.toIso8601String(),
+            'updated_at': category.updatedAt.toIso8601String(),
+            'child_ids': relationships.map((r) => r.childCategoryId).toList(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'category',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 }

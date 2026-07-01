@@ -3,6 +3,7 @@ import 'package:bestfin/core/constants/sentiment_types.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'entry.dart';
+import 'split_entry.dart';
 
 class TransactionModel {
   final String id;
@@ -20,6 +21,7 @@ class TransactionModel {
   final String? creditCardId;
   final int? rawAmount;
   final String? invoiceId;
+  final bool isSplit;
   final bool isCompleted;
   final bool isConfirmed;
   final String? source;
@@ -30,6 +32,7 @@ class TransactionModel {
   final CategoryModel? category;
   final db.Entity? entity;
   final List<EntryModel> entries;
+  final List<SplitEntry> splits;
 
   const TransactionModel({
     required this.id,
@@ -47,6 +50,7 @@ class TransactionModel {
     this.creditCardId,
     this.rawAmount,
     this.invoiceId,
+    this.isSplit = false,
     required this.isCompleted,
     this.isConfirmed = true,
     this.source,
@@ -55,6 +59,7 @@ class TransactionModel {
     this.category,
     this.entity,
     this.entries = const [],
+    this.splits = const [],
   });
 
   factory TransactionModel.fromDb(
@@ -62,6 +67,7 @@ class TransactionModel {
     CategoryModel? category,
     db.Entity? entity,
     List<EntryModel> entries = const [],
+    List<SplitEntry> splits = const [],
     String? recurringRuleId,
   }) {
     return TransactionModel(
@@ -80,6 +86,7 @@ class TransactionModel {
       creditCardId: tx.creditCardId,
       rawAmount: tx.rawAmount,
       invoiceId: tx.invoiceId,
+      isSplit: tx.isSplit,
       isCompleted: tx.isCompleted,
       isConfirmed: tx.isConfirmed,
       source: tx.source,
@@ -88,6 +95,7 @@ class TransactionModel {
       category: category,
       entity: entity,
       entries: entries,
+      splits: splits,
     );
   }
 

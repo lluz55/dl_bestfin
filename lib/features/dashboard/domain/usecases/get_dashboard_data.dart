@@ -47,7 +47,9 @@ class GetDashboardData {
     List<Account>? lastAcc;
     List<GoalModel>? lastGoals;
 
-    void update() {
+    Timer? debounceTimer;
+
+    void flush() {
       if (lastTx != null && lastAcc != null && lastGoals != null) {
         try {
           final data = aggregate(
@@ -63,10 +65,15 @@ class GetDashboardData {
       }
     }
 
+    void scheduleUpdate() {
+      debounceTimer?.cancel();
+      debounceTimer = Timer(const Duration(milliseconds: 300), flush);
+    }
+
     subTx = transactionRepository.watchAllTransactions().listen(
       (txs) {
         lastTx = txs;
-        update();
+        scheduleUpdate();
       },
       onError: (err) {
         if (!controller.isClosed) controller.addError(err);
@@ -76,7 +83,7 @@ class GetDashboardData {
     subAcc = accountRepository.watchAllAccounts().listen(
       (accs) {
         lastAcc = accs;
-        update();
+        scheduleUpdate();
       },
       onError: (err) {
         if (!controller.isClosed) controller.addError(err);
@@ -86,7 +93,7 @@ class GetDashboardData {
     subGoals = goalRepository.watchActiveGoals().listen(
       (goals) {
         lastGoals = goals;
-        update();
+        scheduleUpdate();
       },
       onError: (err) {
         if (!controller.isClosed) controller.addError(err);
@@ -94,6 +101,7 @@ class GetDashboardData {
     );
 
     controller.onCancel = () {
+      debounceTimer?.cancel();
       subTx?.cancel();
       subAcc?.cancel();
       subGoals?.cancel();
