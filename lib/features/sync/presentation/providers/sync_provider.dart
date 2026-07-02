@@ -3,64 +3,38 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/sync/data/repositories/household_repository.dart';
-import 'package:bestfin/features/sync/data/services/backend_sync_service.dart';
+import 'package:bestfin/features/sync/data/services/nostr_sync_service.dart';
 import 'package:bestfin/features/sync/data/services/sync_service.dart';
 import 'package:bestfin/features/sync/domain/models/household.dart';
-import 'package:bestfin/features/sync/domain/models/sync_user.dart';
+import 'package:bestfin/features/sync/domain/models/sync_identity.dart';
 
-// ── Backend service (singleton) ───────────────────────────────────────────────
+// ── Nostr transport (singleton) ───────────────────────────────────────────────
 
-final backendSyncServiceProvider = Provider<BackendSyncService>((ref) {
-  return BackendSyncService();
+final nostrSyncServiceProvider = Provider<NostrSyncService>((ref) {
+  final db = ref.watch(databaseProvider);
+  final service = NostrSyncService(db);
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 // ── Sync service ──────────────────────────────────────────────────────────────
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final db = ref.watch(databaseProvider);
-  final backend = ref.watch(backendSyncServiceProvider);
-  final service = SyncService(db, backend);
+  final transport = ref.watch(nostrSyncServiceProvider);
+  final service = SyncService(db, transport);
   ref.onDispose(service.dispose);
   return service;
 });
 
-// ── Backend setup state ───────────────────────────────────────────────────────
+// ── Identity state ────────────────────────────────────────────────────────────
 
-class BackendSetup {
-  final String baseUrl;
-
-  const BackendSetup({required this.baseUrl});
-
-  bool get isConfigured => baseUrl.isNotEmpty;
-}
-
-final backendSetupProvider =
-    AsyncNotifierProvider<BackendSetupNotifier, BackendSetup>(
-      BackendSetupNotifier.new,
-    );
-
-class BackendSetupNotifier extends AsyncNotifier<BackendSetup> {
-  @override
-  Future<BackendSetup> build() async {
-    final config = await ref.read(backendSyncServiceProvider).loadConfig();
-    return BackendSetup(baseUrl: config.baseUrl);
-  }
-
-  Future<void> save(String baseUrl) async {
-    await ref.read(backendSyncServiceProvider).saveConfig(baseUrl);
-    ref.invalidateSelf();
-  }
-}
-
-// ── Auth state ────────────────────────────────────────────────────────────────
-
-final currentUserProvider = StreamProvider<SyncUser?>((ref) {
-  final backend = ref.watch(backendSyncServiceProvider);
-  return backend.authStateChanges;
+final currentIdentityProvider = StreamProvider<SyncIdentity?>((ref) {
+  return ref.watch(nostrSyncServiceProvider).identityChanges;
 });
 
-final isSignedInProvider = Provider<bool>((ref) {
-  return ref.watch(backendSyncServiceProvider).isSignedIn;
+final isIdentityReadyProvider = Provider<bool>((ref) {
+  return ref.watch(nostrSyncServiceProvider).isReady;
 });
 
 // ── Sync status ───────────────────────────────────────────────────────────────
@@ -100,7 +74,6 @@ final syncStateProvider = NotifierProvider<SyncStateNotifier, SyncState>(
 class SyncStateNotifier extends Notifier<SyncState> {
   @override
   SyncState build() {
-    // Watch pending count from DB
     final pendingSub = ref
         .watch(databaseProvider)
         .syncQueueDao
@@ -130,7 +103,6 @@ class SyncStateNotifier extends Notifier<SyncState> {
         errorMessage: result.errorMessage,
       );
     }
-    // Reset to idle after 3s
     await Future.delayed(const Duration(seconds: 3));
     if (state.status != SyncStatus.syncing) {
       state = state.copyWith(status: SyncStatus.idle);

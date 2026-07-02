@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:bip340/bip340.dart' as bip340;
 import 'package:cryptography/cryptography.dart';
 
 // Encrypted blob format: base64url(nonce_12 ‖ ciphertext ‖ mac_16)
@@ -100,6 +101,31 @@ class E2ECryptoService {
       bytes[i] = int.parse(entropyHex.substring(i * 2, i * 2 + 2), radix: 16);
     }
     return bytes;
+  }
+
+  // HKDF-SHA256(masterKey, salt="bestfin-nostr-v1") → 32-byte secp256k1 scalar
+  // Returns the Nostr private key as a 64-char hex string.
+  static Future<String> deriveNostrPrivkey(List<int> masterKey) async {
+    final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
+    final derived = await hkdf.deriveKey(
+      secretKey: SecretKey(masterKey),
+      nonce: utf8.encode('bestfin-nostr-v1'),
+      info: utf8.encode('nostr'),
+    );
+    final bytes = await derived.extractBytes();
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  // Given a Nostr private key hex, return the corresponding public key hex.
+  static String nostrPubkeyFromPrivkey(String privkeyHex) {
+    return bip340.getPublicKey(privkeyHex);
+  }
+
+  // Generate a new masterKey and return both the mnemonic and masterKey bytes.
+  static ({String mnemonic, Uint8List masterKey}) generateIdentity() {
+    final masterKey = generateMasterKey();
+    final mnemonic = masterKeyToMnemonic(masterKey);
+    return (mnemonic: mnemonic, masterKey: masterKey);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ import 'tables/recurring_rules.dart';
 import 'tables/transactions.dart';
 import 'tables/sync_queue.dart';
 import 'tables/households.dart';
+import 'tables/nostr_event_log.dart';
 import 'tables/streaks.dart';
 import 'tables/badges.dart';
 import 'tables/category_parents.dart';
@@ -51,6 +52,7 @@ import 'daos/recurring_rules_dao.dart';
 import 'daos/transactions_dao.dart';
 import 'daos/sync_queue_dao.dart';
 import 'daos/households_dao.dart';
+import 'daos/nostr_event_log_dao.dart';
 import 'daos/streaks_dao.dart';
 import 'daos/badges_dao.dart';
 import 'daos/budgets_dao.dart';
@@ -88,6 +90,7 @@ part 'app_database.g.dart';
     Budgets,
     TransactionSplits,
     ReconciliationCheckpoints,
+    NostrEventLog,
   ],
   daos: [
     AccountsDao,
@@ -107,6 +110,7 @@ part 'app_database.g.dart';
     BadgesDao,
     BudgetsDao,
     ReconciliationDao,
+    NostrEventLogDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -115,7 +119,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration {
@@ -310,6 +314,9 @@ class AppDatabase extends _$AppDatabase {
           // Feature: Split de Transações
           await m.addColumn(transactions, transactions.isSplit);
           await m.createTable(transactionSplits);
+        }
+        if (from < 19) {
+          await m.createTable(nostrEventLog);
         }
       },
       beforeOpen: (details) async {

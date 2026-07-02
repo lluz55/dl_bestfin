@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,82 +12,29 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
   bool _loading = false;
-  bool _obscure = true;
   String? _error;
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
-    _confirmCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _create() async {
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final backend = ref.read(backendSyncServiceProvider);
-      await backend.signUpWithEmail(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-        displayName: _nameCtrl.text.trim(),
-      );
+      final result =
+          await ref.read(nostrSyncServiceProvider).createIdentity();
       if (mounted) {
-        unawaited(showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            icon: const Icon(Icons.hourglass_top_rounded, size: 48),
-            title: const Text('Conta criada!'),
-            content: const Text(
-              'Sua conta foi criada com sucesso. Aguarde a aprovação do administrador para acessar.',
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  context.pop();
-                },
-                child: const Text('Voltar ao login'),
-              ),
-            ],
-          ),
-        ));
+        context.pushReplacement(
+          '/sync/mnemonic-display',
+          extra: result.mnemonic,
+        );
       }
     } catch (e) {
-      setState(() => _error = _friendlyError(e));
+      setState(() => _error = 'Erro ao criar identidade. Tente novamente.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String _friendlyError(Object e) {
-    final msg = e.toString().toLowerCase();
-    if (msg.contains('already registered') || msg.contains('duplicate')) {
-      return 'Este e-mail já está cadastrado.';
-    }
-    if (msg.contains('account_pending_approval')) {
-      return 'Conta pendente de aprovação. Aguarde o administrador liberar seu acesso.';
-    }
-    if (msg.contains('network') || msg.contains('connection')) {
-      return 'Sem conexão com a internet.';
-    }
-    if (msg.contains('too many requests')) {
-      return 'Muitas tentativas. Aguarde alguns minutos.';
-    }
-    return 'Erro ao criar conta. Tente novamente.';
   }
 
   @override
@@ -99,104 +44,134 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Criar conta'),
+      appBar: const AppPageAppBar(title: 'Nova identidade'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nameCtrl,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Nome',
-                  prefixIcon: Icon(Icons.person_outline),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Nome obrigatório' : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 24),
+            Icon(Icons.generating_tokens_rounded, size: 72, color: cs.primary),
+            const SizedBox(height: 20),
+            Text(
+              'Criar identidade descentralizada',
+              textAlign: TextAlign.center,
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Será gerada uma frase de 24 palavras — seu único acesso '
+              'à sincronização. Guarde-a em local seguro.',
+              textAlign: TextAlign.center,
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 32),
+            _InfoCard(cs: cs, tt: tt),
+            const SizedBox(height: 32),
+            if (_error != null) ...[
+              Text(
+                _error!,
+                style: tt.bodySmall?.copyWith(color: cs.error),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'E-mail',
-                  prefixIcon: Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) =>
-                    v == null || !v.contains('@') ? 'E-mail inválido' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordCtrl,
-                obscureText: _obscure,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: 'Senha',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  ),
-                ),
-                validator: (v) =>
-                    (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmCtrl,
-                obscureText: _obscure,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _register(),
-                decoration: const InputDecoration(
-                  labelText: 'Confirmar senha',
-                  prefixIcon: Icon(Icons.lock_outline),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) =>
-                    v != _passwordCtrl.text ? 'Senhas não conferem' : null,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: tt.bodySmall?.copyWith(color: cs.error),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _register,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Criar conta'),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => context.pop(),
-                child: const Text('Já tenho uma conta'),
-              ),
+              const SizedBox(height: 12),
             ],
-          ),
+            FilledButton.icon(
+              onPressed: _loading ? null : _create,
+              icon: _loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Gerar identidade'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => context.pop(),
+              child: const Text('Já tenho uma identidade'),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.cs, required this.tt});
+
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          _Row(
+            icon: Icons.lock_outline,
+            text: 'Seus dados ficam cifrados com AES-256-GCM',
+            cs: cs,
+            tt: tt,
+          ),
+          const SizedBox(height: 12),
+          _Row(
+            icon: Icons.cloud_off_rounded,
+            text: 'Nenhum servidor guarda sua senha ou identidade',
+            cs: cs,
+            tt: tt,
+          ),
+          const SizedBox(height: 12),
+          _Row(
+            icon: Icons.devices_rounded,
+            text:
+                'Use o mesmo mnemônico em qualquer dispositivo para sincronizar',
+            cs: cs,
+            tt: tt,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.icon,
+    required this.text,
+    required this.cs,
+    required this.tt,
+  });
+
+  final IconData icon;
+  final String text;
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: cs.secondary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: tt.bodySmall?.copyWith(color: cs.onSecondaryContainer),
+          ),
+        ),
+      ],
     );
   }
 }

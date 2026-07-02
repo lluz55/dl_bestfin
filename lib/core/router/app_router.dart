@@ -40,6 +40,9 @@ import 'package:bestfin/features/sync/presentation/screens/register_screen.dart'
 import 'package:bestfin/features/sync/presentation/screens/sync_settings_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/household_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/mnemonic_recovery_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/mnemonic_display_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/identity_qr_screen.dart';
+import 'package:bestfin/features/sync/presentation/screens/qr_scanner_screen.dart';
 import 'package:bestfin/features/ai/presentation/screens/ai_dashboard_screen.dart';
 import 'package:bestfin/features/ai/presentation/widgets/ocr_scanner_widget.dart';
 import 'package:bestfin/features/llm/presentation/screens/ai_chat_screen.dart';
@@ -335,6 +338,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sync/recover',
         builder: (context, state) => const MnemonicRecoveryScreen(),
+      ),
+      GoRoute(
+        path: '/sync/mnemonic-display',
+        builder: (context, state) => MnemonicDisplayScreen(
+          mnemonic: state.extra as String,
+        ),
+      ),
+      GoRoute(
+        path: '/sync/qr',
+        builder: (context, state) => IdentityQrScreen(
+          masterKey: state.extra as List<int>,
+        ),
+      ),
+      GoRoute(
+        path: '/sync/scan',
+        builder: (context, state) => const QrScannerScreen(),
       ),
       GoRoute(
         path: '/sync/household',

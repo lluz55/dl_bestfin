@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:bestfin/core/database/app_database.dart';
-import 'package:bestfin/features/sync/data/services/backend_sync_service.dart';
+import 'package:bestfin/features/sync/data/services/sync_transport.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,20 +11,20 @@ import 'package:uuid/uuid.dart';
 ///
 /// Flow:
 /// 1. Local changes are enqueued in sync_queue (insert/update/delete)
-/// 2. processSyncQueue() pushes pending items to the Go backend
-/// 3. pullRemoteChanges() fetches rows updated since lastSyncAt from the backend
+/// 2. processSyncQueue() encrypts and publishes pending items via SyncTransport
+/// 3. pullRemoteChanges() fetches records since lastSyncAt from the transport
 ///    and upserts them into the local Drift DB
 /// 4. Conflict resolution: last-write-wins based on updated_at
 class SyncService {
   final AppDatabase _db;
-  final BackendSyncService _backend;
+  final SyncTransport _transport;
   Timer? _timer;
   bool _syncing = false;
 
   static const _lastSyncKey = 'sync_last_synced_at';
   static const _syncIntervalSeconds = 30;
 
-  SyncService(this._db, this._backend);
+  SyncService(this._db, this._transport);
 
   // ── Queue management ──────────────────────────────────────────────────────
 
@@ -45,12 +46,7 @@ class SyncService {
   // ── Push (local → remote) ─────────────────────────────────────────────────
 
   Future<SyncResult> processSyncQueue() async {
-    if (!_backend.isInitialized || !_backend.isSignedIn) {
-      return SyncResult.notConfigured;
-    }
-    if (!_backend.hasEncryptionKey) {
-      return SyncResult.notAuthenticated;
-    }
+    if (!_transport.isReady) return SyncResult.notConfigured;
     if (_syncing) return SyncResult.alreadyRunning;
     _syncing = true;
 
@@ -67,8 +63,8 @@ class SyncService {
             continue;
           }
 
-          await _backend.pushRecords([
-            BackendSyncRecord(
+          await _transport.pushRecords([
+            SyncRecord(
               entityType: item.entityType,
               entityId: item.entityId,
               payload: item.payload,
@@ -85,6 +81,8 @@ class SyncService {
         }
       }
 
+      // Only clear items confirmed published; unpublished remain in event log
+      // for replay. The queue itself is cleared after marking synced.
       await _db.syncQueueDao.clearSynced();
       await _updateLastSyncAt();
     } finally {
@@ -97,18 +95,13 @@ class SyncService {
   // ── Pull (remote → local) ─────────────────────────────────────────────────
 
   Future<SyncResult> pullRemoteChanges() async {
-    if (!_backend.isInitialized || !_backend.isSignedIn) {
-      return SyncResult.notConfigured;
-    }
-    if (!_backend.hasEncryptionKey) {
-      return SyncResult.notAuthenticated;
-    }
+    if (!_transport.isReady) return SyncResult.notConfigured;
 
     final since = await _getLastSyncAt();
     int pulled = 0;
 
     try {
-      final records = await _backend.pullRecords(
+      final records = await _transport.pullRecords(
         since: since.millisecondsSinceEpoch ~/ 1000,
       );
       for (final record in records) {
@@ -144,8 +137,7 @@ class SyncService {
   Future<SyncResult> syncNow() async {
     final pushResult = await processSyncQueue();
     if (pushResult == SyncResult.notConfigured) return pushResult;
-    final pullResult = await pullRemoteChanges();
-    return pullResult;
+    return pullRemoteChanges();
   }
 
   // ── Auto-sync ─────────────────────────────────────────────────────────────
@@ -173,7 +165,6 @@ class SyncService {
     final id = row['id'] as String?;
     if (id == null) return;
 
-    // Skip if local record is newer
     final local = await (_db.select(
       _db.transactions,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -404,12 +395,7 @@ class SyncResult {
 
   static const notConfigured = SyncResult._(
     success: false,
-    errorMessage: 'Backend não configurado ou usuário não autenticado',
-  );
-
-  static const notAuthenticated = SyncResult._(
-    success: false,
-    errorMessage: 'Entre novamente para desbloquear a chave de sincronização',
+    errorMessage: 'Sincronização não configurada ou identidade não carregada',
   );
 
   static const alreadyRunning = SyncResult._(

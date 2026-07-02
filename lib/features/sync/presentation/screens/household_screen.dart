@@ -12,9 +12,9 @@ class HouseholdScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final householdsAsync = ref.watch(householdsProvider);
-    final userAsync = ref.watch(currentUserProvider);
+    final identityAsync = ref.watch(currentIdentityProvider);
 
-    final userEmail = userAsync.value?.email ?? '';
+    final userEmail = identityAsync.value?.publicKey ?? '';
 
     return Scaffold(
       backgroundColor: cs.surface,

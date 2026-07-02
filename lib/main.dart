@@ -108,7 +108,7 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
 
   Future<void> _startSync() async {
     try {
-      await ref.read(backendSetupProvider.future);
+      await ref.read(nostrSyncServiceProvider).loadIdentity();
       ref.read(syncServiceProvider).startAutoSync();
     } catch (error) {
       debugPrint('Failed to start auto-sync: $error');

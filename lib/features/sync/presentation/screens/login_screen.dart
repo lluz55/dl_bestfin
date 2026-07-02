@@ -13,20 +13,17 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
+  final _mnemonicCtrl = TextEditingController();
   bool _loading = false;
-  bool _obscure = true;
   String? _error;
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
+    _mnemonicCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _signIn() async {
+  Future<void> _import() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _loading = true;
@@ -34,8 +31,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final backend = ref.read(backendSyncServiceProvider);
-      await backend.signInWithEmail(_emailCtrl.text.trim(), _passwordCtrl.text);
+      await ref
+          .read(nostrSyncServiceProvider)
+          .importIdentity(_mnemonicCtrl.text.trim());
       if (mounted) context.pop();
     } catch (e) {
       setState(() => _error = _friendlyError(e));
@@ -46,22 +44,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   String _friendlyError(Object e) {
     final msg = e.toString().toLowerCase();
-    if (msg.contains('invalid login') || msg.contains('invalid credentials')) {
-      return 'E-mail ou senha incorretos.';
+    if (msg.contains('invalid mnemonic') || msg.contains('checksum')) {
+      return 'Frase inválida. Verifique as 24 palavras e tente novamente.';
     }
-    if (msg.contains('account_pending_approval')) {
-      return 'Conta pendente de aprovação. Aguarde o administrador liberar seu acesso.';
-    }
-    if (msg.contains('account_rejected')) {
-      return 'Conta rejeitada. Entre em contato com o administrador.';
-    }
-    if (msg.contains('network') || msg.contains('connection')) {
-      return 'Sem conexão com a internet.';
-    }
-    if (msg.contains('too many requests')) {
-      return 'Muitas tentativas. Aguarde alguns minutos.';
-    }
-    return 'Erro ao entrar. Tente novamente.';
+    return 'Erro ao importar identidade. Tente novamente.';
   }
 
   @override
@@ -71,7 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Entrar'),
+      appBar: const AppPageAppBar(title: 'Importar identidade'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -80,52 +66,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
-              Icon(Icons.cloud_sync_rounded, size: 64, color: cs.primary),
+              Icon(Icons.key_rounded, size: 64, color: cs.primary),
               const SizedBox(height: 16),
               Text(
                 'BestFin Sync',
                 textAlign: TextAlign.center,
-                style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style:
+                    tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               Text(
-                'Sincronize seus dados entre dispositivos',
+                'Insira suas 24 palavras para acessar sua identidade',
                 textAlign: TextAlign.center,
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                style:
+                    tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 32),
               TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
+                controller: _mnemonicCtrl,
+                minLines: 4,
+                maxLines: 6,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
-                  labelText: 'E-mail',
-                  prefixIcon: Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) =>
-                    v == null || !v.contains('@') ? 'E-mail inválido' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordCtrl,
-                obscureText: _obscure,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _signIn(),
-                decoration: InputDecoration(
-                  labelText: 'Senha',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
+                  labelText: 'Frase de recuperação (24 palavras)',
+                  prefixIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 56),
+                    child: Icon(Icons.article_outlined),
                   ),
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                  hintText: 'palavra1 palavra2 palavra3 ...',
                 ),
-                validator: (v) =>
-                    (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Frase obrigatória';
+                  }
+                  final words = v.trim().split(RegExp(r'\s+'));
+                  if (words.length != 24) {
+                    return 'A frase deve ter 24 palavras (${words.length} encontradas)';
+                  }
+                  return null;
+                },
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -137,7 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _loading ? null : _signIn,
+                onPressed: _loading ? null : _import,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
@@ -147,22 +128,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Entrar'),
+                    : const Text('Importar'),
               ),
               const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/sync/scan'),
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                label: const Text('Escanear QR de outro dispositivo'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+              const SizedBox(height: 8),
               TextButton(
                 onPressed: () => context.push('/sync/register'),
-                child: const Text('Criar conta'),
-              ),
-              TextButton(
-                onPressed: () => context.push('/sync/recover'),
-                child: Text(
-                  'Esqueceu a senha? Recuperar com frase',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
+                child: const Text('Criar nova identidade'),
               ),
             ],
           ),

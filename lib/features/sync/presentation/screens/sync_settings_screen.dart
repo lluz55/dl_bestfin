@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/features/sync/domain/models/sync_identity.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 class SyncSettingsScreen extends ConsumerWidget {
@@ -12,8 +14,7 @@ class SyncSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final setupAsync = ref.watch(backendSetupProvider);
-    final userAsync = ref.watch(currentUserProvider);
+    final identityAsync = ref.watch(currentIdentityProvider);
     final syncState = ref.watch(syncStateProvider);
     final pendingAsync = ref.watch(pendingSyncCountProvider);
 
@@ -23,40 +24,28 @@ class SyncSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Backend configuration ───────────────────────────────────────
-          setupAsync.when(
-            data: (setup) => _ConfigSection(
-              setup: setup,
-              cs: cs,
-              tt: tt,
-              onConfigure: () => _showConfigDialog(context, ref, setup),
-            ),
-            loading: () => const LinearProgressIndicator(),
-            error: (error, stackTrace) => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Auth section ───────────────────────────────────────────────
-          _SectionHeader(title: 'Conta', cs: cs, tt: tt),
-          userAsync.when(
-            data: (user) => user != null
-                ? _AccountTile(
-                    user: user,
+          // ── Identity section ───────────────────────────────────────────────
+          _SectionHeader(title: 'Identidade', cs: cs, tt: tt),
+          identityAsync.when(
+            data: (identity) => identity != null
+                ? _IdentityTile(
+                    identity: identity,
                     cs: cs,
                     tt: tt,
                     onSignOut: () => _signOut(context, ref),
+                    onShowQr: () => _showQr(context, ref),
                   )
                 : _SignInTile(cs: cs, tt: tt),
             loading: () => const ListTile(
               leading: CircleAvatar(child: CircularProgressIndicator()),
               title: Text('Carregando...'),
             ),
-            error: (error, stackTrace) => _SignInTile(cs: cs, tt: tt),
+            error: (_, __) => _SignInTile(cs: cs, tt: tt),
           ),
           const Divider(height: 1),
           const SizedBox(height: 16),
 
-          // ── Sync status ────────────────────────────────────────────────
+          // ── Sync status ────────────────────────────────────────────────────
           _SectionHeader(title: 'Status', cs: cs, tt: tt),
           Card(
             elevation: 0,
@@ -73,7 +62,7 @@ class SyncSettingsScreen extends ConsumerWidget {
                     value: pendingAsync.when(
                       data: (n) => '$n item${n == 1 ? '' : 's'}',
                       loading: () => '...',
-                      error: (error, stackTrace) => '?',
+                      error: (_, __) => '?',
                     ),
                     icon: Icons.pending_rounded,
                     cs: cs,
@@ -83,9 +72,8 @@ class SyncSettingsScreen extends ConsumerWidget {
                   _StatusRow(
                     label: 'Último sync',
                     value: syncState.lastSyncAt != null
-                        ? DateFormat(
-                            'dd/MM/yy HH:mm',
-                          ).format(syncState.lastSyncAt!)
+                        ? DateFormat('dd/MM/yy HH:mm').format(
+                            syncState.lastSyncAt!)
                         : 'Nunca',
                     icon: Icons.history_rounded,
                     cs: cs,
@@ -133,15 +121,19 @@ class SyncSettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // ── Households ─────────────────────────────────────────────────
+          // ── Households ─────────────────────────────────────────────────────
           _SectionHeader(title: 'Colaboração', cs: cs, tt: tt),
           ListTile(
             leading: CircleAvatar(
               backgroundColor: cs.secondaryContainer,
-              child: Icon(Icons.group_rounded, color: cs.onSecondaryContainer),
+              child: Icon(
+                Icons.group_rounded,
+                color: cs.onSecondaryContainer,
+              ),
             ),
             title: const Text('Grupos familiares'),
-            subtitle: const Text('Compartilhe contas com parceiro/família'),
+            subtitle:
+                const Text('Compartilhe contas com parceiro/família'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push('/sync/household'),
           ),
@@ -150,13 +142,20 @@ class SyncSettingsScreen extends ConsumerWidget {
     );
   }
 
+  void _showQr(BuildContext context, WidgetRef ref) {
+    final masterKey = ref.read(nostrSyncServiceProvider).masterKey;
+    if (masterKey == null) return;
+    context.push('/sync/qr', extra: masterKey as List<int>);
+  }
+
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sair da conta?'),
+        title: const Text('Remover identidade?'),
         content: const Text(
-          'Seus dados locais serão mantidos. Você precisará fazer login novamente para sincronizar.',
+          'Seus dados locais serão mantidos. Você precisará importar '
+          'o mnemônico novamente para sincronizar.',
         ),
         actions: [
           TextButton(
@@ -165,85 +164,14 @@ class SyncSettingsScreen extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sair'),
+            child: const Text('Remover'),
           ),
         ],
       ),
     );
     if (confirmed == true) {
-      await ref.read(backendSyncServiceProvider).signOut();
+      await ref.read(nostrSyncServiceProvider).signOut();
     }
-  }
-
-  void _showConfigDialog(
-    BuildContext context,
-    WidgetRef ref,
-    BackendSetup setup,
-  ) {
-    showDialog(
-      context: context,
-      builder: (_) => _BackendConfigDialog(current: setup, ref: ref),
-    );
-  }
-}
-
-class _ConfigSection extends StatelessWidget {
-  const _ConfigSection({
-    required this.setup,
-    required this.cs,
-    required this.tt,
-    required this.onConfigure,
-  });
-
-  final BackendSetup setup;
-  final ColorScheme cs;
-  final TextTheme tt;
-  final VoidCallback onConfigure;
-
-  @override
-  Widget build(BuildContext context) {
-    if (setup.isConfigured) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cs.primaryContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Backend Go configurado',
-                style: tt.bodySmall?.copyWith(color: cs.primary),
-              ),
-            ),
-            TextButton(onPressed: onConfigure, child: const Text('Editar')),
-          ],
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.errorContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.settings_outlined, color: cs.error, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Configure o backend Go para ativar o sync',
-              style: tt.bodySmall?.copyWith(color: cs.error),
-            ),
-          ),
-          TextButton(onPressed: onConfigure, child: const Text('Configurar')),
-        ],
-      ),
-    );
   }
 }
 
@@ -274,18 +202,23 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _AccountTile extends StatelessWidget {
-  const _AccountTile({
-    required this.user,
+class _IdentityTile extends StatelessWidget {
+  const _IdentityTile({
+    required this.identity,
     required this.cs,
     required this.tt,
     required this.onSignOut,
+    required this.onShowQr,
   });
 
-  final dynamic user;
+  final SyncIdentity identity;
   final ColorScheme cs;
   final TextTheme tt;
   final VoidCallback onSignOut;
+  final VoidCallback onShowQr;
+
+  String get _shortKey =>
+      '${identity.publicKey.substring(0, 8)}...${identity.publicKey.substring(56)}';
 
   @override
   Widget build(BuildContext context) {
@@ -293,25 +226,42 @@ class _AccountTile extends StatelessWidget {
       leading: CircleAvatar(
         backgroundColor: cs.primaryContainer,
         child: Text(
-          (user.email as String).isNotEmpty
-              ? (user.email as String)[0].toUpperCase()
-              : '?',
+          identity.publicKey[0].toUpperCase(),
           style: tt.titleMedium?.copyWith(color: cs.onPrimaryContainer),
         ),
       ),
       title: Text(
-        user.displayName ?? user.email,
+        identity.displayName ?? 'Identidade Nostr',
         style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
-      subtitle: user.displayName != null
-          ? Text(
-              user.email,
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            )
-          : null,
-      trailing: TextButton(
-        onPressed: onSignOut,
-        child: Text('Sair', style: TextStyle(color: cs.error)),
+      subtitle: GestureDetector(
+        onTap: () {
+          Clipboard.setData(ClipboardData(text: identity.publicKey));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chave pública copiada')),
+          );
+        },
+        child: Text(
+          _shortKey,
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_rounded),
+            tooltip: 'Compartilhar via QR',
+            onPressed: onShowQr,
+          ),
+          TextButton(
+            onPressed: onSignOut,
+            child: Text('Sair', style: TextStyle(color: cs.error)),
+          ),
+        ],
       ),
     );
   }
@@ -330,11 +280,11 @@ class _SignInTile extends StatelessWidget {
         backgroundColor: cs.surfaceContainerHighest,
         child: Icon(Icons.person_outline, color: cs.onSurfaceVariant),
       ),
-      title: const Text('Não conectado'),
-      subtitle: const Text('Entre para sincronizar seus dados'),
+      title: const Text('Sem identidade'),
+      subtitle: const Text('Configure para sincronizar seus dados'),
       trailing: FilledButton(
         onPressed: () => context.push('/sync/login'),
-        child: const Text('Entrar'),
+        child: const Text('Configurar'),
       ),
     );
   }
@@ -361,79 +311,14 @@ class _StatusRow extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: cs.onSurfaceVariant),
         const SizedBox(width: 8),
-        Text(label, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        Text(
+          label,
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
         const Spacer(),
         Text(
           value,
           style: tt.labelMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ],
-    );
-  }
-}
-
-class _BackendConfigDialog extends StatefulWidget {
-  const _BackendConfigDialog({required this.current, required this.ref});
-
-  final BackendSetup current;
-  final WidgetRef ref;
-
-  @override
-  State<_BackendConfigDialog> createState() => _BackendConfigDialogState();
-}
-
-class _BackendConfigDialogState extends State<_BackendConfigDialog> {
-  late final TextEditingController _urlCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _urlCtrl = TextEditingController(text: widget.current.baseUrl);
-  }
-
-  @override
-  void dispose() {
-    _urlCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Configurar backend'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Informe a URL do servidor Go que sincroniza os dados.',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _urlCtrl,
-              decoration: const InputDecoration(
-                labelText: 'URL do backend',
-                hintText: 'http://10.0.2.2:8080',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            await widget.ref
-                .read(backendSetupProvider.notifier)
-                .save(_urlCtrl.text.trim());
-            if (context.mounted) Navigator.pop(context);
-          },
-          child: const Text('Salvar'),
         ),
       ],
     );
