@@ -10,7 +10,7 @@ O BestFin utiliza um sistema de aprovação para novos cadastros. Quando um usu�
 1. Usuário preenche formulário de cadastro (app Flutter)
 2. Backend cria conta com status "pending"
 3. App exibe: "Conta criada. Aguarde aprovação do administrador."
-4. Administrador aprova via CLI: bestfin-cli approve user@email.com
+4. Administrador aprova via CLI: nix run .#cli -- approve user@email.com
 5. Usuário consegue fazer login normalmente
 ```
 
@@ -29,17 +29,16 @@ O CLI está localizado em `backend/cmd/cli/main.go` e é compilado como `bestfin
 ### Comandos
 
 ```bash
-# Listar usuários pendentes
-bestfin-cli pending
+# Executar via nix (sem compilar)
+nix run .#cli -- pending
+nix run .#cli -- approve user@email.com
+nix run .#cli -- reject user@email.com
+nix run .#cli -- list
 
-# Listar todos os usuários
-bestfin-cli list
-
-# Aprovar um usuário por email
-bestfin-cli approve user@email.com
-
-# Rejeitar um usuário por email
-bestfin-cli reject user@email.com
+# Ou compilar localmente
+cd backend
+go build -o bestfin-cli ./cmd/cli/
+./bestfin-cli pending
 ```
 
 ### Variável de Ambiente
@@ -49,17 +48,16 @@ bestfin-cli reject user@email.com
 ### Exemplo de Uso
 
 ```bash
-# Compilar o CLI
+# Via nix (mais simples)
+nix run .#cli -- pending
+nix run .#cli -- approve joao@example.com
+nix run .#cli -- list
+
+# Ou compilar e usar localmente
 cd backend
 go build -o bestfin-cli ./cmd/cli/
-
-# Listar pendentes
 ./bestfin-cli pending
-
-# Aprovar
 ./bestfin-cli approve joao@example.com
-
-# Verificar
 ./bestfin-cli list
 ```
 
@@ -78,35 +76,27 @@ O app Flutter suporta passar a URL do backend no momento do build via `--dart-de
 ### Android
 
 ```bash
-# Build com URL padrão (emulador Android)
-flutter build apk
+# Via nix run (URL padrão: http://10.0.2.2:28083 para emulador)
+nix run .#build-android
 
-# Build com URL personalizada
-flutter build apk --dart-define=BESTFIN_BACKEND_URL=http://192.168.1.100:28083
+# Via nix run com URL personalizada
+nix run .#build-android -- http://192.168.1.100:28083
 
-# Ou usando o script de build
-./scripts/build.sh android http://192.168.1.100:28083
+# Ou via nix develop + flutter
+nix develop -c flutter build apk --dart-define=BESTFIN_BACKEND_URL=http://192.168.1.100:28083
 ```
 
 ### Linux
 
 ```bash
-# Build com URL padrão
-flutter build linux
+# Via nix run (URL padrão: http://127.0.0.1:28083)
+nix run .#build-linux
 
-# Build com URL personalizada
-flutter build linux --dart-define=BESTFIN_BACKEND_URL=http://meuserver.local:28083
+# Via nix run com URL personalizada
+nix run .#build-linux -- http://meuserver.local:28083
 
-# Ou usando o script de build
-./scripts/build.sh linux http://meuserver.local:28083
-```
-
-### Variável de Ambiente
-
-Também é possível definir via variável de ambiente:
-
-```bash
-BESTFIN_BACKEND_URL=http://meuserver.local:28083 ./scripts/build.sh android
+# Ou via nix develop + flutter
+nix develop -c flutter build linux --dart-define=BESTFIN_BACKEND_URL=http://meuserver.local:28083
 ```
 
 ## Endpoints Relacionados

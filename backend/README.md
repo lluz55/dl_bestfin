@@ -10,6 +10,23 @@ Na raiz do projeto:
 JWT_SECRET=dev-secret-32-chars-minimum-value nix run .#backend
 ```
 
+## CLI de Administração
+
+O CLI permite gerenciar usuários (aprovar/rejeitar cadastros pendentes):
+
+```bash
+# Executar via nix
+nix run .#cli -- pending
+nix run .#cli -- approve user@email.com
+nix run .#cli -- reject user@email.com
+nix run .#cli -- list
+
+# Ou compilar localmente
+cd backend
+go build -o bestfin-cli ./cmd/cli/
+./bestfin-cli pending
+```
+
 Por padrão o servidor escuta em `127.0.0.1:28083` e grava o SQLite em `./data/bestfin.sqlite`.
 
 Variáveis:
@@ -42,20 +59,15 @@ Sync:
 O CLI permite gerenciar usuários (aprovar/rejeitar cadastros pendentes):
 
 ```bash
-# Compilar
+# Via nix run
+nix run .#cli -- pending
+nix run .#cli -- approve user@email.com
+nix run .#cli -- reject user@email.com
+nix run .#cli -- list
+
+# Ou compilar localmente
 go build -o bestfin-cli ./cmd/cli/
-
-# Listar pendentes
 ./bestfin-cli pending
-
-# Listar todos
-./bestfin-cli list
-
-# Aprovar
-./bestfin-cli approve user@email.com
-
-# Rejeitar
-./bestfin-cli reject user@email.com
 ```
 
 `/sync/push` recebe:
@@ -79,10 +91,30 @@ Tipos aceitos hoje: `account`, `transaction`, `category`, `goal`.
 ## Build
 
 ```bash
+# Backend
 nix build .#backend
+
+# CLI
+nix build .#cli
 ```
 
-O binário produzido é `result/bin/bestfin-backend`.
+O binário produzido é `result/bin/bestfin-backend` ou `result/bin/bestfin-cli`.
+
+## Build do App Flutter
+
+```bash
+# Android (URL padrão: http://10.0.2.2:28083 para emulador)
+nix run .#build-android
+
+# Android com URL personalizada
+nix run .#build-android -- http://192.168.1.100:28083
+
+# Linux (URL padrão: http://127.0.0.1:28083)
+nix run .#build-linux
+
+# Linux com URL personalizada
+nix run .#build-linux -- http://meuserver.local:28083
+```
 
 ## Usar o NixOS Module em Outro Flake
 

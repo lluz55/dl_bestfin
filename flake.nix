@@ -26,6 +26,7 @@
           platform-tools
           build-tools-34-0-0
           build-tools-35-0-0
+          platforms-android-33
           platforms-android-34
           platforms-android-35
           platforms-android-36
@@ -42,6 +43,15 @@
           src = ./backend;
           vendorHash = null; # vendor/ directory is included in src
           postInstall = "mv $out/bin/server $out/bin/bestfin-backend";
+        };
+
+        bestfinCli = pkgs.buildGoModule {
+          pname = "bestfin-cli";
+          version = "0.1.0";
+          src = ./backend;
+          vendorHash = null;
+          subPackages = [ "cmd/cli" ];
+          postInstall = "mv $out/bin/cli $out/bin/bestfin-cli";
         };
 
         flutterMcpToolkit = pkgs.stdenv.mkDerivation {
@@ -66,8 +76,19 @@
             install -m 0755 flutter_mcp_3.1.0_linux-x64/bin/flutter-mcp-toolkit-server $out/bin/flutter-mcp-toolkit-server
           '';
         };
+
+        flutterBuildEnv = pkgs.writeShellScriptBin "flutter-build" ''
+          set -euo pipefail
+          export ANDROID_HOME="${androidSdk}/share/android-sdk"
+          export ANDROID_SDK_ROOT="${androidSdk}/share/android-sdk"
+          export JAVA_HOME="${pkgs.jdk17}"
+          export GRADLE_USER_HOME="$HOME/.gradle"
+          export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
+          exec ${pkgs.flutter}/bin/flutter "$@"
+        '';
       in {
         packages.backend = backend;
+        packages.cli = bestfinCli;
         packages.flutter-mcp-toolkit = flutterMcpToolkit;
 
         apps.backend = {
@@ -75,9 +96,36 @@
           program = "${backend}/bin/bestfin-backend";
         };
 
+        apps.cli = {
+          type = "app";
+          program = "${bestfinCli}/bin/bestfin-cli";
+        };
+
         apps.flutter-mcp-toolkit-server = {
           type = "app";
           program = "${flutterMcpToolkit}/bin/flutter-mcp-toolkit-server";
+        };
+
+        apps.build-android = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "build-android" ''
+            URL="''${1:-http://10.0.2.2:28083}"
+            echo "Building Android APK with backend URL: $URL"
+            exec ${flutterBuildEnv}/bin/flutter-build build apk \
+              --dart-define=BESTFIN_BACKEND_URL="$URL" \
+              "$@"
+          ''}/bin/build-android";
+        };
+
+        apps.build-linux = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "build-linux" ''
+            URL="''${1:-http://127.0.0.1:28083}"
+            echo "Building Linux app with backend URL: $URL"
+            exec ${flutterBuildEnv}/bin/flutter-build build linux \
+              --dart-define=BESTFIN_BACKEND_URL="$URL" \
+              "$@"
+          ''}/bin/build-linux";
         };
 
         apps.llm-server = {
