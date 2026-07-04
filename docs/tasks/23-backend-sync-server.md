@@ -1,5 +1,10 @@
 # Tarefa 23: Backend de Sincronização (Go + SQLite)
 
+> **REMOVIDO (2026-07-04):** o backend Go descrito abaixo foi excluído do
+> repositório (`backend/`) e substituído por sincronização serverless via
+> relays Nostr. Este arquivo é mantido como histórico. Arquitetura atual:
+> [`docs/okf/features/sync.md`](../okf/features/sync.md).
+
 ## Objetivo
 
 Implementar um servidor HTTP leve em Go para sincronização de dados entre dispositivos do mesmo usuário. O servidor armazena apenas blobs criptografados (o app cifra antes de enviar — E2E real). Deve ser iniciado via `nix run .#backend`.

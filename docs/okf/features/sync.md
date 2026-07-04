@@ -1,67 +1,81 @@
 ---
 type: Feature
 title: Sincronização (Household)
-description: Sync E2E entre dispositivos via backend Go próprio com criptografia AES-256-GCM.
-tags: [sync, backend, e2e, criptografia, household, go]
-timestamp: 2026-06-29T00:00:00Z
+description: Sync E2E serverless entre dispositivos via relays Nostr (NIP-78), sem backend próprio.
+tags: [sync, nostr, e2e, criptografia, household, serverless]
+timestamp: 2026-07-04T00:00:00Z
 ---
 
 ## Responsabilidade
 
-Sincroniza dados financeiros entre dispositivos do mesmo usuário (ou household compartilhado) via backend Go próprio. O servidor nunca vê dados em texto claro — tudo é cifrado no cliente.
+Sincroniza dados financeiros entre dispositivos do mesmo usuário (ou household compartilhado) publicando eventos cifrados em relays [Nostr](https://github.com/nostr-protocol/nips) públicos. Não existe backend próprio — os relays são infraestrutura de terceiros redundante por design e nunca veem dados em texto claro, apenas blobs AES-256-GCM opacos.
+
+> Substituiu o backend Go + AES-256-GCM sobre HTTP descrito nas tarefas 23/24
+> (ver `docs/tasks/24-flutter-sync-client-e2e.md`). Este documento descreve a
+> arquitetura atual.
 
 ## Arquitetura E2E
 
 ```
-Cliente Flutter
-  → Argon2id(senha + kdf_salt) → chave AES-256
-  → AES-256-GCM(JSON do registro) → base64 payload
-  → POST /sync/push com payload opaco
+Cliente Flutter (identidade)
+  mnemônico BIP39 (24 palavras) ──► masterKey (32 bytes, entropia do mnemônico)
+  masterKey ──HKDF-SHA256("bestfin-nostr-v1")──► privkey secp256k1 (Nostr keypair)
+  masterKey ──PBKDF2-SHA256(600k iters)──► KEK ──► masterKey cifrado em secure storage
 
-Backend Go
-  → Armazena apenas o blob base64 (payload opaco)
-  → Nunca acessa conteúdo financeiro
+Push
+  registro (Drift) → JSON → AES-256-GCM(masterKey) → NostrEvent kind:30078
+    tags: [d, entityId] [t, entityType] [deleted, "true"]?
+  → publicado em paralelo em todos os relays configurados (defaultRelays)
 
-Cliente Flutter (pull)
-  → Recebe blobs
-  → AES-256-GCM.decrypt → JSON → insere no Drift
+Pull
+  query kind:30078 authors:[nossa pubkey] since:cursor, paginada com `until`
+  → filtra eventos de outros pubkeys (defesa contra relay que ignora `authors`)
+  → AES-256-GCM.decrypt(masterKey) → JSON → upsert no Drift (last-write-wins por updated_at)
 ```
 
-## Backend (Go)
+A identidade **é** a chave: qualquer dispositivo que importe o mesmo mnemônico deriva o mesmo par de chaves Nostr e a mesma masterKey, e portanto lê/escreve os mesmos eventos. Não há conceito de "conta" nem "servidor de autenticação" — pareamento é só compartilhar o mnemônico (tela ou QR code).
 
-Localização: `backend/`
+## Sem Backend
 
-| Componente | Arquivo |
-|---|---|
-| Roteador chi | `cmd/server/main.go` |
-| Auth (JWT + refresh) | `internal/auth/handler.go` |
-| Sync (push/pull) | `internal/syncsvc/handler.go` |
-| Schema SQLite | `users`, `sync_records`, `refresh_tokens` |
-
-Executar: `nix run .#backend`
+Não existe servidor próprio. `backend/` (Go + SQLite) foi removido — a sincronização depende apenas de relays Nostr públicos (`wss://`), sem custo de infraestrutura, sem NixOS module, sem Cloudflare Tunnel.
 
 ## Cliente Flutter
 
 | Arquivo | Propósito |
 |---|---|
-| `data/services/backend_sync_service.dart` | HTTP client para o backend Go |
-| `data/services/sync_service.dart` | Orquestra sync: diff, cifra, envia, recebe |
-| `data/repositories/household_repository.dart` | Repositório de household |
-| `presentation/screens/login_screen.dart` | Login |
-| `presentation/screens/register_screen.dart` | Cadastro |
+| `data/services/e2e_crypto_service.dart` | Deriva masterKey ↔ mnemônico (BIP39), KEK (PBKDF2), privkey Nostr (HKDF), cifra/decifra payloads (AES-256-GCM) |
+| `data/services/nostr_sync_service.dart` | Implementa `SyncTransport` sobre `dart_nostr`: push/pull de eventos kind:30078, live subscription, backoff por relay, presença de dispositivo |
+| `data/services/sync_transport.dart` | Interface `SyncTransport` — abstrai o transporte (hoje só há a implementação Nostr) |
+| `data/services/sync_service.dart` | Orquestra sync: lê `sync_queue`, serializa, chama `SyncTransport.pushRecords`/`pullRecords`, aplica upserts no Drift |
+| `data/repositories/household_repository.dart` | Household/membros — armazenamento local (Drift), sem chamada de rede |
+| `presentation/screens/login_screen.dart` | Importa identidade existente a partir do mnemônico |
+| `presentation/screens/register_screen.dart` | Gera nova identidade (mnemônico novo) |
+| `presentation/screens/mnemonic_display_screen.dart` / `mnemonic_recovery_screen.dart` | Exibe o mnemônico gerado / recupera identidade a partir dele — "recovery" no modelo Nostr é reimportar o mnemônico, pois ele **é** a identidade |
+| `presentation/screens/identity_qr_screen.dart` / `qr_scanner_screen.dart` | Pareamento de outro dispositivo via QR code do mnemônico |
 | `presentation/screens/household_screen.dart` | Gestão do household |
-| `presentation/screens/sync_settings_screen.dart` | Configurações de sync |
+| `presentation/screens/sync_settings_screen.dart` | Status de conexão por relay (`relay_status_section.dart`) |
+| `presentation/providers/sync_provider.dart` | `SyncStateNotifier` — auto-sync periódico (1min ativo / 10min background, com jitter), live sync, presença de peers |
 
-## Fila de Sync
+## Modelo de Dados (Nostr)
 
-Alterações locais são enfileiradas em `sync_queue` (tabela Drift) e enviadas ao backend na próxima oportunidade de conexão. Implementa sync otimístico.
+- **Kind 30078** (NIP-78, "application-specific data", replaceable por `d`-tag).
+- Tags: `['d', entityId]` (chave de replace), `['t', entityType]` (ex.: `transaction`, `account`, `device_presence`), `['deleted', 'true']` opcional para tombstones.
+- `content`: payload JSON do registro, cifrado com AES-256-GCM usando a masterKey (nunca a chave privada Nostr).
+- `defaultRelays` (`nostr_sync_service.dart`): lista fixa de ~10 relays públicos verificados (sem paywall de escrita). Redundância: a sync segue funcionando enquanto ao menos 1 relay responder.
+
+## Resiliência
+
+- **Backoff por relay**: falha/erro/NOTICE de rate-limit coloca o relay em cooldown exponencial (30s→16min, com jitter); relay em cooldown é excluído da lista ativa até expirar.
+- **Log local de eventos não confirmados** (`nostrEventLogDao`): todo evento é persistido localmente *antes* de publicar; `replayUnpublished()` reenvia o que não foi confirmado por nenhum relay.
+- **Paginação no pull**: relays limitam resultados por query (~500), então o pull pagina com `until` decrescente até uma página vazia.
+- **Live subscription**: assinatura Nostr mantida aberta (não fecha no EOSE) para reagir a mudanças remotas em segundos, com o poll periódico como rede de segurança.
 
 ## Dependências
 
-- [Segurança](security.md) — credenciais em `flutter_secure_storage`
+- [Segurança](security.md) — masterKey cifrada em `flutter_secure_storage`
 - Todas as features de dados — qualquer entidade pode ser sincronizada
 
 # Citations
 
-[1] [Task 23 — Backend Go](../../tasks/23-backend-sync-server.md)
-[2] [Task 24 — Flutter Sync Client E2E](../../tasks/24-flutter-sync-client-e2e.md)
+[1] [Task 24 — Flutter Sync Client E2E (histórico + nota de migração)](../../tasks/24-flutter-sync-client-e2e.md)
+[2] [NIP-78 — Application-specific data](https://github.com/nostr-protocol/nips/blob/master/78.md)

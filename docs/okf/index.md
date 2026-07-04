@@ -49,5 +49,5 @@ BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) 
 * [Gamificação](features/gamification.md) - Streaks e badges
 * [Backup & Export](features/backup.md) - CSV, JSON, PDF, importação
 * [Segurança](features/security.md) - Biometria, PIN, lock overlay
-* [Sincronização](features/sync.md) - Backend Go + AES-256-GCM E2E
+* [Sincronização](features/sync.md) - Serverless via relays Nostr + AES-256-GCM E2E
 * [Onboarding & Tutorial](features/onboarding.md) - Wizard de 6 steps + coach marks pós-onboarding

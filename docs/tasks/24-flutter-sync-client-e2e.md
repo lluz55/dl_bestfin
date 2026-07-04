@@ -177,8 +177,9 @@ class SyncRecord {
 
 > **Nota (2026-07-04):** o backend Go/HTTP descrito acima foi substituído por
 > transporte Nostr (commit `feat(sync): replace backend sync with Nostr
-> transport`). Este arquivo e `docs/okf/features/sync.md` ainda descrevem a
-> arquitetura antiga e precisam de uma reescrita completa — pendente.
+> transport`) e o diretório `backend/` foi removido do repositório. Este
+> arquivo é mantido como histórico da implementação original; a arquitetura
+> atual está documentada em [`docs/okf/features/sync.md`](../okf/features/sync.md).
 
 ## Melhorias de eficiência do polling (2026-07-04)
 

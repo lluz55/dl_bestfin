@@ -42,4 +42,4 @@ PIN e credenciais de biometria → `flutter_secure_storage`. **Nunca** em `Share
 
 ## Dependências
 
-- [Sincronização](sync.md) — credenciais do backend também em `flutter_secure_storage`
+- [Sincronização](sync.md) — masterKey da identidade Nostr também cifrada em `flutter_secure_storage`

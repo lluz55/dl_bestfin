@@ -1,9 +1,9 @@
 ---
 type: Architecture Pattern
 title: Visão Geral da Arquitetura
-description: Feature-First + Clean Architecture Leve com Riverpod, Drift e Go backend.
+description: Feature-First + Clean Architecture Leve com Riverpod, Drift e sync serverless via Nostr.
 tags: [arquitetura, flutter, riverpod, drift]
-timestamp: 2026-06-29T00:00:00Z
+timestamp: 2026-07-04T00:00:00Z
 ---
 
 ## Padrão
@@ -39,7 +39,7 @@ lib/
 | Animações | flutter_animate ^4 + lottie ^3 |
 | Auth local | local_auth ^3 + flutter_secure_storage ^10 |
 | LLM | llama_cpp_dart (Android FFI) / llama-server HTTP (Linux) |
-| Backend | Go + chi + SQLite (modernc) — sync E2E AES-256-GCM |
+| Sync | dart_nostr — sync E2E AES-256-GCM serverless via relays Nostr (ver [sync.md](../features/sync.md)) |
 
 ## Regras de Camada
 

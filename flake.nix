@@ -37,23 +37,6 @@
 
         llama-cpp-vulkan = pkgs.llama-cpp.override { vulkanSupport = true; };
 
-        backend = pkgs.buildGoModule {
-          pname = "bestfin-backend";
-          version = "0.1.0";
-          src = ./backend;
-          vendorHash = null; # vendor/ directory is included in src
-          postInstall = "mv $out/bin/server $out/bin/bestfin-backend";
-        };
-
-        bestfinCli = pkgs.buildGoModule {
-          pname = "bestfin-cli";
-          version = "0.1.0";
-          src = ./backend;
-          vendorHash = null;
-          subPackages = [ "cmd/cli" ];
-          postInstall = "mv $out/bin/cli $out/bin/bestfin-cli";
-        };
-
         flutterMcpToolkit = pkgs.stdenv.mkDerivation {
           pname = "flutter-mcp-toolkit";
           version = "3.1.0";
@@ -92,19 +75,7 @@
           exec ${pkgs.flutter}/bin/flutter "$@"
         '';
       in {
-        packages.backend = backend;
-        packages.cli = bestfinCli;
         packages.flutter-mcp-toolkit = flutterMcpToolkit;
-
-        apps.backend = {
-          type = "app";
-          program = "${backend}/bin/bestfin-backend";
-        };
-
-        apps.cli = {
-          type = "app";
-          program = "${bestfinCli}/bin/bestfin-cli";
-        };
 
         apps.flutter-mcp-toolkit-server = {
           type = "app";
@@ -114,22 +85,14 @@
         apps.build-android = {
           type = "app";
           program = "${pkgs.writeShellScriptBin "build-android" ''
-            URL="''${1:-http://10.0.2.2:28083}"
-            echo "Building Android APK with backend URL: $URL"
-            exec ${flutterBuildEnv}/bin/flutter-build build apk \
-              --dart-define=BESTFIN_BACKEND_URL="$URL" \
-              "$@"
+            exec ${flutterBuildEnv}/bin/flutter-build build apk "$@"
           ''}/bin/build-android";
         };
 
         apps.build-linux = {
           type = "app";
           program = "${pkgs.writeShellScriptBin "build-linux" ''
-            URL="''${1:-http://127.0.0.1:28083}"
-            echo "Building Linux app with backend URL: $URL"
-            exec ${flutterBuildEnv}/bin/flutter-build build linux \
-              --dart-define=BESTFIN_BACKEND_URL="$URL" \
-              "$@"
+            exec ${flutterBuildEnv}/bin/flutter-build build linux "$@"
           ''}/bin/build-linux";
         };
 
@@ -176,8 +139,6 @@
             # Rust (required by rust_lib_ndk Flutter plugin)
             cargo
             rustc
-            # Backend development
-            go
             # Scripting
             (python3.withPackages (ps: with ps; [
               pdfplumber
@@ -202,8 +163,5 @@
             echo "🏦 BestFin dev environment ready"
           '';
         };
-      }) // {
-        nixosModules.backend = import ./backend/nix/module.nix;
-        nixosModules.cloudflareTunnel = import ./backend/nix/cloudflare-tunnel.nix;
-      };
+      });
 }

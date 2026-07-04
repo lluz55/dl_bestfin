@@ -3,14 +3,14 @@ type: Development Guide
 title: Ambiente de Desenvolvimento (Nix)
 description: Regra de ouro — todos os comandos devem ser executados dentro do shell Nix.
 tags: [nix, ambiente, build, flutter, android]
-timestamp: 2026-06-29T00:00:00Z
+timestamp: 2026-07-04T00:00:00Z
 ---
 
 ## Regra de Ouro
 
 **TODOS os comandos de terminal DEVEM ser prefixados com `nix develop -c`.**
 
-O projeto usa Nix Flakes para garantir versões exatas de Flutter, Android SDK, JDK e ferramentas de compilação nativa (llama.cpp, Go). Executar comandos fora do shell Nix resulta em versões erradas ou ferramentas ausentes.
+O projeto usa Nix Flakes para garantir versões exatas de Flutter, Android SDK, JDK e ferramentas de compilação nativa (llama.cpp). Executar comandos fora do shell Nix resulta em versões erradas ou ferramentas ausentes.
 
 ## Comandos Comuns
 
@@ -38,9 +38,6 @@ nix develop -c flutter clean
 
 # Build Android (APK debug)
 nix develop -c flutter build apk --debug
-
-# Backend Go (sync server)
-nix run .#backend
 ```
 
 ## Variáveis de Ambiente
