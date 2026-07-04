@@ -354,4 +354,88 @@ void main() {
       expect(data.activeGoals, isEmpty);
     });
   });
+
+  group('monthlyHistory / cashFlowHistory (previsto)', () {
+    test(
+      'monthlyHistory expõe pendingIncome/pendingExpense do mês atual separados do confirmado',
+      () async {
+        final now = DateTime.now();
+        final accId = _uuid.v4();
+
+        await db.accountsDao.insertAccount(
+          AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
+        );
+
+        await txRepo.createTransaction(
+          date: now,
+          description: 'Salário',
+          type: 'income',
+          amount: 500000,
+          accountId: accId,
+        );
+
+        await _insertPendingTx(
+          db,
+          accId,
+          date: now,
+          description: 'Fatura futura',
+          type: 'expense',
+          amount: 30000,
+        );
+
+        final data = await useCase().first;
+        final currentBar = data.monthlyHistory.last;
+
+        expect(currentBar.year, now.year);
+        expect(currentBar.month, now.month);
+        expect(currentBar.income, 500000);
+        expect(currentBar.expense, 0);
+        expect(currentBar.pendingExpense, 30000);
+        expect(currentBar.pendingIncome, 0);
+      },
+    );
+
+    test(
+      'cashFlowHistory expõe pendingIncome/pendingExpense do dia sem afetar cumulativeBalance',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final accId = _uuid.v4();
+
+        await db.accountsDao.insertAccount(
+          AccountsCompanion.insert(id: accId, name: 'CC', type: 'checking'),
+        );
+
+        await txRepo.createTransaction(
+          date: today,
+          description: 'Salário',
+          type: 'income',
+          amount: 500000,
+          accountId: accId,
+        );
+
+        await _insertPendingTx(
+          db,
+          accId,
+          date: today,
+          description: 'Fatura futura',
+          type: 'expense',
+          amount: 30000,
+        );
+
+        final data = await useCase().first;
+        final todayPoint = data.cashFlowHistory.firstWhere(
+          (p) =>
+              p.date.year == today.year &&
+              p.date.month == today.month &&
+              p.date.day == today.day,
+        );
+
+        expect(todayPoint.pendingExpense, 30000);
+        expect(todayPoint.pendingIncome, 0);
+        // cumulativeBalance reflete só a transação confirmada.
+        expect(todayPoint.cumulativeBalance, 500000);
+      },
+    );
+  });
 }

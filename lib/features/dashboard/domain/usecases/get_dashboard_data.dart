@@ -419,6 +419,35 @@ class GetDashboardData {
       );
     }
 
+    // Merge in "previsto" (pending/future) income and expense per day —
+    // additive layer only, cumulativeBalance stays confirmed-only to match
+    // the fix in CalculateCashFlowProjection (see getConfirmedBalance).
+    final Map<String, ({int income, int expense})> pendingByDay = {};
+    for (final tx in transactions) {
+      if (tx.isCompleted) continue;
+      if (tx.date.isBefore(sixMonthsAgo)) continue;
+      final key = '${tx.date.year}-${tx.date.month}-${tx.date.day}';
+      final existing = pendingByDay[key] ?? (income: 0, expense: 0);
+      pendingByDay[key] = (
+        income: existing.income + (tx.type == TransactionType.income ? tx.amount : 0),
+        expense: existing.expense + (tx.type == TransactionType.expense ? tx.amount : 0),
+      );
+    }
+
+    for (final entry in pendingByDay.entries) {
+      final existingPoint = pointsMap[entry.key];
+      if (existingPoint != null) {
+        pointsMap[entry.key] = CashFlowPoint(
+          date: existingPoint.date,
+          income: existingPoint.income,
+          expense: existingPoint.expense,
+          cumulativeBalance: existingPoint.cumulativeBalance,
+          pendingIncome: entry.value.income,
+          pendingExpense: entry.value.expense,
+        );
+      }
+    }
+
     final points = pointsMap.values.toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 

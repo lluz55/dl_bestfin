@@ -52,7 +52,11 @@ class _MonthlyBarChartWidgetState extends State<MonthlyBarChartWidget>
 
     final maxVal = widget.bars.fold<int>(
       0,
-      (m, b) => [m, b.income, b.expense].reduce((a, b) => a > b ? a : b),
+      (m, b) => [
+        m,
+        b.income + b.pendingIncome,
+        b.expense + b.pendingExpense,
+      ].reduce((a, b) => a > b ? a : b),
     );
 
     return AnimatedBuilder(
@@ -69,8 +73,14 @@ class _MonthlyBarChartWidgetState extends State<MonthlyBarChartWidget>
                     final bar = widget.bars[group.x];
                     final label = rodIndex == 0 ? 'Receita' : 'Despesa';
                     final amt = rodIndex == 0 ? bar.income : bar.expense;
+                    final pending = rodIndex == 0
+                        ? bar.pendingIncome
+                        : bar.pendingExpense;
+                    final pendingSuffix = pending > 0
+                        ? '\n+${CurrencyFormatter.formatCents(pending)} previsto'
+                        : '';
                     return BarTooltipItem(
-                      '$label\n${CurrencyFormatter.formatCents(amt.toInt())}',
+                      '$label\n${CurrencyFormatter.formatCents(amt.toInt())}$pendingSuffix',
                       Theme.of(context).textTheme.labelSmall!.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w700,
@@ -127,25 +137,54 @@ class _MonthlyBarChartWidgetState extends State<MonthlyBarChartWidget>
               borderData: FlBorderData(show: false),
               barGroups: List.generate(widget.bars.length, (i) {
                 final bar = widget.bars[i];
+                final income = bar.income.toDouble() * _animation.value;
+                final incomeWithPending =
+                    (bar.income + bar.pendingIncome).toDouble() *
+                    _animation.value;
+                final expense = bar.expense.toDouble() * _animation.value;
+                final expenseWithPending =
+                    (bar.expense + bar.pendingExpense).toDouble() *
+                    _animation.value;
+
                 return BarChartGroupData(
                   x: i,
                   barsSpace: 6,
                   barRods: [
                     BarChartRodData(
-                      toY: bar.income.toDouble() * _animation.value,
+                      toY: incomeWithPending,
                       color: cs.primary,
                       width: 14,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(6),
                       ),
+                      rodStackItems: bar.pendingIncome > 0
+                          ? [
+                              BarChartRodStackItem(0, income, cs.primary),
+                              BarChartRodStackItem(
+                                income,
+                                incomeWithPending,
+                                cs.primary.withValues(alpha: 0.35),
+                              ),
+                            ]
+                          : [],
                     ),
                     BarChartRodData(
-                      toY: bar.expense.toDouble() * _animation.value,
+                      toY: expenseWithPending,
                       color: cs.error,
                       width: 14,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(6),
                       ),
+                      rodStackItems: bar.pendingExpense > 0
+                          ? [
+                              BarChartRodStackItem(0, expense, cs.error),
+                              BarChartRodStackItem(
+                                expense,
+                                expenseWithPending,
+                                cs.error.withValues(alpha: 0.35),
+                              ),
+                            ]
+                          : [],
                     ),
                   ],
                 );
