@@ -96,6 +96,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   // Split state
   List<SplitEntry> _splits = [];
+  bool _saving = false;
 
   bool get _isEditing =>
       widget.transaction != null &&
@@ -229,6 +230,21 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         }
     }
     return null;
+  }
+
+  bool get _canSave {
+    if (_amountInCents <= 0) return false;
+    if (_type != TransactionType.transfer) {
+      if (_descriptionController.text.trim().isEmpty) return false;
+      if (_categoryId == null && _splits.isEmpty) return false;
+      if (_entityId == null) return false;
+    }
+    if (_accountId == null) return false;
+    if (_type == TransactionType.transfer) {
+      if (_toAccountId == null) return false;
+      if (_accountId == _toAccountId) return false;
+    }
+    return true;
   }
 
   void _goNext() {
@@ -480,6 +496,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     if (_amountInCents <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Insira um valor maior que R\$ 0,00')),
@@ -545,6 +562,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
     }
 
+    setState(() => _saving = true);
+
     if (_isInstallmentEdit) {
       try {
         await ref
@@ -570,6 +589,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         }
       } catch (e) {
         if (mounted) {
+          setState(() => _saving = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Erro ao atualizar parcelamento: $e')),
           );
@@ -611,6 +631,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         return;
       } catch (e) {
         if (mounted) {
+          setState(() => _saving = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Erro ao criar parcelamento: $e')),
           );
@@ -691,6 +712,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         return;
       } catch (e) {
         if (mounted) {
+          setState(() => _saving = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Erro ao criar recorrência: $e')),
           );
@@ -764,6 +786,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _saving = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao salvar transação: $e')));
@@ -809,80 +832,80 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     });
 
     return PopScope(
-        canPop: _currentPage == 0,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _goBack();
-        },
-        child: Scaffold(
-          backgroundColor: cs.surface,
-          appBar: isInModal
-              ? null
-              : AppPageAppBar(
-                  title: _isEditing
-                      ? 'Editar Transação'
-                      : (_isCloningState
-                            ? 'Duplicar Transação'
-                            : 'Nova Transação'),
-                  actions: [
-                    if (_isEditing) ...[
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        tooltip: 'Excluir transação',
-                        onPressed: () async {
-                          final deleted = await showDeleteTransactionSheet(
-                            context,
-                            ref,
-                            widget.transaction!,
-                          );
-                          if (deleted && context.mounted) context.pop();
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded),
-                        tooltip: 'Duplicar transação',
-                        onPressed: () {
-                          setState(() {
-                            _isCloningState = true;
-                            _date = DateTime.now();
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Modo de duplicação ativado. Salve para criar uma nova transação.',
-                              ),
+      canPop: _currentPage == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        appBar: isInModal
+            ? null
+            : AppPageAppBar(
+                title: _isEditing
+                    ? 'Editar Transação'
+                    : (_isCloningState
+                          ? 'Duplicar Transação'
+                          : 'Nova Transação'),
+                actions: [
+                  if (_isEditing) ...[
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      tooltip: 'Excluir transação',
+                      onPressed: () async {
+                        final deleted = await showDeleteTransactionSheet(
+                          context,
+                          ref,
+                          widget.transaction!,
+                        );
+                        if (deleted && context.mounted) context.pop();
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded),
+                      tooltip: 'Duplicar transação',
+                      onPressed: () {
+                        setState(() {
+                          _isCloningState = true;
+                          _date = DateTime.now();
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Modo de duplicação ativado. Salve para criar uma nova transação.',
                             ),
-                          );
-                        },
-                      ),
-                    ],
+                          ),
+                        );
+                      },
+                    ),
                   ],
-                ),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeader(cs, tt),
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: cs.outlineVariant.withValues(alpha: 0.3),
+                ],
               ),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildPageAmount(cs, tt),
-                    _buildPageOQue(cs, tt),
-                    _buildPageComo(cs, tt),
-                    _buildPageExtras(cs, tt),
-                    _buildPageResumo(cs, tt),
-                  ],
-                ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(cs, tt),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.3),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildPageAmount(cs, tt),
+                  _buildPageOQue(cs, tt),
+                  _buildPageComo(cs, tt),
+                  _buildPageExtras(cs, tt),
+                  _buildPageResumo(cs, tt),
+                ],
               ),
-            ],
-          ),
-          bottomNavigationBar: _buildFooter(cs, tt),
+            ),
+          ],
         ),
+        bottomNavigationBar: _buildFooter(cs, tt),
+      ),
     );
   }
 
@@ -994,7 +1017,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             Expanded(
               flex: 2,
               child: FilledButton(
-                onPressed: isLastPage ? _save : _goNext,
+                onPressed: (_saving || (isLastPage && !_canSave))
+                    ? null
+                    : (isLastPage ? _save : _goNext),
                 style: FilledButton.styleFrom(
                   backgroundColor: activeColor,
                   padding: const EdgeInsets.symmetric(vertical: 14),

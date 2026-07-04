@@ -179,7 +179,7 @@ class _HorizonCard extends StatelessWidget {
     final isPositive = delta >= 0;
     final color = amount < 0
         ? cs.error
-        : (isPositive ? const Color(0xFF4CAF50) : cs.error);
+        : (isPositive ? context.customColors.income : cs.error);
 
     return Expanded(
       child: Card(
@@ -236,7 +236,7 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPositive = point.dailyNet > 0;
-    final color = isPositive ? const Color(0xFF4CAF50) : cs.error;
+    final color = isPositive ? context.customColors.income : cs.error;
     final day = point.date.day.toString().padLeft(2, '0');
     final month = point.date.month.toString().padLeft(2, '0');
 

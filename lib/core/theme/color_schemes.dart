@@ -21,6 +21,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.investment,
     required this.chartPrimary,
     required this.surfaceGlass,
+    required this.warning,
   });
 
   final Color income;
@@ -29,6 +30,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color investment;
   final Color chartPrimary;
   final Color surfaceGlass;
+  final Color warning;
 
   @override
   CustomColors copyWith({
@@ -38,6 +40,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? investment,
     Color? chartPrimary,
     Color? surfaceGlass,
+    Color? warning,
   }) {
     return CustomColors(
       income: income ?? this.income,
@@ -46,6 +49,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       investment: investment ?? this.investment,
       chartPrimary: chartPrimary ?? this.chartPrimary,
       surfaceGlass: surfaceGlass ?? this.surfaceGlass,
+      warning: warning ?? this.warning,
     );
   }
 
@@ -61,6 +65,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       investment: Color.lerp(investment, other.investment, t)!,
       chartPrimary: Color.lerp(chartPrimary, other.chartPrimary, t)!,
       surfaceGlass: Color.lerp(surfaceGlass, other.surfaceGlass, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
     );
   }
 
@@ -71,6 +76,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     investment: Color(0xFFE65100),
     chartPrimary: Color(0xFF00BCD4),
     surfaceGlass: Color(0x1AFFFFFF),
+    warning: Color(0xFFF9A825),
   );
 
   static const dark = CustomColors(
@@ -80,6 +86,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     investment: Color(0xFFFFB300),
     chartPrimary: Color(0xFF26C6DA),
     surfaceGlass: Color(0x1AFFFFFF),
+    warning: Color(0xFFFFCA28),
   );
 
   /// Returns a version of [base] whose semantic colors are harmonized with
@@ -93,6 +100,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       investment: h(base.investment),
       chartPrimary: h(base.chartPrimary),
       surfaceGlass: base.surfaceGlass,
+      warning: h(base.warning),
     );
   }
 

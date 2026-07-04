@@ -2,7 +2,6 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/features/categories/data/repositories/category_repository.dart';
-import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 

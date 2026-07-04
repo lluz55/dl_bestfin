@@ -96,8 +96,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (BuildContext context, GoRouterState state) {
       final isOnboarding = state.matchedLocation.startsWith('/onboarding');
+      final isSyncAuth =
+          state.matchedLocation.startsWith('/sync/login') ||
+          state.matchedLocation.startsWith('/sync/scan') ||
+          state.matchedLocation.startsWith('/sync/recover') ||
+          state.matchedLocation.startsWith('/sync/register');
       if (!notifier.onboardingCompleted) {
-        return isOnboarding ? null : '/onboarding';
+        return (isOnboarding || isSyncAuth) ? null : '/onboarding';
       }
       return isOnboarding ? '/home' : null;
     },
@@ -341,15 +346,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/sync/mnemonic-display',
-        builder: (context, state) => MnemonicDisplayScreen(
-          mnemonic: state.extra as String,
-        ),
+        builder: (context, state) =>
+            MnemonicDisplayScreen(mnemonic: state.extra as String),
       ),
       GoRoute(
         path: '/sync/qr',
-        builder: (context, state) => IdentityQrScreen(
-          masterKey: state.extra as List<int>,
-        ),
+        builder: (context, state) =>
+            IdentityQrScreen(masterKey: state.extra as List<int>),
       ),
       GoRoute(
         path: '/sync/scan',

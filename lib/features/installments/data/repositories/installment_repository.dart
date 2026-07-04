@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
@@ -70,9 +71,13 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
         .replaceAll(RegExp(r'\s*\(\d+/\d+\)$'), '')
         .trim();
 
+    final planId = const Uuid().v4();
+    final generatedTxIds = <String>[];
+
     await _database.transaction(() async {
       // Create the first transaction (origin)
       final originTxId = const Uuid().v4();
+      generatedTxIds.add(originTxId);
 
       await _database
           .into(_database.transactions)
@@ -104,7 +109,6 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
           );
 
       // Create InstallmentPlan pointing to origin transaction
-      final planId = const Uuid().v4();
       await _database
           .into(_database.installmentPlans)
           .insert(
@@ -137,6 +141,8 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
         final value = isLast ? baseValue + remainder : baseValue;
 
         final txId = const Uuid().v4();
+        generatedTxIds.add(txId);
+
         await _database
             .into(_database.transactions)
             .insert(
@@ -168,6 +174,11 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
             );
       }
     });
+
+    await _enqueueInstallmentPlanSync(planId, 'insert');
+    for (final txId in generatedTxIds) {
+      await _enqueueTransactionSync(txId, 'insert');
+    }
   }
 
   @override
@@ -243,6 +254,11 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
         db.InstallmentPlansCompanion(installmentValue: Value(baseValue)),
       );
     });
+
+    await _enqueueInstallmentPlanSync(planId, 'update');
+    for (final tx in txs) {
+      await _enqueueTransactionSync(tx.id, 'update');
+    }
   }
 
   @override
@@ -310,6 +326,21 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
 
   @override
   Future<void> cancelInstallmentPlan(String planId) async {
+    final completedTxs =
+        await (_database.select(_database.transactions)..where(
+              (t) =>
+                  t.installmentPlanId.equals(planId) &
+                  t.isCompleted.equals(true),
+            ))
+            .get();
+    final uncompletedTxs =
+        await (_database.select(_database.transactions)..where(
+              (t) =>
+                  t.installmentPlanId.equals(planId) &
+                  t.isCompleted.equals(false),
+            ))
+            .get();
+
     await _database.transaction(() async {
       // Clear installment references from the origin (completed) transaction
       await (_database.update(_database.transactions)..where(
@@ -336,5 +367,106 @@ class InstallmentRepositoryImpl implements InstallmentRepository {
         _database.installmentPlans,
       )..where((p) => p.id.equals(planId))).go();
     });
+
+    await _enqueueInstallmentPlanSync(planId, 'delete');
+    for (final tx in completedTxs) {
+      await _enqueueTransactionSync(tx.id, 'update');
+    }
+    for (final tx in uncompletedTxs) {
+      await _enqueueTransactionSync(tx.id, 'delete');
+    }
+  }
+
+  Future<void> _enqueueInstallmentPlanSync(String id, String operation) async {
+    final plan = await (_database.select(
+      _database.installmentPlans,
+    )..where((p) => p.id.equals(id))).getSingleOrNull();
+
+    final payload = plan == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': plan.id,
+            'origin_transaction_id': plan.originTransactionId,
+            'total_installments': plan.totalInstallments,
+            'installment_value': plan.installmentValue,
+            'created_at': plan.createdAt.toIso8601String(),
+            'updated_at': plan.createdAt.toIso8601String(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'installment_plan',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
+  }
+
+  Future<void> _enqueueTransactionSync(String id, String operation) async {
+    final tx = await (_database.select(
+      _database.transactions,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    final entries = await (_database.select(
+      _database.entries,
+    )..where((e) => e.transactionId.equals(id))).get();
+    final splits = await (_database.select(
+      _database.transactionSplits,
+    )..where((s) => s.transactionId.equals(id))).get();
+
+    final payload = tx == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': tx.id,
+            'date': tx.date.toIso8601String(),
+            'description': tx.description,
+            'type': tx.type,
+            'sentiment': tx.sentiment,
+            'notes': tx.notes,
+            'category_id': tx.categoryId,
+            'entity_id': tx.entityId,
+            'goal_id': tx.goalId,
+            'installment_plan_id': tx.installmentPlanId,
+            'installment_number': tx.installmentNumber,
+            'recurring_rule_id': tx.recurringRuleId,
+            'credit_card_id': tx.creditCardId,
+            'raw_amount': tx.rawAmount,
+            'invoice_id': tx.invoiceId,
+            'is_completed': tx.isCompleted,
+            'is_confirmed': tx.isConfirmed,
+            'source': tx.source,
+            'created_at': tx.createdAt.toIso8601String(),
+            'updated_at': tx.updatedAt.toIso8601String(),
+            'entries': entries
+                .map(
+                  (entry) => <String, dynamic>{
+                    'id': entry.id,
+                    'transaction_id': entry.transactionId,
+                    'account_id': entry.accountId,
+                    'amount': entry.amount,
+                    'type': entry.type,
+                    'created_at': entry.createdAt.toIso8601String(),
+                  },
+                )
+                .toList(),
+            'splits': splits
+                .map(
+                  (split) => <String, dynamic>{
+                    'id': split.id,
+                    'transaction_id': split.transactionId,
+                    'category_id': split.categoryId,
+                    'amount': split.amount,
+                    'description': split.description,
+                  },
+                )
+                .toList(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'transaction',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
@@ -18,13 +20,29 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
   bool _showPin = false;
   String? _pinError;
   bool _authenticating = false;
+  DateTime? _lockedUntil;
+  Timer? _lockoutTicker;
 
   @override
   void initState() {
     super.initState();
+    _checkLockout();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 300), _authenticate);
     });
+  }
+
+  @override
+  void dispose() {
+    _lockoutTicker?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkLockout() async {
+    final until = await SecurityActions.pinLockedUntil();
+    if (until != null && mounted) {
+      _enterLockout(until);
+    }
   }
 
   Future<void> _authenticate() async {
@@ -45,14 +63,47 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
   }
 
   Future<void> _onPinComplete(String pin) async {
-    final correct = await SecurityActions.verifyPin(pin);
+    if (_lockedUntil != null) return;
+    final result = await SecurityActions.verifyPinAttempt(pin);
     if (!mounted) return;
-    if (correct) {
-      ref.read(isLockedProvider.notifier).unlock();
-    } else {
-      setState(() => _pinError = 'PIN incorreto. Tente novamente.');
-      _pinKey.currentState?.shake();
+    switch (result.status) {
+      case PinVerifyStatus.success:
+        ref.read(isLockedProvider.notifier).unlock();
+      case PinVerifyStatus.invalidPin:
+        setState(() => _pinError = 'PIN incorreto. Tente novamente.');
+        _pinKey.currentState?.shake();
+      case PinVerifyStatus.lockedOut:
+        _enterLockout(result.lockedUntil!);
     }
+  }
+
+  void _enterLockout(DateTime until) {
+    _lockoutTicker?.cancel();
+    setState(() {
+      _showPin = true;
+      _lockedUntil = until;
+      _pinError = _lockoutMessage(until.difference(DateTime.now()));
+    });
+    _lockoutTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final remaining = until.difference(DateTime.now());
+      if (!mounted) return;
+      if (remaining <= Duration.zero) {
+        _lockoutTicker?.cancel();
+        setState(() {
+          _lockedUntil = null;
+          _pinError = null;
+        });
+      } else {
+        setState(() => _pinError = _lockoutMessage(remaining));
+      }
+    });
+  }
+
+  String _lockoutMessage(Duration remaining) {
+    final seconds = remaining.inSeconds.clamp(0, 999999);
+    final mm = (seconds ~/ 60).toString().padLeft(2, '0');
+    final ss = (seconds % 60).toString().padLeft(2, '0');
+    return 'Muitas tentativas. Tente novamente em $mm:$ss.';
   }
 
   @override
@@ -100,6 +151,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
                   key: _pinKey,
                   onComplete: _onPinComplete,
                   errorMessage: _pinError,
+                  enabled: _lockedUntil == null,
                 )
               else ...[
                 FilledButton.icon(

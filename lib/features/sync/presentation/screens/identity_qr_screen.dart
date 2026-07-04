@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:bestfin/core/utils/secure_clipboard.dart';
+import 'package:bestfin/core/utils/secure_screen.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/sync/data/services/e2e_crypto_service.dart';
 
@@ -22,10 +23,17 @@ class _IdentityQrScreenState extends State<IdentityQrScreen> {
   void initState() {
     super.initState();
     _mnemonic = E2ECryptoService.masterKeyToMnemonic(widget.masterKey);
+    SecureScreen.enable();
+  }
+
+  @override
+  void dispose() {
+    SecureScreen.disable();
+    super.dispose();
   }
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: _mnemonic));
+    await SecureClipboard.copyTemporarily(_mnemonic);
     if (!mounted) return;
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {
@@ -55,18 +63,13 @@ class _IdentityQrScreenState extends State<IdentityQrScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: cs.error,
-                    size: 20,
-                  ),
+                  Icon(Icons.warning_amber_rounded, color: cs.error, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Este QR dá acesso completo à sua identidade. '
                       'Use apenas em locais privados e com dispositivos confiáveis.',
-                      style:
-                          tt.bodySmall?.copyWith(color: cs.onErrorContainer),
+                      style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
                     ),
                   ),
                 ],
@@ -145,9 +148,7 @@ class _IdentityQrScreenState extends State<IdentityQrScreen> {
                 _copied ? Icons.check_rounded : Icons.copy_rounded,
                 size: 18,
               ),
-              label: Text(
-                _copied ? 'Mnemônico copiado!' : 'Copiar mnemônico',
-              ),
+              label: Text(_copied ? 'Mnemônico copiado!' : 'Copiar mnemônico'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(44),
               ),

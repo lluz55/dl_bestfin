@@ -27,10 +27,6 @@ class CreditCardVisualWidget extends StatelessWidget {
       baseColor.withValues(alpha: 0.85),
     ];
 
-    final limitDouble = card.limitAmount / 100.0;
-    final formattedLimit =
-        'R\$ ${limitDouble.toStringAsFixed(2).replaceAll('.', ',')}';
-
     final availableDouble = card.availableLimit / 100.0;
     final formattedAvailable =
         'R\$ ${availableDouble.toStringAsFixed(2).replaceAll('.', ',')}';
@@ -95,17 +91,9 @@ class CreditCardVisualWidget extends StatelessWidget {
                                 letterSpacing: 1.2,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'BESTFIN PREMIUM',
-                              style: tt.labelSmall?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.6),
-                                letterSpacing: 1.0,
-                              ),
-                            ),
                           ],
                         ),
-                        // Ícone da bandeira estilizado
+                        // Ícone genérico de cartão (sem bandeira, dado não cadastrado)
                         Container(
                           width: 44,
                           height: 28,
@@ -114,14 +102,10 @@ class CreditCardVisualWidget extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            'MC',
-                            style: tt.labelLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontStyle: FontStyle.italic,
-                              letterSpacing: 1,
-                            ),
+                          child: Icon(
+                            Icons.credit_card,
+                            color: Colors.white.withValues(alpha: 0.85),
+                            size: 20,
                           ),
                         ),
                       ],
@@ -172,7 +156,7 @@ class CreditCardVisualWidget extends StatelessWidget {
                           )
                         else
                           Text(
-                            '**** **** **** 8852',
+                            '•••• •••• •••• ••••',
                             style: tt.titleMedium
                                 ?.copyWith(
                                   color: Colors.white,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/empty_state.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
@@ -15,7 +17,7 @@ class CashFlowScreen extends ConsumerWidget {
     final reportAsync = ref.watch(cashFlowProvider);
 
     return reportAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (e, _) => Center(child: Text('Erro: $e')),
       data: (report) {
         if (report.points.isEmpty) {
@@ -27,21 +29,10 @@ class CashFlowScreen extends ConsumerWidget {
   }
 
   Widget _emptyState(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.show_chart, size: 64, color: cs.outlineVariant),
-          const SizedBox(height: 16),
-          Text(
-            'Nenhuma transação no período',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
+    return const EmptyState(
+      icon: Icons.show_chart,
+      title: 'Nenhuma transação no período',
+      description: 'Não há lançamentos registrados no período selecionado.',
     );
   }
 }

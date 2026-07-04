@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/core/database/tables/goals.dart';
 import 'package:bestfin/core/database/tables/goal_categories.dart';
@@ -51,20 +53,22 @@ class GoalsDao extends DatabaseAccessor<AppDatabase> with _$GoalsDaoMixin {
     List<String> categoryIds,
   ) async {
     await (delete(goalCategories)..where((g) => g.goalId.equals(goalId))).go();
-    if (categoryIds.isEmpty) return;
-    await batch((b) {
-      b.insertAll(
-        goalCategories,
-        categoryIds
-            .map(
-              (cId) => GoalCategoriesCompanion.insert(
-                goalId: goalId,
-                categoryId: cId,
-              ),
-            )
-            .toList(),
-      );
-    });
+    if (categoryIds.isNotEmpty) {
+      await batch((b) {
+        b.insertAll(
+          goalCategories,
+          categoryIds
+              .map(
+                (cId) => GoalCategoriesCompanion.insert(
+                  goalId: goalId,
+                  categoryId: cId,
+                ),
+              )
+              .toList(),
+        );
+      });
+    }
+    await _enqueueGoalSync(goalId, 'update');
   }
 
   /// Retorna todos os goals ativos que têm [categoryId] (ou qualquer pai dele)
@@ -95,16 +99,21 @@ class GoalsDao extends DatabaseAccessor<AppDatabase> with _$GoalsDaoMixin {
 
   // ── Writes ─────────────────────────────────────────────────────────────────
 
-  Future<int> insertGoal(GoalsCompanion goal) {
-    return into(goals).insert(goal);
+  Future<int> insertGoal(GoalsCompanion goal) async {
+    final res = await into(goals).insert(goal);
+    await _enqueueGoalSync(goal.id.value, 'insert');
+    return res;
   }
 
-  Future<bool> updateGoal(GoalsCompanion goal) {
-    return update(goals).replace(goal);
+  Future<bool> updateGoal(GoalsCompanion goal) async {
+    final res = await update(goals).replace(goal);
+    await _enqueueGoalSync(goal.id.value, 'update');
+    return res;
   }
 
-  Future<void> patchGoal(String id, GoalsCompanion companion) {
-    return (update(goals)..where((g) => g.id.equals(id))).write(companion);
+  Future<void> patchGoal(String id, GoalsCompanion companion) async {
+    await (update(goals)..where((g) => g.id.equals(id))).write(companion);
+    await _enqueueGoalSync(id, 'update');
   }
 
   Future<void> addContribution(String id, int amountInCents) async {
@@ -141,7 +150,8 @@ class GoalsDao extends DatabaseAccessor<AppDatabase> with _$GoalsDaoMixin {
     );
   }
 
-  Future<int> deleteGoal(String id) {
+  Future<int> deleteGoal(String id) async {
+    await _enqueueGoalSync(id, 'delete');
     return (delete(goals)..where((g) => g.id.equals(id))).go();
   }
 
@@ -155,6 +165,41 @@ class GoalsDao extends DatabaseAccessor<AppDatabase> with _$GoalsDaoMixin {
         periodStartDate: Value(newPeriodStart),
         updatedAt: Value(DateTime.now()),
       ),
+    );
+  }
+
+  Future<void> _enqueueGoalSync(String id, String operation) async {
+    final goal = await getGoalById(id);
+    final categoryIds = await getGoalCategoryIds(id);
+
+    final payload = goal == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': goal.id,
+            'name': goal.name,
+            'description': goal.description,
+            'target_amount': goal.targetAmount,
+            'current_amount': goal.currentAmount,
+            'target_date': goal.targetDate?.toIso8601String(),
+            'account_id': goal.accountId,
+            'color': goal.color,
+            'icon': goal.icon,
+            'type': goal.type,
+            'status': goal.status,
+            'is_recurring': goal.isRecurring,
+            'recurrence_frequency': goal.recurrenceFrequency,
+            'period_start_date': goal.periodStartDate?.toIso8601String(),
+            'created_at': goal.createdAt.toIso8601String(),
+            'updated_at': goal.updatedAt.toIso8601String(),
+            'category_ids': categoryIds,
+          };
+
+    await db.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'goal',
+      entityId: id,
+      payload: jsonEncode(payload),
     );
   }
 }

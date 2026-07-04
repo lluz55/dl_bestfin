@@ -174,3 +174,31 @@ class SyncRecord {
 - O cadastro envia o `kdf_salt` usado para embrulhar a master key, garantindo que login posterior consiga descriptografá-la.
 - O app inicializa a configuração do backend ao abrir e inicia auto-sync periódico.
 - Cartões de crédito, metas completas e households remotos ficam para uma próxima expansão de escopo.
+
+> **Nota (2026-07-04):** o backend Go/HTTP descrito acima foi substituído por
+> transporte Nostr (commit `feat(sync): replace backend sync with Nostr
+> transport`). Este arquivo e `docs/okf/features/sync.md` ainda descrevem a
+> arquitetura antiga e precisam de uma reescrita completa — pendente.
+
+## Melhorias de eficiência do polling (2026-07-04)
+
+Contexto: o auto-sync fazia polling fixo de 1 min fechando a subscription a
+cada ciclo (`nostr_sync_service.dart`), sem backoff por relay e sem reduzir
+frequência em background — risco de rate-limit e gasto de bateria.
+
+- **Live subscription** (`NostrSyncService.startLiveSync`): subscription Nostr
+  mantida aberta (não fecha no EOSE) com filtro `since: now`, para reagir a
+  mudanças remotas em segundos em vez de esperar o próximo tick do poll.
+- **Backoff por relay** (`_markRelayFailure`/`_relayCooldownUntil`): relay que
+  erra, cai ou envia NOTICE de rate-limit entra em cooldown exponencial
+  (30s→16min, com jitter) e é excluído do `relaysList` até o cooldown expirar,
+  evitando que o dart_nostr tente reconectá-lo a cada ciclo.
+- **Intervalo adaptativo** (`SyncStateNotifier`): poll ativo permanece em 1 min
+  (agora só como rede de segurança), cai para 10 min em background
+  (`onAppPaused`/`onAppResumed`, ligados ao observer de lifecycle já existente
+  em `main.dart`).
+- **Jitter no timer periódico**: reagendamento com ±10% de variação para
+  dispositivos da mesma identidade não sincronizarem em lockstep.
+
+Arquivos alterados: `lib/features/sync/data/services/nostr_sync_service.dart`,
+`lib/features/sync/presentation/providers/sync_provider.dart`, `lib/main.dart`.

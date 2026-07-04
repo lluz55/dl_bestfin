@@ -15,6 +15,12 @@ void main() {
     );
     container.read(syncServiceProvider).stopAutoSync();
 
+    // Settle initial welcome screen animations
+    await tester.pumpAndSettle();
+
+    // Unmount the widget tree to trigger all disposals while we can still pump
+    await tester.pumpWidget(const SizedBox());
+
     // Settle all remaining microtasks, routing transitions and schedules
     await tester.pumpAndSettle();
   });

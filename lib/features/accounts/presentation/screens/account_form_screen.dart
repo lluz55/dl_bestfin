@@ -31,6 +31,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   late int _initialBalanceCents;
 
   final _nameController = TextEditingController();
+  bool _saving = false;
 
   bool get _isEditing => widget.accountToEdit != null;
 
@@ -88,6 +89,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
 
   Future<void> _saveForm() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_saving) return;
+    setState(() => _saving = true);
 
     try {
       if (_isEditing) {
@@ -128,6 +131,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _saving = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao salvar conta: $e')));
@@ -159,7 +163,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
-            onPressed: _saveForm,
+            onPressed: _saving ? null : _saveForm,
             tooltip: 'Salvar',
           ),
         ],
@@ -259,7 +263,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        onPressed: _saveForm,
+                        onPressed: _saving ? null : _saveForm,
                         child: Text(
                           _isEditing ? 'Salvar Alterações' : 'Criar Conta',
                           style: theme.textTheme.titleMedium?.copyWith(

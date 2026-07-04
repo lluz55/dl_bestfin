@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -38,19 +39,26 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_saving) return;
     setState(() => _saving = true);
 
-    final createUseCase = ref.read(createAccountProvider);
-    await createUseCase(
-      name: _nameController.text.trim(),
-      type: _selectedType.name,
-      icon: _selectedType.defaultIcon.codePoint.toString(),
-      color: _selectedColorHex,
-      initialBalance: _balanceCents,
-    );
+    try {
+      final createUseCase = ref.read(createAccountProvider);
+      await createUseCase(
+        name: _nameController.text.trim(),
+        type: _selectedType.name,
+        icon: _selectedType.defaultIcon.codePoint.toString(),
+        color: _selectedColorHex,
+        initialBalance: _balanceCents,
+      );
 
-    ref.invalidate(accountsProvider);
-    if (mounted) widget.onNext();
+      ref.invalidate(accountsProvider);
+      if (mounted) widget.onNext();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   @override
@@ -156,7 +164,7 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                    child: AppLoadingIndicator(strokeWidth: 2.5),
                   )
                 : Text(
                     'Continuar',

@@ -4,12 +4,15 @@ import 'dart:io';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/router/app_router.dart';
+import 'package:bestfin/core/shell/responsive_navigation.dart';
 import 'package:bestfin/core/theme/app_theme.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/custom_seed_provider.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
@@ -109,16 +112,49 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
   Future<void> _startSync() async {
     try {
       await ref.read(nostrSyncServiceProvider).loadIdentity();
-      ref.read(syncServiceProvider).startAutoSync();
     } catch (error) {
-      debugPrint('Failed to start auto-sync: $error');
+      debugPrint('[Sync] loadIdentity inesperado: $error');
     }
+    // Always initialize the notifier regardless of loadIdentity outcome —
+    // the periodic timer and debounce must start even without an identity
+    // so they resume syncing once the user re-enters the mnemonic.
+    ref.read(syncStateProvider);
+    unawaited(ref.read(syncStateProvider.notifier).syncNow(background: true));
+  }
+
+  // Várias telas (ex.: DashboardScreen) têm seu próprio Scaffold aninhado
+  // dentro do Scaffold do AppShell. O ScaffoldMessenger sempre exibe o
+  // SnackBar no Scaffold atualmente mais interno, então um SnackBar comum
+  // nunca fica de forma confiável acima da barra de navegação flutuante.
+  // Por isso este aviso é um overlay próprio, renderizado no `builder` do
+  // MaterialApp — acima de tudo, imune a qual Scaffold interno está ativo.
+  Timer? _syncBannerTimer;
+  _SyncBannerData? _syncBanner;
+
+  void _showSyncBanner({
+    required IconData icon,
+    required String message,
+    bool isError = false,
+  }) {
+    _syncBannerTimer?.cancel();
+    setState(() {
+      _syncBanner = _SyncBannerData(
+        icon: icon,
+        message: message,
+        isError: isError,
+      );
+    });
+    _syncBannerTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      setState(() => _syncBanner = null);
+    });
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleEscKey);
     WidgetsBinding.instance.removeObserver(this);
+    _syncBannerTimer?.cancel();
     super.dispose();
   }
 
@@ -126,6 +162,10 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       _backgroundedAt = DateTime.now();
+      // Relax the periodic safety-net poll while backgrounded to save
+      // battery/data — the live subscription and resume-triggered sync
+      // below cover freshness the rest of the time.
+      ref.read(syncStateProvider.notifier).onAppPaused();
     } else if (state == AppLifecycleState.resumed) {
       final biometricsEnabled = ref.read(biometricsEnabledProvider);
       if (biometricsEnabled && _backgroundedAt != null) {
@@ -135,6 +175,9 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
         }
       }
       _backgroundedAt = null;
+      ref.read(syncStateProvider.notifier).onAppResumed();
+      // Background sync on every resume — picks up remote changes immediately.
+      unawaited(ref.read(syncStateProvider.notifier).syncNow(background: true));
       // Trigger insight + narrative refresh if LLM is ready and cache is stale
       final llmStatus = ref.read(llmStateProvider).status;
       if (llmStatus == LlmStatus.ready) {
@@ -147,6 +190,25 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(peerConnectionsProvider, (_, next) {
+      next.whenData((info) {
+        _showSyncBanner(
+          icon: Icons.devices_rounded,
+          message: '${info.deviceName ?? info.platform} se conectou',
+        );
+      });
+    });
+
+    ref.listen(syncBackgroundErrorsProvider, (_, next) {
+      next.whenData((message) {
+        _showSyncBanner(
+          icon: Icons.sync_problem_rounded,
+          message: message,
+          isError: true,
+        );
+      });
+    });
+
     final themeState = ref.watch(themeProvider);
     final customSeed = ref.watch(customSeedProvider);
     final router = ref.watch(appRouterProvider);
@@ -183,11 +245,83 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
           debugShowCheckedModeBanner: false,
           routerConfig: router,
           builder: (context, child) => BadgeUnlockOverlay(
-            child: LockOverlay(child: child ?? const SizedBox()),
+            child: LockOverlay(
+              child: Stack(
+                children: [
+                  child ?? const SizedBox(),
+                  if (_syncBanner case final banner?)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      // Só o layout compacto (mobile) tem a barra de
+                      // navegação flutuante por baixo do conteúdo; nos
+                      // layouts médio/expandido (tablet/desktop) a
+                      // navegação é lateral, então basta o respiro padrão.
+                      bottom:
+                          (Breakpoints.isCompact(context)
+                              ? kFloatingNavClearance
+                              : 16) +
+                          MediaQuery.paddingOf(context).bottom,
+                      child: _SyncBanner(data: banner),
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },
     );
+  }
+}
+
+class _SyncBannerData {
+  const _SyncBannerData({
+    required this.icon,
+    required this.message,
+    this.isError = false,
+  });
+
+  final IconData icon;
+  final String message;
+  final bool isError;
+}
+
+class _SyncBanner extends StatelessWidget {
+  const _SyncBanner({required this.data});
+
+  final _SyncBannerData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final bg = data.isError ? cs.errorContainer : cs.surfaceContainerHigh;
+    final fg = data.isError ? cs.onErrorContainer : cs.onSurface;
+    return Material(
+          color: bg,
+          elevation: 6,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(data.icon, size: 18, color: fg),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(data.message, style: TextStyle(color: fg)),
+                ),
+              ],
+            ),
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 200.ms)
+        .slideY(
+          begin: 0.3,
+          end: 0,
+          duration: 250.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 

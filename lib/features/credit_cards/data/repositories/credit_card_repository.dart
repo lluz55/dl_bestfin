@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/features/credit_cards/domain/models/credit_card.dart';
@@ -116,6 +117,7 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
     int minPaymentPercent = 15,
   }) async {
     final cardId = const Uuid().v4();
+    final invoiceId = const Uuid().v4();
     final now = DateTime.now();
 
     await _database.transaction(() async {
@@ -154,7 +156,7 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
           .into(_database.invoices)
           .insert(
             db.InvoicesCompanion.insert(
-              id: const Uuid().v4(),
+              id: invoiceId,
               creditCardId: cardId,
               month: now.month,
               year: now.year,
@@ -166,6 +168,9 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
             ),
           );
     });
+
+    await _enqueueCreditCardSync(cardId, 'insert');
+    await _enqueueInvoiceSync(invoiceId, 'insert');
   }
 
   @override
@@ -194,12 +199,72 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
         updatedAt: Value(now),
       ),
     );
+    await _enqueueCreditCardSync(id, 'update');
   }
 
   @override
   Future<void> deleteCreditCard(String id) async {
+    await _enqueueCreditCardSync(id, 'delete');
     await (_database.delete(
       _database.creditCards,
     )..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<void> _enqueueCreditCardSync(String id, String operation) async {
+    final card = await (_database.select(
+      _database.creditCards,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    final payload = card == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': card.id,
+            'name': card.name,
+            'limit_amount': card.limitAmount,
+            'closing_day': card.closingDay,
+            'due_day': card.dueDay,
+            'account_id': card.accountId,
+            'color': card.color,
+            'min_payment_percent': card.minPaymentPercent,
+            'is_archived': card.isArchived,
+            'created_at': card.createdAt.toIso8601String(),
+            'updated_at': card.updatedAt.toIso8601String(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'credit_card',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
+  }
+
+  Future<void> _enqueueInvoiceSync(String id, String operation) async {
+    final invoice = await (_database.select(
+      _database.invoices,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    final payload = invoice == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': invoice.id,
+            'credit_card_id': invoice.creditCardId,
+            'month': invoice.month,
+            'year': invoice.year,
+            'status': invoice.status,
+            'closing_date': invoice.closingDate.toIso8601String(),
+            'due_date': invoice.dueDate.toIso8601String(),
+            'created_at': invoice.createdAt.toIso8601String(),
+            'updated_at': invoice.updatedAt.toIso8601String(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'invoice',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 }

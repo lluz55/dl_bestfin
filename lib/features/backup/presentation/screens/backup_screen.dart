@@ -104,8 +104,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
       _hideLoading();
 
-      // Trigger native OS share sheet using backupDatabaseUseCaseProvider utility
-      final backupUseCase = ref.read(backupDatabaseUseCaseProvider);
+      // Trigger native OS share sheet
       await Share.shareXFiles([
         XFile(file.path),
       ], subject: 'Relatório CSV BestFin');
@@ -432,7 +431,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
           Text(
             value,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
@@ -495,7 +500,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: context.customColors.income,
         behavior: SnackBarBehavior.floating,
       ),
     );

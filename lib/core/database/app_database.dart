@@ -119,7 +119,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration {
@@ -318,6 +318,12 @@ class AppDatabase extends _$AppDatabase {
         if (from < 19) {
           await m.createTable(nostrEventLog);
         }
+        if (from < 20) {
+          await _seedNewDefaultCategories();
+        }
+        if (from < 21) {
+          await m.createIndex(nostrEventLogPublishedIdx);
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
@@ -424,6 +430,46 @@ class AppDatabase extends _$AppDatabase {
             bankName: Value(bankName),
             regexPattern: pattern,
             isEnabled: const Value(true),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _seedNewDefaultCategories() async {
+    for (final c in SeedDataConstants.defaultCategories) {
+      final exists = await (select(
+        categories,
+      )..where((t) => t.id.equals(c.id))).getSingleOrNull();
+      if (exists == null) {
+        await into(categories).insert(
+          CategoriesCompanion.insert(
+            id: c.id,
+            name: c.name,
+            icon: c.icon,
+            color: c.color,
+            type: c.type.name,
+            isSystem: const Value(true),
+            description: c.description != null
+                ? Value(c.description)
+                : const Value.absent(),
+          ),
+        );
+      }
+    }
+
+    for (final r in SeedDataConstants.defaultCategoryRelationships) {
+      final exists = await (select(categoryParents)..where(
+            (t) =>
+                t.parentCategoryId.equals(r.$1) &
+                t.childCategoryId.equals(r.$2),
+          ))
+          .getSingleOrNull();
+      if (exists == null) {
+        await into(categoryParents).insert(
+          CategoryParentsCompanion.insert(
+            parentCategoryId: r.$1,
+            childCategoryId: r.$2,
           ),
         );
       }

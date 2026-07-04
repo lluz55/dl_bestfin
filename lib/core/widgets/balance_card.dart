@@ -24,7 +24,6 @@ class BalanceCard extends StatefulWidget {
 
 class _BalanceCardState extends State<BalanceCard> {
   bool _pressed = false;
-  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -33,13 +32,12 @@ class _BalanceCardState extends State<BalanceCard> {
     final motion = context.motion;
     final tt = context.textTheme;
 
-    final radius = _expanded ? BorderRadius.circular(28) : shapes.balanceCard;
+    final radius = shapes.balanceCard;
 
     return GestureDetector(
           onTapDown: (_) => setState(() => _pressed = true),
           onTapUp: (_) => setState(() => _pressed = false),
           onTapCancel: () => setState(() => _pressed = false),
-          onTap: () => setState(() => _expanded = !_expanded),
           child: AnimatedScale(
             scale: _pressed ? 0.97 : 1.0,
             duration: motion.fastDuration,
@@ -123,13 +121,6 @@ class _BalanceCardState extends State<BalanceCard> {
                               color: cs.onPrimary.withValues(alpha: 0.6),
                             ),
                           ),
-                          AnimatedSize(
-                            duration: motion.morphDuration,
-                            curve: motion.morphCurve,
-                            child: _expanded
-                                ? _ExpandedDetails(cs: cs, tt: tt)
-                                : const SizedBox.shrink(),
-                          ),
                         ],
                       ),
                     ),
@@ -147,93 +138,6 @@ class _BalanceCardState extends State<BalanceCard> {
           duration: context.motion.mediumDuration,
         )
         .fadeIn(duration: context.motion.fastDuration);
-  }
-}
-
-class _ExpandedDetails extends StatelessWidget {
-  const _ExpandedDetails({required this.cs, required this.tt});
-
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: Row(
-            children: [
-              _MiniStat(
-                label: 'Receitas',
-                amountInCents: 580000,
-                color: const Color(0xFF66BB6A),
-                cs: cs,
-                tt: tt,
-              ),
-              const SizedBox(width: 24),
-              _MiniStat(
-                label: 'Despesas',
-                amountInCents: -220000,
-                color: const Color(0xFFEF5350),
-                cs: cs,
-                tt: tt,
-              ),
-            ],
-          ),
-        )
-        .animate()
-        .fadeIn(duration: const Duration(milliseconds: 200))
-        .slideY(begin: 0.2, end: 0, curve: Curves.easeOut);
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.label,
-    required this.amountInCents,
-    required this.color,
-    required this.cs,
-    required this.tt,
-  });
-
-  final String label;
-  final int amountInCents;
-  final Color color;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  @override
-  Widget build(BuildContext context) {
-    final double amount = amountInCents.abs() / 100.0;
-    final formatted = 'R\$ ${amount.toStringAsFixed(2).replaceAll('.', ',')}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: tt.labelSmall?.copyWith(
-                color: cs.onPrimary.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          formatted,
-          style: tt.titleSmall?.copyWith(
-            color: cs.onPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
   }
 }
 

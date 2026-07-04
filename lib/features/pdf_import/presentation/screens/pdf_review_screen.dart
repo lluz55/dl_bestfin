@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/empty_state.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/pdf_import/domain/models/pdf_parsed_transaction.dart';
@@ -106,7 +108,7 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
         ],
       ),
       body: accountsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (e, _) => Center(child: Text('Erro: $e')),
         data: (accounts) {
           return Column(
@@ -188,13 +190,11 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
               // Transaction list
               Expanded(
                 child: list.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Nenhuma transação encontrada.',
-                          style: tt.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
+                    ? const EmptyState(
+                        icon: Icons.receipt_long_outlined,
+                        title: 'Nenhuma transação encontrada',
+                        description:
+                            'Nenhuma transação corresponde ao filtro selecionado.',
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),

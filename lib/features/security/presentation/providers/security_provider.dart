@@ -10,6 +10,22 @@ const kPinKey = 'security_pin';
 const _pinVersion = 'pin_v2';
 const _pinIterations = 120000;
 
+const _failedAttemptsKey = 'security_pin_failed_attempts';
+const _lockedUntilKey = 'security_pin_locked_until';
+// First 3 attempts are free; each failure after that doubles the lockout,
+// capped at 30 minutes, to make PIN brute-forcing impractical.
+const _freeAttempts = 3;
+const _maxLockoutSeconds = 30 * 60;
+
+enum PinVerifyStatus { success, invalidPin, lockedOut }
+
+class PinVerifyResult {
+  const PinVerifyResult(this.status, [this.lockedUntil]);
+
+  final PinVerifyStatus status;
+  final DateTime? lockedUntil;
+}
+
 bool initialIsLocked = false;
 
 class IsLockedNotifier extends Notifier<bool> {
@@ -65,6 +81,63 @@ class SecurityActions {
 
   static Future<void> clearPin() async {
     await _storage.delete(key: kPinKey);
+    await _resetFailedAttempts();
+  }
+
+  /// Returns the lockout expiry if a PIN lockout is currently active, or
+  /// null if attempts are allowed. Clears an expired lockout as a side effect.
+  static Future<DateTime?> pinLockedUntil() async {
+    final stored = await _storage.read(key: _lockedUntilKey);
+    if (stored == null) return null;
+    final ms = int.tryParse(stored);
+    if (ms == null) return null;
+    final until = DateTime.fromMillisecondsSinceEpoch(ms);
+    if (until.isAfter(DateTime.now())) return until;
+    await _resetFailedAttempts();
+    return null;
+  }
+
+  /// Verifies a PIN with brute-force throttling: after [_freeAttempts]
+  /// failures, the account is locked out for an exponentially increasing
+  /// duration (capped at [_maxLockoutSeconds]).
+  static Future<PinVerifyResult> verifyPinAttempt(String pin) async {
+    final lockedUntil = await pinLockedUntil();
+    if (lockedUntil != null) {
+      return PinVerifyResult(PinVerifyStatus.lockedOut, lockedUntil);
+    }
+
+    final ok = await verifyPin(pin);
+    if (ok) {
+      await _resetFailedAttempts();
+      return const PinVerifyResult(PinVerifyStatus.success);
+    }
+
+    final attempts = await _incrementFailedAttempts();
+    if (attempts >= _freeAttempts) {
+      final lockSeconds = min(
+        30 * pow(2, attempts - _freeAttempts).toInt(),
+        _maxLockoutSeconds,
+      );
+      final until = DateTime.now().add(Duration(seconds: lockSeconds));
+      await _storage.write(
+        key: _lockedUntilKey,
+        value: until.millisecondsSinceEpoch.toString(),
+      );
+      return PinVerifyResult(PinVerifyStatus.lockedOut, until);
+    }
+    return const PinVerifyResult(PinVerifyStatus.invalidPin);
+  }
+
+  static Future<int> _incrementFailedAttempts() async {
+    final stored = await _storage.read(key: _failedAttemptsKey);
+    final attempts = (int.tryParse(stored ?? '') ?? 0) + 1;
+    await _storage.write(key: _failedAttemptsKey, value: attempts.toString());
+    return attempts;
+  }
+
+  static Future<void> _resetFailedAttempts() async {
+    await _storage.delete(key: _failedAttemptsKey);
+    await _storage.delete(key: _lockedUntilKey);
   }
 
   static Uint8List _randomBytes(int length) {

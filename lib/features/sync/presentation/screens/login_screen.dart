@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -71,14 +72,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 'BestFin Sync',
                 textAlign: TextAlign.center,
-                style:
-                    tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
               Text(
                 'Insira suas 24 palavras para acessar sua identidade',
                 textAlign: TextAlign.center,
-                style:
-                    tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 32),
               TextFormField(
@@ -126,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: AppLoadingIndicator(strokeWidth: 2),
                       )
                     : const Text('Importar'),
               ),

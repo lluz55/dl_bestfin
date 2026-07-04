@@ -156,8 +156,8 @@ class _PortfolioHeaderCard extends StatelessWidget {
 
     final isPositive = summary.totalYield >= 0;
     final color = isPositive
-        ? const Color(0xFF81C784)
-        : const Color(0xFFE57373);
+        ? context.customColors.income
+        : context.customColors.expense;
     final sign = isPositive ? '+' : '';
 
     return Container(

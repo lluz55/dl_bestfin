@@ -256,51 +256,67 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
     final isInModal = widget.onClose != null;
 
     return Scaffold(
-        backgroundColor: cs.surface,
-        appBar: isInModal
-            ? null
-            : const AppPageAppBar(title: 'Nova Recorrência'),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
-          children: [
-            TransactionTypeTabs(
-              selectedType: _type,
-              onTypeChanged: (type) {
-                setState(() {
-                  _type = type;
-                  _categoryId = null;
-                  _categoryName = null;
-                  _categoryIcon = null;
-                  _categoryColor = null;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
+      backgroundColor: cs.surface,
+      appBar: isInModal ? null : const AppPageAppBar(title: 'Nova Recorrência'),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
+        children: [
+          TransactionTypeTabs(
+            selectedType: _type,
+            onTypeChanged: (type) {
+              setState(() {
+                _type = type;
+                _categoryId = null;
+                _categoryName = null;
+                _categoryIcon = null;
+                _categoryColor = null;
+              });
+            },
+          ),
+          const SizedBox(height: 24),
 
-            AmountInput(
-              amountInCents: _amountInCents,
-              color: _type == TransactionType.income
-                  ? const Color(0xFF43A047)
-                  : const Color(0xFFE53935),
-              onChanged: (val) => setState(() => _amountInCents = val),
-            ),
-            const SizedBox(height: 24),
+          AmountInput(
+            amountInCents: _amountInCents,
+            color: _type == TransactionType.income
+                ? context.customColors.income
+                : context.customColors.expense,
+            onChanged: (val) => setState(() => _amountInCents = val),
+          ),
+          const SizedBox(height: 24),
 
-            TextFormField(
-              controller: _descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Descrição',
-                hintText: 'Ex: Netflix, Aluguel, Salário...',
-                prefixIcon: const Icon(Icons.description_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+          TextFormField(
+            controller: _descriptionController,
+            decoration: InputDecoration(
+              labelText: 'Descrição',
+              hintText: 'Ex: Netflix, Aluguel, Salário...',
+              prefixIcon: const Icon(Icons.description_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 16),
 
+          Text(
+            _type == TransactionType.transfer ? 'Conta de origem' : 'Conta',
+            style: tt.labelLarge?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          AccountSelector(
+            selectedAccountId: _accountId,
+            onAccountSelected: (acc) => setState(() => _accountId = acc?.id),
+            hint: _type == TransactionType.transfer
+                ? 'Conta de origem'
+                : 'Selecione uma conta',
+          ),
+          const SizedBox(height: 16),
+
+          if (_type == TransactionType.transfer) ...[
             Text(
-              _type == TransactionType.transfer ? 'Conta de origem' : 'Conta',
+              'Conta de destino',
               style: tt.labelLarge?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontWeight: FontWeight.bold,
@@ -308,208 +324,187 @@ class _RecurringFormScreenState extends ConsumerState<RecurringFormScreen> {
             ),
             const SizedBox(height: 8),
             AccountSelector(
-              selectedAccountId: _accountId,
-              onAccountSelected: (acc) => setState(() => _accountId = acc?.id),
-              hint: _type == TransactionType.transfer
-                  ? 'Conta de origem'
-                  : 'Selecione uma conta',
+              selectedAccountId: _toAccountId,
+              onAccountSelected: (acc) =>
+                  setState(() => _toAccountId = acc?.id),
+              hint: 'Conta de destino',
             ),
             const SizedBox(height: 16),
+          ],
 
-            if (_type == TransactionType.transfer) ...[
-              Text(
-                'Conta de destino',
-                style: tt.labelLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              AccountSelector(
-                selectedAccountId: _toAccountId,
-                onAccountSelected: (acc) =>
-                    setState(() => _toAccountId = acc?.id),
-                hint: 'Conta de destino',
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            if (_type != TransactionType.transfer) ...[
-              Text(
-                'Categoria',
-                style: tt.labelLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: _pickCategory,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      if (_categoryId != null &&
-                          _categoryIcon != null &&
-                          _categoryColor != null) ...[
-                        CategoryIcon(
-                          icon: _categoryIcon!,
-                          color: _categoryColor!,
-                          size: 40,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _categoryName!,
-                            style: tt.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ] else ...[
-                        Icon(
-                          Icons.category_outlined,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Selecione uma categoria',
-                            style: tt.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                      Icon(
-                        Icons.keyboard_arrow_right_rounded,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-
+          if (_type != TransactionType.transfer) ...[
             Text(
-              'Frequência',
+              'Categoria',
               style: tt.labelLarge?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 10),
-            FrequencySelector(
-              selected: _frequency,
-              onChanged: (freq) => setState(() => _frequency = freq),
-            ),
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _DateField(
-                    label: 'Início',
-                    date: _startDate,
-                    icon: Icons.play_circle_outline_rounded,
-                    onTap: _pickStartDate,
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _pickCategory,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _DateField(
-                    label: 'Término (opcional)',
-                    date: _endDate,
-                    icon: Icons.stop_circle_outlined,
-                    placeholder: 'Indefinido',
-                    onTap: _pickEndDate,
-                    onClear: _endDate != null
-                        ? () => setState(() => _endDate = null)
-                        : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.3),
+                child: Row(
+                  children: [
+                    if (_categoryId != null &&
+                        _categoryIcon != null &&
+                        _categoryColor != null) ...[
+                      CategoryIcon(
+                        icon: _categoryIcon!,
+                        color: _categoryColor!,
+                        size: 40,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _categoryName!,
+                          style: tt.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Icon(Icons.category_outlined, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Selecione uma categoria',
+                          style: tt.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                    Icon(
+                      Icons.keyboard_arrow_right_rounded,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
                 ),
               ),
-              child: SwitchListTile(
-                title: Text(
-                  'Confirmar automaticamente',
-                  style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          Text(
+            'Frequência',
+            style: tt.labelLarge?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          FrequencySelector(
+            selected: _frequency,
+            onChanged: (freq) => setState(() => _frequency = freq),
+          ),
+          const SizedBox(height: 24),
+
+          Row(
+            children: [
+              Expanded(
+                child: _DateField(
+                  label: 'Início',
+                  date: _startDate,
+                  icon: Icons.play_circle_outline_rounded,
+                  onTap: _pickStartDate,
                 ),
-                subtitle: Text(
-                  _type == TransactionType.transfer
-                      ? 'Transferências recorrentes sempre exigem aprovação manual por segurança'
-                      : 'Transações geradas já serão marcadas como confirmadas',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _DateField(
+                  label: 'Término (opcional)',
+                  date: _endDate,
+                  icon: Icons.stop_circle_outlined,
+                  placeholder: 'Indefinido',
+                  onTap: _pickEndDate,
+                  onClear: _endDate != null
+                      ? () => setState(() => _endDate = null)
+                      : null,
                 ),
-                value: _type == TransactionType.transfer ? false : _autoConfirm,
-                onChanged: _type == TransactionType.transfer
-                    ? null
-                    : (val) => setState(() => _autoConfirm = val),
-                secondary: Icon(
-                  Icons.auto_fix_high_rounded,
-                  color: _type == TransactionType.transfer
-                      ? cs.onSurfaceVariant.withOpacity(0.5)
-                      : (_autoConfirm ? cs.primary : cs.onSurfaceVariant),
-                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          Container(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: SwitchListTile(
+              title: Text(
+                'Confirmar automaticamente',
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                _type == TransactionType.transfer
+                    ? 'Transferências recorrentes sempre exigem aprovação manual por segurança'
+                    : 'Transações geradas já serão marcadas como confirmadas',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              value: _type == TransactionType.transfer ? false : _autoConfirm,
+              onChanged: _type == TransactionType.transfer
+                  ? null
+                  : (val) => setState(() => _autoConfirm = val),
+              secondary: Icon(
+                Icons.auto_fix_high_rounded,
+                color: _type == TransactionType.transfer
+                    ? cs.onSurfaceVariant.withOpacity(0.5)
+                    : (_autoConfirm ? cs.primary : cs.onSurfaceVariant),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          SizedBox(
+            height: 54,
+            child: FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-
-            SizedBox(
-              height: 54,
-              child: FilledButton(
-                onPressed: _isSaving ? null : _save,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Criar Recorrência',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
                       ),
-              ),
+                    )
+                  : const Text(
+                      'Criar Recorrência',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -23,9 +23,7 @@ class _NotificationPermissionStepState
     setState(() => _requesting = true);
     try {
       if (Platform.isAndroid) {
-        await ref
-            .read(androidNotificationServiceProvider)
-            .requestPermission();
+        await ref.read(androidNotificationServiceProvider).requestPermission();
       }
     } finally {
       if (mounted) {
@@ -113,14 +111,16 @@ class _NotificationPermissionStepState
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: cs.onSurfaceVariant, size: 20),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: cs.onSurfaceVariant,
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Captura de notificações disponível apenas no Android.',
-                      style: tt.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   ),
                 ],

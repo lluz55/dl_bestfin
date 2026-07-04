@@ -34,9 +34,6 @@ class ExportPdfUseCase {
     final allCategories = await _db.select(_db.categories).get();
     final categoryMap = {for (var c in allCategories) c.id: c};
 
-    final allAccounts = await _db.select(_db.accounts).get();
-    final accountMap = {for (var a in allAccounts) a.id: a.name};
-
     final allEntries = await _db.select(_db.entries).get();
     final entriesByTx = <String, List<Entry>>{};
     for (final entry in allEntries) {

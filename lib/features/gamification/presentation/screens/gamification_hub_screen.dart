@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -13,7 +14,6 @@ class GamificationHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = context.colorScheme;
     final tt = context.textTheme;
 
     final streaksAsync = ref.watch(streaksStreamProvider);
@@ -39,7 +39,7 @@ class GamificationHubScreen extends ConsumerWidget {
               childAspectRatio: 1.2,
               children: streaks.map((s) => _StreakCard(streak: s)).toList(),
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: AppLoadingIndicator()),
             error: (e, s) => Text('Erro ao carregar sequências: $e'),
           ),
           const SizedBox(height: 32),
@@ -59,7 +59,7 @@ class GamificationHubScreen extends ConsumerWidget {
                 return _BadgeTile(badge: badge);
               },
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: AppLoadingIndicator()),
             error: (e, s) => Text('Erro ao carregar medalhas: $e'),
           ),
         ],

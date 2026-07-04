@@ -1,7 +1,5 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bestfin/core/database/database_provider.dart';
-import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
@@ -9,8 +7,6 @@ import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_provider.dart';
-import 'package:bestfin/features/financing/domain/models/financing.dart';
-import 'package:bestfin/features/financing/domain/models/financing_installment.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
 import 'package:bestfin/features/ai/domain/services/naive_bayes_classifier.dart';
 import 'package:bestfin/features/ai/domain/services/insight_nlg_service.dart';

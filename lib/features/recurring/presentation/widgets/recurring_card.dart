@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
@@ -28,7 +29,9 @@ class RecurringCard extends StatelessWidget {
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     final isExpense = rule.type == 'expense';
-    final amountColor = isExpense ? _expenseColor(cs) : _incomeColor(cs);
+    final amountColor = isExpense
+        ? context.customColors.expense
+        : context.customColors.income;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -170,13 +173,6 @@ class RecurringCard extends StatelessWidget {
     );
   }
 
-  Color _expenseColor(ColorScheme cs) {
-    return const Color(0xFFE53935);
-  }
-
-  Color _incomeColor(ColorScheme cs) {
-    return const Color(0xFF43A047);
-  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -187,6 +183,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final income = context.customColors.income;
 
     Color bg;
     Color fg;
@@ -194,8 +191,8 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case RecurringStatus.active:
-        bg = const Color(0xFF43A047).withValues(alpha: 0.12);
-        fg = const Color(0xFF43A047);
+        bg = income.withValues(alpha: 0.12);
+        fg = income;
         icon = Icons.check_circle_outline_rounded;
       case RecurringStatus.paused:
         bg = cs.tertiary.withValues(alpha: 0.12);
@@ -275,7 +272,7 @@ class _ActionMenu extends StatelessWidget {
                 Icon(
                   Icons.play_circle_outline_rounded,
                   size: 18,
-                  color: const Color(0xFF43A047),
+                  color: context.customColors.income,
                 ),
                 const SizedBox(width: 12),
                 const Text('Retomar'),

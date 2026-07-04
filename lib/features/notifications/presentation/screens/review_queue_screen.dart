@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -72,7 +73,7 @@ class ReviewQueueScreen extends ConsumerWidget {
               );
             },
             loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: AppLoadingIndicator()),
             ),
             error: (err, _) =>
                 SliverFillRemaining(child: Center(child: Text('Erro: $err'))),

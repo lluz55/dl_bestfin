@@ -156,7 +156,6 @@ class _GoalItem extends StatelessWidget {
         ? IconMapper.fromString(goal.icon!)
         : Icons.savings_outlined;
     final progress = goal.progressFraction.clamp(0.0, 1.0);
-    final months = goal.monthsRemaining;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

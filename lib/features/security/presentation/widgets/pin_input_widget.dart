@@ -6,10 +6,12 @@ class PinInputWidget extends StatefulWidget {
     super.key,
     required this.onComplete,
     this.errorMessage,
+    this.enabled = true,
   });
 
   final void Function(String pin) onComplete;
   final String? errorMessage;
+  final bool enabled;
 
   @override
   State<PinInputWidget> createState() => PinInputWidgetState();
@@ -45,7 +47,7 @@ class PinInputWidgetState extends State<PinInputWidget>
   }
 
   void _onKey(String digit) {
-    if (_pin.length >= 4) return;
+    if (!widget.enabled || _pin.length >= 4) return;
     setState(() => _pin += digit);
     if (_pin.length == 4) {
       widget.onComplete(_pin);
@@ -53,7 +55,7 @@ class PinInputWidgetState extends State<PinInputWidget>
   }
 
   void _onBackspace() {
-    if (_pin.isEmpty) return;
+    if (!widget.enabled || _pin.isEmpty) return;
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
 
@@ -106,7 +108,14 @@ class PinInputWidgetState extends State<PinInputWidget>
           ),
         ],
         const SizedBox(height: 32),
-        _buildNumpad(cs, tt),
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: widget.enabled ? 1 : 0.4,
+          child: IgnorePointer(
+            ignoring: !widget.enabled,
+            child: _buildNumpad(cs, tt),
+          ),
+        ),
       ],
     );
   }

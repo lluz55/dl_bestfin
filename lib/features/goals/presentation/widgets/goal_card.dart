@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/widgets/progress_ring_widget.dart';
@@ -62,7 +63,7 @@ class GoalCard extends StatelessWidget {
                         if (goal.status == GoalStatus.completed)
                           _Badge(
                             label: 'Concluído',
-                            color: const Color(0xFF43A047),
+                            color: context.customColors.income,
                             icon: Icons.check_circle_rounded,
                           )
                         else if (goal.type == GoalType.spending &&

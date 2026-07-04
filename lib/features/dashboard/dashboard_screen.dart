@@ -34,6 +34,7 @@ import 'package:bestfin/features/budgets/presentation/widgets/budgets_overview_c
 import 'package:bestfin/features/cashflow/presentation/widgets/cashflow_projection_card.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/tutorial_runner.dart';
+import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -61,6 +62,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final visibleWidgets = ref.watch(homeWidgetsProvider);
     final hidden = ref.watch(valuesHiddenProvider);
     final tutorialKeys = ref.watch(tutorialKeysProvider);
+    final syncState = ref.watch(syncStateProvider);
+    final isSyncingBg =
+        syncState.status == SyncStatus.syncing && syncState.isBackground;
+    final syncIndicator = isSyncingBg
+        ? _SyncIndicator.syncing
+        : syncState.backgroundJustSucceeded
+        ? _SyncIndicator.success
+        : syncState.backgroundErrorMessage != null
+        ? _SyncIndicator.error
+        : _SyncIndicator.none;
 
     return TutorialRunner(
       fabKey: tutorialKeys.fabKey,
@@ -85,37 +96,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   tt: tt,
                   greeting: _getGreeting(),
                   hidden: hidden,
+                  syncIndicator: syncIndicator,
                   customizeKey: _customizeKey,
                   onToggleHidden: () =>
                       ref.read(valuesHiddenProvider.notifier).toggle(),
                   onTheme: () => showThemeSettingsSheet(context),
                   onCustomize: () => showHomeWidgetsEditSheet(context),
+                  onSyncErrorTap: syncState.backgroundErrorMessage == null
+                      ? null
+                      : () => _showSyncErrorDialog(
+                          context,
+                          syncState.backgroundErrorMessage!,
+                        ),
                 ),
               ),
-            SliverToBoxAdapter(
-              child: Consumer(
-                builder: (context, ref, child) {
-                  final dashboardAsync = ref.watch(dashboardProvider);
+              SliverToBoxAdapter(
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final dashboardAsync = ref.watch(dashboardProvider);
 
-                  return dashboardAsync.when(
-                    data: (data) => _buildResponsiveContent(
-                      data: data,
-                      visibleWidgets: visibleWidgets,
-                      cs: cs,
-                      tt: tt,
-                    ),
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 64),
-                      child: Center(child: AppLoadingIndicator()),
-                    ),
-                    error: (err, stack) => _buildError(err, cs, tt),
-                  );
-                },
+                    return dashboardAsync.when(
+                      data: (data) => _buildResponsiveContent(
+                        data: data,
+                        visibleWidgets: visibleWidgets,
+                        cs: cs,
+                        tt: tt,
+                      ),
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 64),
+                        child: Center(child: AppLoadingIndicator()),
+                      ),
+                      error: (err, stack) => _buildError(err, cs, tt),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -242,6 +260,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         rawTransaction: tx,
       );
     }).toList();
+  }
+
+  void _showSyncErrorDialog(BuildContext context, String message) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Erro ao sincronizar'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Fechar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.push('/sync');
+            },
+            child: const Text('Ver sincronização'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildError(Object err, ColorScheme cs, TextTheme tt) {
@@ -419,15 +460,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
+enum _SyncIndicator { none, syncing, success, error }
+
 class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _DashboardHeaderDelegate({
     required this.cs,
     required this.tt,
     required this.greeting,
     required this.hidden,
+    required this.syncIndicator,
     required this.onToggleHidden,
     required this.onTheme,
     required this.onCustomize,
+    this.onSyncErrorTap,
     this.customizeKey,
   });
 
@@ -435,9 +480,11 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   final TextTheme tt;
   final String greeting;
   final bool hidden;
+  final _SyncIndicator syncIndicator;
   final VoidCallback onToggleHidden;
   final VoidCallback onTheme;
   final VoidCallback onCustomize;
+  final VoidCallback? onSyncErrorTap;
   final GlobalKey? customizeKey;
 
   @override
@@ -448,7 +495,10 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_DashboardHeaderDelegate old) =>
-      old.greeting != greeting || old.hidden != hidden || old.cs != cs;
+      old.greeting != greeting ||
+      old.hidden != hidden ||
+      old.syncIndicator != syncIndicator ||
+      old.cs != cs;
 
   @override
   Widget build(
@@ -475,19 +525,77 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'BestFin',
-                          style: TextStyle.lerp(
-                            tt.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'BestFin',
+                              style: TextStyle.lerp(
+                                tt.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurface,
+                                ),
+                                tt.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurface,
+                                ),
+                                t,
+                              ),
                             ),
-                            tt.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                              child: switch (syncIndicator) {
+                                _SyncIndicator.syncing => Padding(
+                                  key: const ValueKey('syncing'),
+                                  padding: const EdgeInsets.only(left: 6),
+                                  child:
+                                      Icon(
+                                        Icons.sync_rounded,
+                                        size: 14,
+                                        color: cs.primary.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                      ).animate(
+                                        onPlay: (c) => c.repeat(),
+                                      ).rotate(duration: 1200.ms),
+                                ),
+                                _SyncIndicator.success => Padding(
+                                  key: const ValueKey('success'),
+                                  padding: const EdgeInsets.only(left: 6),
+                                  child: Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    size: 14,
+                                    color: cs.primary,
+                                  ),
+                                ),
+                                _SyncIndicator.error => Padding(
+                                  key: const ValueKey('error'),
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: InkWell(
+                                    onTap: onSyncErrorTap,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.error_outline_rounded,
+                                        size: 14,
+                                        color: cs.error,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                _SyncIndicator.none => const SizedBox.shrink(
+                                  key: ValueKey('idle'),
+                                ),
+                              },
                             ),
-                            t,
-                          ),
+                          ],
                         ),
                         if (subtitleOpacity > 0.01)
                           Opacity(

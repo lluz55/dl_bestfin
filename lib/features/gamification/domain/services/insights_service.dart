@@ -1,5 +1,4 @@
 import '../../../transactions/data/repositories/transaction_repository.dart';
-import '../../../transactions/domain/models/transaction.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 
 class InsightModel {
@@ -22,8 +21,7 @@ class InsightsService {
   InsightsService(this._transactionRepository);
 
   Future<List<InsightModel>> generateInsights() async {
-    final txs = await _transactionRepository.watchAllTransactions().first;
-    if (txs.isEmpty) {
+    if (!await _transactionRepository.hasAnyTransactions()) {
       return [
         const InsightModel(
           text: 'Comece a registrar suas transações para ver insights aqui!',
@@ -32,10 +30,24 @@ class InsightsService {
       ];
     }
 
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(
+      now.year,
+      now.month + 1,
+      1,
+    ).subtract(const Duration(milliseconds: 1));
+    final thisMonth = await _transactionRepository
+        .watchTransactionsWithFilters(
+          startDate: startOfMonth,
+          endDate: endOfMonth,
+        )
+        .first;
+
     final insights = <InsightModel>[];
 
-    // 1. Check for negative sentiment
-    final badSentiments = txs.where(
+    // 1. Check for negative sentiment (this month)
+    final badSentiments = thisMonth.where(
       (t) => t.sentiment?.name == 'sad' || t.sentiment?.name == 'angry',
     );
     if (badSentiments.isNotEmpty) {
@@ -52,10 +64,6 @@ class InsightsService {
     }
 
     // 2. Positive balance insight
-    final now = DateTime.now();
-    final thisMonth = txs.where(
-      (t) => t.date.month == now.month && t.date.year == now.year,
-    );
     final income = thisMonth
         .where((t) => t.type == TransactionType.income)
         .fold(0, (sum, t) => sum + t.amount);

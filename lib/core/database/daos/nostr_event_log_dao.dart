@@ -26,17 +26,18 @@ class NostrEventLogDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<NostrEventLogItem>> getAll() {
-    return (select(nostrEventLog)
-          ..orderBy([(t) => OrderingTerm.asc(t.updatedAt)]))
-        .get();
+    return (select(
+      nostrEventLog,
+    )..orderBy([(t) => OrderingTerm.asc(t.updatedAt)])).get();
   }
 
   Future<int> countUnpublished() async {
     final count = nostrEventLog.eventId.count();
-    final row = await (selectOnly(nostrEventLog)
-          ..addColumns([count])
-          ..where(nostrEventLog.published.equals(false)))
-        .getSingle();
+    final row =
+        await (selectOnly(nostrEventLog)
+              ..addColumns([count])
+              ..where(nostrEventLog.published.equals(false)))
+            .getSingle();
     return row.read(count) ?? 0;
   }
 }

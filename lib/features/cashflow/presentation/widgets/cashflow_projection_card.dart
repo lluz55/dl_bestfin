@@ -125,7 +125,7 @@ class _ProjectionChip extends StatelessWidget {
     final isPositive = delta >= 0;
     final color = amount < 0
         ? cs.error
-        : (isPositive ? const Color(0xFF4CAF50) : cs.error);
+        : (isPositive ? context.customColors.income : cs.error);
 
     return Expanded(
       child: Container(

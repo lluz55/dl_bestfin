@@ -3,6 +3,7 @@ package middleware
 import (
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -72,7 +73,22 @@ func (l *RateLimiter) allow(key string) bool {
 	return true
 }
 
+// clientIP resolves the real client address for rate limiting. The server
+// only listens on 127.0.0.1 and is reached exclusively through a Cloudflare
+// Tunnel, so every connection's RemoteAddr is the local cloudflared process
+// and cannot be used to distinguish clients. CF-Connecting-IP is set by
+// Cloudflare's edge (overwriting anything a client sends), so it's safe to
+// trust here; X-Forwarded-For is a fallback for other reverse-proxy setups.
 func clientIP(r *http.Request) string {
+	if ip := r.Header.Get("CF-Connecting-IP"); ip != "" {
+		return ip
+	}
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		if idx := strings.IndexByte(fwd, ','); idx != -1 {
+			fwd = fwd[:idx]
+		}
+		return strings.TrimSpace(fwd)
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

@@ -96,10 +96,13 @@ class FinancingRepositoryImpl implements FinancingRepository {
 
       await _database.financingsDao.insertInstallments(companions);
     });
+
+    await _database.financingsDao.enqueueFinancingSync(financingId, 'insert');
   }
 
   @override
   Future<void> payInstallment(String installmentId, bool isPaid) async {
+    late final String financingId;
     await _database.transaction(() async {
       // Find the installment
       final currentInstallment = await (_database.select(
@@ -116,7 +119,7 @@ class FinancingRepositoryImpl implements FinancingRepository {
       );
 
       // Recalculate outstanding balance of financing
-      final financingId = currentInstallment.financingId;
+      financingId = currentInstallment.financingId;
       final financing = await _database.financingsDao.getFinancingById(
         financingId,
       );
@@ -152,6 +155,8 @@ class FinancingRepositoryImpl implements FinancingRepository {
         ),
       );
     });
+
+    await _database.financingsDao.enqueueFinancingSync(financingId, 'update');
   }
 
   @override
@@ -161,6 +166,8 @@ class FinancingRepositoryImpl implements FinancingRepository {
       await _database.financingsDao.deleteInstallmentsForFinancing(id);
       await _database.financingsDao.deleteFinancing(id);
     });
+
+    await _database.financingsDao.enqueueFinancingSync(id, 'delete');
   }
 
   // Private helper to calculate SAC and Price tables

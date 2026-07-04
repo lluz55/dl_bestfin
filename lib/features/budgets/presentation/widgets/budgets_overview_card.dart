@@ -127,7 +127,9 @@ class BudgetsOverviewCard extends ConsumerWidget {
               final overBudget = budgets.where((b) => b.isOverBudget).length;
               final progressColor = overBudget > 0
                   ? cs.error
-                  : (progress >= 0.75 ? Colors.amber.shade700 : cs.primary);
+                  : (progress >= 0.75
+                        ? context.customColors.warning
+                        : cs.primary);
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +197,9 @@ class BudgetsOverviewCard extends ConsumerWidget {
                       final bProgress = b.progress.clamp(0.0, 1.0);
                       final bColor = b.isOverBudget
                           ? cs.error
-                          : (bProgress >= 0.75 ? Colors.amber.shade700 : color);
+                          : (bProgress >= 0.75
+                                ? context.customColors.warning
+                                : color);
 
                       return Chip(
                         avatar: Icon(icon, size: 14, color: bColor),

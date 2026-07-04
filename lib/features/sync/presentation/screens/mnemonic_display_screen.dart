@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bestfin/core/utils/secure_clipboard.dart';
+import 'package:bestfin/core/utils/secure_screen.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 
 class MnemonicDisplayScreen extends StatefulWidget {
@@ -18,8 +19,20 @@ class _MnemonicDisplayScreenState extends State<MnemonicDisplayScreen> {
 
   List<String> get _words => widget.mnemonic.split(' ');
 
+  @override
+  void initState() {
+    super.initState();
+    SecureScreen.enable();
+  }
+
+  @override
+  void dispose() {
+    SecureScreen.disable();
+    super.dispose();
+  }
+
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.mnemonic));
+    await SecureClipboard.copyTemporarily(widget.mnemonic);
     if (!mounted) return;
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {

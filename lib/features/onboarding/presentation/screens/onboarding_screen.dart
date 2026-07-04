@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/byte_formatter.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/create_account_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/notification_permission_step.dart';
@@ -8,6 +11,11 @@ import 'package:bestfin/features/onboarding/presentation/widgets/security_step.d
 import 'package:bestfin/features/onboarding/presentation/widgets/select_categories_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/welcome_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/ai_step.dart';
+import 'package:bestfin/features/sync/data/services/sync_service.dart'
+    show SyncPhaseKind;
+import 'package:bestfin/features/sync/domain/models/sync_identity.dart';
+import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
+import 'package:bestfin/features/sync/presentation/widgets/relay_status_section.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -20,6 +28,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _currentPage = 0;
   static const _totalPages = 6;
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final identity = ref.read(currentIdentityProvider).value;
+      if (identity != null) {
+        setState(() {
+          _isSyncing = true;
+        });
+        ref.read(syncStateProvider.notifier).syncNow();
+      }
+    });
+  }
 
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
@@ -53,6 +77,173 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
+    final syncState = ref.watch(syncStateProvider);
+
+    ref.listen<AsyncValue<SyncIdentity?>>(currentIdentityProvider, (
+      prev,
+      next,
+    ) {
+      final identity = next.value;
+      if (identity != null && !_isSyncing) {
+        setState(() {
+          _isSyncing = true;
+        });
+        ref.read(syncStateProvider.notifier).syncNow();
+      }
+    });
+
+    ref.listen<SyncState>(syncStateProvider, (prev, next) {
+      if (_isSyncing && next.status == SyncStatus.success) {
+        _finish();
+      }
+    });
+
+    if (_isSyncing) {
+      return Scaffold(
+        backgroundColor: cs.surface,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(Icons.sync_rounded, size: 48, color: cs.primary)
+                        .animate(onPlay: (controller) => controller.repeat())
+                        .rotate(duration: const Duration(seconds: 2)),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Text(
+                  'Sincronizando seus dados...',
+                  textAlign: TextAlign.center,
+                  style: context.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  syncState.currentPhase ?? 'Conectando aos relays...',
+                  textAlign: TextAlign.center,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // ── Live progress ────────────────────────────────────────
+                // Push has a known total (queue length), pull doesn't (the
+                // relays' page count isn't known ahead of time) — without
+                // this, the screen shows the same static phase text for the
+                // whole backfill push/pull and looks frozen.
+                if (syncState.syncKind == SyncPhaseKind.push &&
+                    syncState.syncTotal > 0) ...[
+                  SizedBox(
+                    width: 220,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: syncState.syncPercent,
+                        minHeight: 6,
+                        backgroundColor: cs.surfaceContainerHighest,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${syncState.syncProgress} de ${syncState.syncTotal} itens '
+                    '(${(syncState.syncPercent * 100).toStringAsFixed(0)}%) • '
+                    '${ByteFormatter.format(syncState.syncBytes)}',
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ] else if (syncState.syncKind == SyncPhaseKind.pull) ...[
+                  SizedBox(
+                    width: 220,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        minHeight: 6,
+                        backgroundColor: cs.surfaceContainerHighest,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${syncState.syncProgress} '
+                    '${syncState.syncProgress == 1 ? 'item recebido' : 'itens recebidos'} '
+                    '• ${ByteFormatter.format(syncState.syncBytes)}',
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                const RelayStatusSection(maxListHeight: 110),
+                const SizedBox(height: 20),
+                if (syncState.status == SyncStatus.error) ...[
+                  Text(
+                    syncState.errorMessage ?? 'Ocorreu um erro desconhecido.',
+                    textAlign: TextAlign.center,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: cs.error,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _isSyncing = false;
+                            });
+                          },
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            ref.read(syncStateProvider.notifier).syncNow();
+                          },
+                          child: const Text('Tentar Novamente'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _finish,
+                    child: const Text('Continuar sem sincronizar'),
+                  ),
+                ] else ...[
+                  const AppLoadingIndicator(),
+                  const SizedBox(height: 48),
+                  TextButton(
+                    onPressed: _finish,
+                    child: const Text('Pular e sincronizar em segundo plano'),
+                  ),
+                ],
+                const Spacer(),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: cs.surface,

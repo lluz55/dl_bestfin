@@ -1,5 +1,3 @@
-import 'package:drift/drift.dart';
-import '../../../../core/database/app_database.dart' as db;
 import '../../../../core/database/daos/streaks_dao.dart';
 import '../../domain/models/streak.dart';
 import '../../domain/repositories/streak_repository.dart';

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bestfin/core/database/app_database.dart';
@@ -45,36 +46,69 @@ class RecurringRulesDao extends DatabaseAccessor<AppDatabase>
 
   // ── Writes ─────────────────────────────────────────────────────────────────
 
-  Future<void> createRule(RecurringRulesCompanion companion) {
-    return into(recurringRules).insert(companion);
+  Future<void> createRule(RecurringRulesCompanion companion) async {
+    await into(recurringRules).insert(companion);
+    await _enqueueRecurringRuleSync(companion.id.value, 'insert');
   }
 
-  Future<void> updateRule(RecurringRulesCompanion companion) {
-    return (update(
+  Future<void> updateRule(RecurringRulesCompanion companion) async {
+    final id = companion.id.value;
+    await (update(
       recurringRules,
-    )..where((r) => r.id.equals(companion.id.value))).write(companion);
+    )..where((r) => r.id.equals(id))).write(companion);
+    await _enqueueRecurringRuleSync(id, 'update');
   }
 
-  Future<void> setStatus(String id, String status) {
-    return (update(recurringRules)..where((r) => r.id.equals(id))).write(
+  Future<void> setStatus(String id, String status) async {
+    await (update(recurringRules)..where((r) => r.id.equals(id))).write(
       RecurringRulesCompanion(
         status: Value(status),
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueRecurringRuleSync(id, 'update');
   }
 
-  Future<void> updateNextDate(String id, DateTime nextDate) {
-    return (update(recurringRules)..where((r) => r.id.equals(id))).write(
+  Future<void> updateNextDate(String id, DateTime nextDate) async {
+    await (update(recurringRules)..where((r) => r.id.equals(id))).write(
       RecurringRulesCompanion(
         nextDate: Value(nextDate),
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueRecurringRuleSync(id, 'update');
   }
 
-  Future<int> deleteRule(String id) {
+  Future<int> deleteRule(String id) async {
+    await _enqueueRecurringRuleSync(id, 'delete');
     return (delete(recurringRules)..where((r) => r.id.equals(id))).go();
+  }
+
+  Future<void> _enqueueRecurringRuleSync(String id, String operation) async {
+    final rule = await findById(id);
+
+    final payload = rule == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': rule.id,
+            'base_transaction_id': rule.baseTransactionId,
+            'frequency': rule.frequency,
+            'interval': rule.interval,
+            'next_date': rule.nextDate.toIso8601String(),
+            'end_date': rule.endDate?.toIso8601String(),
+            'status': rule.status,
+            'auto_confirm': rule.autoConfirm,
+            'created_at': rule.createdAt.toIso8601String(),
+            'updated_at': rule.updatedAt.toIso8601String(),
+          };
+
+    await db.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'recurring_rule',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 
   Future<RecurringRule?> findByBaseTransactionId(String txId) {

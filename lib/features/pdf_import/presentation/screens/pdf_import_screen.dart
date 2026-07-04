@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
@@ -129,7 +130,7 @@ class _PdfImportScreenState extends ConsumerState<PdfImportScreen> {
 
               // Loading state or pick button
               if (_isLoading) ...[
-                const Center(child: CircularProgressIndicator()),
+                const Center(child: AppLoadingIndicator()),
                 const SizedBox(height: 16),
                 Text(
                   _statusMessage,

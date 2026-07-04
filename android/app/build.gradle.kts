@@ -50,6 +50,16 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+
+    packaging {
+        jniLibs {
+            // libsecp256k1-jni.so (fr.acinq.secp256k1:secp256k1-kmp-jni-android:0.10.1)
+            // is declared as a dependency by the ndk plugin but never called — all Nostr
+            // crypto goes through librust_lib_ndk.so. Excluding it avoids the 16KB ELF
+            // alignment check failure on Android 15+ devices.
+            excludes += "**/libsecp256k1-jni.so"
+        }
+    }
 }
 
 flutter {

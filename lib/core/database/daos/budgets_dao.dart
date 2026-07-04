@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../app_database.dart';
@@ -124,25 +125,56 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
         rolloverAmount: Value(rolloverAmount),
       ),
     );
+    await _enqueueBudgetSync(id, 'insert');
     return (select(budgets)..where((b) => b.id.equals(id))).getSingle();
   }
 
-  Future<void> updateBudget(String id, int amount) {
-    return (update(budgets)..where((b) => b.id.equals(id))).write(
+  Future<void> updateBudget(String id, int amount) async {
+    await (update(budgets)..where((b) => b.id.equals(id))).write(
       BudgetsCompanion(amount: Value(amount), updatedAt: Value(DateTime.now())),
     );
+    await _enqueueBudgetSync(id, 'update');
   }
 
-  Future<void> applyRollover(String budgetId, int rolloverAmount) {
-    return (update(budgets)..where((b) => b.id.equals(budgetId))).write(
+  Future<void> applyRollover(String budgetId, int rolloverAmount) async {
+    await (update(budgets)..where((b) => b.id.equals(budgetId))).write(
       BudgetsCompanion(
         rolloverAmount: Value(rolloverAmount),
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueBudgetSync(budgetId, 'update');
   }
 
-  Future<int> deleteBudget(String id) {
+  Future<int> deleteBudget(String id) async {
+    await _enqueueBudgetSync(id, 'delete');
     return (delete(budgets)..where((b) => b.id.equals(id))).go();
+  }
+
+  Future<void> _enqueueBudgetSync(String id, String operation) async {
+    final budget = await (select(
+      budgets,
+    )..where((b) => b.id.equals(id))).getSingleOrNull();
+
+    final payload = budget == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': budget.id,
+            'category_id': budget.categoryId,
+            'year': budget.year,
+            'month': budget.month,
+            'amount': budget.amount,
+            'rollover_amount': budget.rolloverAmount,
+            'created_at': budget.createdAt.toIso8601String(),
+            'updated_at': budget.updatedAt.toIso8601String(),
+          };
+
+    await db.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'budget',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 }

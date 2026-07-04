@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/credit_cards/domain/models/invoice.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
-import 'package:bestfin/features/transactions/data/repositories/transaction_repository.dart';
 import 'package:uuid/uuid.dart';
 
 abstract class InvoiceRepository {
@@ -72,7 +72,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       ]);
 
     return query.watch().asyncMap((invoicesList) async {
-      final List<InvoiceModel> results = [];
+      if (invoicesList.isEmpty) return <InvoiceModel>[];
+
       final card = await (_database.select(
         _database.creditCards,
       )..where((c) => c.id.equals(cardId))).getSingleOrNull();
@@ -82,32 +83,50 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       final holidaysList = await _database.select(_database.holidays).get();
       final holidayDates = holidaysList.map((h) => h.date).toList();
 
-      for (final inv in invoicesList) {
-        final prevClosing = getPreviousClosing(
-          inv.year,
-          inv.month,
-          card.closingDay,
-          card.dueDay,
-          holidayDates,
-        );
+      // Compute each invoice's period first (pure calculation), then fetch
+      // every relevant transaction for the card in a single query spanning
+      // the whole range, instead of one query per invoice.
+      final prevClosings = <String, DateTime>{
+        for (final inv in invoicesList)
+          inv.id: getPreviousClosing(
+            inv.year,
+            inv.month,
+            card.closingDay,
+            card.dueDay,
+            holidayDates,
+          ),
+      };
 
-        final transactions = await _fetchInvoiceTransactions(
-          cardId: cardId,
-          prevClosing: prevClosing,
-          closingDate: inv.closingDate,
-        );
+      final rangeStart = prevClosings.values.reduce(
+        (a, b) => a.isBefore(b) ? a : b,
+      );
+      final rangeEnd = invoicesList
+          .map((inv) => inv.closingDate)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
 
+      final allTransactions = await _fetchInvoiceTransactions(
+        cardId: cardId,
+        prevClosing: rangeStart,
+        closingDate: rangeEnd,
+      );
+
+      return invoicesList.map((inv) {
+        final prevClosing = prevClosings[inv.id]!;
+        final transactions = allTransactions
+            .where(
+              (t) =>
+                  t.date.isAfter(prevClosing) &&
+                  !t.date.isAfter(inv.closingDate),
+            )
+            .toList();
         final totalAmount = transactions.fold(0, (sum, t) => sum + t.amount);
 
-        results.add(
-          InvoiceModel.fromDb(
-            inv,
-            transactions: transactions,
-            totalAmount: totalAmount,
-          ),
+        return InvoiceModel.fromDb(
+          inv,
+          transactions: transactions,
+          totalAmount: totalAmount,
         );
-      }
-      return results;
+      }).toList();
     });
   }
 
@@ -200,6 +219,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     required int payAmount,
   }) async {
     final now = DateTime.now();
+    final transactionId = const Uuid().v4();
+    final ccTxIdsToUpdate = <String>[];
+    bool isPaid = false;
 
     await _database.transaction(() async {
       final inv = await (_database.select(
@@ -216,9 +238,6 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
       final monthStr = inv.month.toString().padLeft(2, '0');
       final desc = 'Pgmto Fatura $monthStr/${inv.year}';
-
-      // Cria transação de pagamento (saída da conta de origem)
-      final transactionId = const Uuid().v4();
 
       await _database
           .into(_database.transactions)
@@ -272,7 +291,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
       // Se pagamento total: vincula as transações CC à fatura e marca como paga
       if (payAmount >= invoiceTotal) {
+        isPaid = true;
         for (final tx in ccRows) {
+          ccTxIdsToUpdate.add(tx.id);
           await (_database.update(
             _database.transactions,
           )..where((t) => t.id.equals(tx.id))).write(
@@ -293,6 +314,110 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         );
       }
     });
+
+    await _enqueueTransactionSync(transactionId, 'insert');
+    if (isPaid) {
+      for (final txId in ccTxIdsToUpdate) {
+        await _enqueueTransactionSync(txId, 'update');
+      }
+      await _enqueueInvoiceSync(invoiceId, 'update');
+    }
+  }
+
+  Future<void> _enqueueTransactionSync(String id, String operation) async {
+    final tx = await (_database.select(
+      _database.transactions,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    final entries = await (_database.select(
+      _database.entries,
+    )..where((e) => e.transactionId.equals(id))).get();
+    final splits = await (_database.select(
+      _database.transactionSplits,
+    )..where((s) => s.transactionId.equals(id))).get();
+
+    final payload = tx == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': tx.id,
+            'date': tx.date.toIso8601String(),
+            'description': tx.description,
+            'type': tx.type,
+            'sentiment': tx.sentiment,
+            'notes': tx.notes,
+            'category_id': tx.categoryId,
+            'entity_id': tx.entityId,
+            'goal_id': tx.goalId,
+            'installment_plan_id': tx.installmentPlanId,
+            'installment_number': tx.installmentNumber,
+            'recurring_rule_id': tx.recurringRuleId,
+            'credit_card_id': tx.creditCardId,
+            'raw_amount': tx.rawAmount,
+            'invoice_id': tx.invoiceId,
+            'is_completed': tx.isCompleted,
+            'is_confirmed': tx.isConfirmed,
+            'source': tx.source,
+            'created_at': tx.createdAt.toIso8601String(),
+            'updated_at': tx.updatedAt.toIso8601String(),
+            'entries': entries
+                .map(
+                  (entry) => <String, dynamic>{
+                    'id': entry.id,
+                    'transaction_id': entry.transactionId,
+                    'account_id': entry.accountId,
+                    'amount': entry.amount,
+                    'type': entry.type,
+                    'created_at': entry.createdAt.toIso8601String(),
+                  },
+                )
+                .toList(),
+            'splits': splits
+                .map(
+                  (split) => <String, dynamic>{
+                    'id': split.id,
+                    'transaction_id': split.transactionId,
+                    'category_id': split.categoryId,
+                    'amount': split.amount,
+                    'description': split.description,
+                  },
+                )
+                .toList(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'transaction',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
+  }
+
+  Future<void> _enqueueInvoiceSync(String id, String operation) async {
+    final invoice = await (_database.select(
+      _database.invoices,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+    final payload = invoice == null
+        ? <String, dynamic>{'id': id}
+        : <String, dynamic>{
+            'id': invoice.id,
+            'credit_card_id': invoice.creditCardId,
+            'month': invoice.month,
+            'year': invoice.year,
+            'status': invoice.status,
+            'closing_date': invoice.closingDate.toIso8601String(),
+            'due_date': invoice.dueDate.toIso8601String(),
+            'created_at': invoice.createdAt.toIso8601String(),
+            'updated_at': invoice.updatedAt.toIso8601String(),
+          };
+
+    await _database.syncQueueDao.enqueue(
+      id: const Uuid().v4(),
+      operation: operation,
+      entityType: 'invoice',
+      entityId: id,
+      payload: jsonEncode(payload),
+    );
   }
 
   // Lógica de fechamento inteligente

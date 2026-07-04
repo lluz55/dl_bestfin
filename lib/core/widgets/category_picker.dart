@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
@@ -139,7 +140,7 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
               Flexible(
                 child: asyncTree.when(
                   loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                      const Center(child: AppLoadingIndicator()),
                   error: (e, _) => Center(child: Text('Erro: $e')),
                   data: (roots) {
                     final items = _buildItems(roots);

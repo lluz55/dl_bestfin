@@ -130,7 +130,15 @@ func Login(database *sql.DB, jwtSecret string) http.HandlerFunc {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		if user == nil || CheckPassword(req.Password, user.PasswordHash) != nil {
+
+		// Always run the bcrypt comparison, even for an unknown email, so the
+		// response time doesn't reveal whether the account exists.
+		hash := dummyHash
+		if user != nil {
+			hash = user.PasswordHash
+		}
+		passwordErr := CheckPassword(req.Password, hash)
+		if user == nil || passwordErr != nil {
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)
 			return
 		}

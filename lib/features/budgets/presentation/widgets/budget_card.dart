@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/features/budgets/domain/models/budget_model.dart';
@@ -29,7 +30,7 @@ class BudgetCard extends StatelessWidget {
   Color _progressColor(BuildContext context, double progress) {
     final cs = Theme.of(context).colorScheme;
     if (progress >= 1.0) return cs.error;
-    if (progress >= 0.75) return Colors.amber.shade700;
+    if (progress >= 0.75) return context.customColors.warning;
     return cs.primary;
   }
 

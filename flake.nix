@@ -77,6 +77,8 @@
           '';
         };
 
+        linuxDesktopDeps = [ pkgs.gtk3 pkgs.pcre2 pkgs.libepoxy pkgs.libsecret pkgs.libsysprof-capture ];
+
         flutterBuildEnv = pkgs.writeShellScriptBin "flutter-build" ''
           set -euo pipefail
           export ANDROID_HOME="${androidSdk}/share/android-sdk"
@@ -84,6 +86,9 @@
           export JAVA_HOME="${pkgs.jdk17}"
           export GRADLE_USER_HOME="$HOME/.gradle"
           export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
+          export PATH="${pkgs.lib.makeBinPath [ pkgs.pkg-config ]}:$PATH"
+          export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" linuxDesktopDeps}"
+          export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath ([ pkgs.sqlite ] ++ linuxDesktopDeps)}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           exec ${pkgs.flutter}/bin/flutter "$@"
         '';
       in {
@@ -158,12 +163,19 @@
             flutterMcpToolkit
             sqlite
             # Linux desktop deps
+            cmake
+            ninja
+            clang
             pkg-config
             gtk3
             pcre2
             libepoxy
             libsecret
+            libsysprof-capture
             llama-cpp-vulkan
+            # Rust (required by rust_lib_ndk Flutter plugin)
+            cargo
+            rustc
             # Backend development
             go
             # Scripting

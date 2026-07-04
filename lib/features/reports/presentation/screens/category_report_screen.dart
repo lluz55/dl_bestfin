@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
@@ -16,7 +17,7 @@ class CategoryReportScreen extends ConsumerWidget {
     final reportAsync = ref.watch(categoryReportProvider);
 
     return reportAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (e, _) => Center(child: Text('Erro: $e')),
       data: (report) {
         if (report.items.isEmpty) {

@@ -5,7 +5,6 @@ import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
-import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
 import 'package:bestfin/core/widgets/staggered_transaction_list.dart';

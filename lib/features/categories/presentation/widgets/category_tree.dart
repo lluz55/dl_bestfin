@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
@@ -25,7 +26,7 @@ class CategoryTree extends ConsumerWidget {
     final motion = context.motion;
 
     return asyncTree.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (e, _) => Center(child: Text('Erro: $e')),
       data: (roots) {
         if (roots.isEmpty) {

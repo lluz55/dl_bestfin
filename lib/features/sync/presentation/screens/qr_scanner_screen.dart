@@ -73,10 +73,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
       ),
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-          ),
+          MobileScanner(controller: _controller, onDetect: _onDetect),
           // Viewfinder overlay
           Center(
             child: CustomPaint(
@@ -111,9 +108,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
                     ),
                     child: Text(
                       _error!,
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onErrorContainer,
-                      ),
+                      style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -157,13 +152,7 @@ class _ViewfinderPainter extends CustomPainter {
     final h = size.height;
 
     // top-left
-    canvas.drawArc(
-      Rect.fromLTWH(0, 0, r * 2, r * 2),
-      3.14,
-      1.57,
-      false,
-      paint,
-    );
+    canvas.drawArc(Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14, 1.57, false, paint);
     canvas.drawLine(Offset(r, 0), Offset(cornerLen, 0), paint);
     canvas.drawLine(Offset(0, r), Offset(0, cornerLen), paint);
 

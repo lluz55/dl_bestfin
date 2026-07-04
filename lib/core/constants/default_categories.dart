@@ -68,6 +68,48 @@ class SeedDataConstants {
       description:
           'Rendimentos de investimentos, dividendos, juros de poupança ou outras aplicações.',
     ),
+    DefaultCategory(
+      id: 'cat_thirteenth_salary',
+      name: '13º Salário',
+      icon: 'paid',
+      color: '#66BB6A',
+      type: CategoryType.income,
+      description:
+          'Décimo terceiro salário, bônus anual ou participação nos lucros (PLR).',
+    ),
+    DefaultCategory(
+      id: 'cat_retirement_benefits',
+      name: 'Aposentadoria e Benefícios',
+      icon: 'elderly',
+      color: '#26A69A',
+      type: CategoryType.income,
+      description:
+          'Aposentadoria, pensão, auxílios do INSS ou outros benefícios sociais.',
+    ),
+    DefaultCategory(
+      id: 'cat_gifts_received',
+      name: 'Presentes Recebidos',
+      icon: 'card_giftcard',
+      color: '#4DB6AC',
+      type: CategoryType.income,
+      description: 'Presentes em dinheiro, doações recebidas ou heranças.',
+    ),
+    DefaultCategory(
+      id: 'cat_sales',
+      name: 'Vendas',
+      icon: 'storefront',
+      color: '#7CB342',
+      type: CategoryType.income,
+      description: 'Venda de itens usados, produtos ou serviços eventuais.',
+    ),
+    DefaultCategory(
+      id: 'cat_other_income',
+      name: 'Outras Receitas',
+      icon: 'account_balance',
+      color: '#43A047',
+      type: CategoryType.income,
+      description: 'Receitas diversas que não se enquadram nas demais categorias.',
+    ),
     // Expenses
     DefaultCategory(
       id: 'cat_housing',
@@ -88,6 +130,46 @@ class SeedDataConstants {
           'Pagamento mensal de aluguel ou financiamento imobiliário residencial.',
     ),
     DefaultCategory(
+      id: 'cat_condo_fee',
+      name: 'Condomínio',
+      icon: 'apartment',
+      color: '#D32F2F',
+      type: CategoryType.expense,
+      description: 'Taxa de condomínio mensal.',
+    ),
+    DefaultCategory(
+      id: 'cat_electricity',
+      name: 'Energia Elétrica',
+      icon: 'bolt',
+      color: '#EF5350',
+      type: CategoryType.expense,
+      description: 'Conta de luz.',
+    ),
+    DefaultCategory(
+      id: 'cat_water_bill',
+      name: 'Água',
+      icon: 'water_drop',
+      color: '#EF9A9A',
+      type: CategoryType.expense,
+      description: 'Conta de água e saneamento.',
+    ),
+    DefaultCategory(
+      id: 'cat_internet_phone',
+      name: 'Internet e Telefone',
+      icon: 'wifi',
+      color: '#FF7043',
+      type: CategoryType.expense,
+      description: 'Internet, telefonia fixa ou móvel.',
+    ),
+    DefaultCategory(
+      id: 'cat_gas_bill',
+      name: 'Gás',
+      icon: 'heat_pump',
+      color: '#FFAB91',
+      type: CategoryType.expense,
+      description: 'Conta de gás encanado ou botijão.',
+    ),
+    DefaultCategory(
       id: 'cat_food',
       name: 'Alimentação',
       icon: 'restaurant',
@@ -104,6 +186,30 @@ class SeedDataConstants {
       type: CategoryType.expense,
       description:
           'Gastos com combustível, transporte público, carros por aplicativo, pedágio ou manutenção de veículos.',
+    ),
+    DefaultCategory(
+      id: 'cat_fuel',
+      name: 'Combustível',
+      icon: 'local_gas_station',
+      color: '#1E88E5',
+      type: CategoryType.expense,
+      description: 'Gasolina, etanol, diesel ou recarga elétrica.',
+    ),
+    DefaultCategory(
+      id: 'cat_parking_tolls',
+      name: 'Estacionamento e Pedágio',
+      icon: 'local_atm',
+      color: '#42A5F5',
+      type: CategoryType.expense,
+      description: 'Estacionamento, pedágios e zona azul.',
+    ),
+    DefaultCategory(
+      id: 'cat_vehicle_maintenance',
+      name: 'Manutenção Veicular',
+      icon: 'build',
+      color: '#1565C0',
+      type: CategoryType.expense,
+      description: 'Revisões, reparos, seguro e IPVA do veículo.',
     ),
     DefaultCategory(
       id: 'cat_health',
@@ -141,6 +247,91 @@ class SeedDataConstants {
       description:
           'Gastos com roupas, sapatos, acessórios ou itens de vestuário.',
     ),
+    DefaultCategory(
+      id: 'cat_pets',
+      name: 'Pets',
+      icon: 'pets',
+      color: '#6D4C41',
+      type: CategoryType.expense,
+      description:
+          'Ração, veterinário, banho e tosa ou outros cuidados com animais de estimação.',
+    ),
+    DefaultCategory(
+      id: 'cat_subscriptions',
+      name: 'Assinaturas',
+      icon: 'subscriptions',
+      color: '#5E35B1',
+      type: CategoryType.expense,
+      description:
+          'Streaming, aplicativos, revistas ou outros serviços por assinatura.',
+    ),
+    DefaultCategory(
+      id: 'cat_shopping',
+      name: 'Compras',
+      icon: 'shopping_bag',
+      color: '#8D6E63',
+      type: CategoryType.expense,
+      description:
+          'Compras diversas, eletrônicos, itens para casa ou variados.',
+    ),
+    DefaultCategory(
+      id: 'cat_personal_care',
+      name: 'Cuidados Pessoais',
+      icon: 'spa',
+      color: '#EC407A',
+      type: CategoryType.expense,
+      description: 'Salão de beleza, barbearia, cosméticos e higiene pessoal.',
+    ),
+    DefaultCategory(
+      id: 'cat_insurance',
+      name: 'Seguros',
+      icon: 'security',
+      color: '#455A64',
+      type: CategoryType.expense,
+      description: 'Seguro de vida, residencial ou outros seguros não veiculares.',
+    ),
+    DefaultCategory(
+      id: 'cat_gifts_given',
+      name: 'Presentes e Doações',
+      icon: 'card_giftcard',
+      color: '#AB47BC',
+      type: CategoryType.expense,
+      description: 'Presentes oferecidos, doações e contribuições beneficentes.',
+    ),
+    DefaultCategory(
+      id: 'cat_taxes_fees',
+      name: 'Impostos e Taxas',
+      icon: 'receipt_long',
+      color: '#546E7A',
+      type: CategoryType.expense,
+      description:
+          'IPTU, taxas governamentais, tarifas bancárias ou cartoriais.',
+    ),
+    DefaultCategory(
+      id: 'cat_travel',
+      name: 'Viagens',
+      icon: 'flight',
+      color: '#00ACC1',
+      type: CategoryType.expense,
+      description: 'Passagens, hospedagem e demais gastos com viagens.',
+    ),
+    DefaultCategory(
+      id: 'cat_children',
+      name: 'Filhos e Crianças',
+      icon: 'child_care',
+      color: '#F06292',
+      type: CategoryType.expense,
+      description:
+          'Fraldas, brinquedos, escola infantil e demais gastos com filhos.',
+    ),
+    DefaultCategory(
+      id: 'cat_other_expense',
+      name: 'Outras Despesas',
+      icon: 'category',
+      color: '#757575',
+      type: CategoryType.expense,
+      description: 'Despesas diversas que não se enquadram nas demais categorias.',
+    ),
     // Transfers
     DefaultCategory(
       id: 'cat_transfer',
@@ -156,6 +347,14 @@ class SeedDataConstants {
   // (parentId, childId) pairs for the many-to-many junction table
   static const List<(String, String)> defaultCategoryRelationships = [
     ('cat_housing', 'cat_rent'),
+    ('cat_housing', 'cat_condo_fee'),
+    ('cat_housing', 'cat_electricity'),
+    ('cat_housing', 'cat_water_bill'),
+    ('cat_housing', 'cat_internet_phone'),
+    ('cat_housing', 'cat_gas_bill'),
+    ('cat_transport', 'cat_fuel'),
+    ('cat_transport', 'cat_parking_tolls'),
+    ('cat_transport', 'cat_vehicle_maintenance'),
   ];
 
   static const List<DefaultHoliday> nationalHolidays = [

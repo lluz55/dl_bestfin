@@ -8,6 +8,12 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/motion.dart';
 
+/// Respiro reservado para a barra de navegação inferior flutuante — o
+/// [Scaffold] usa `extendBody: true`, então o corpo (e qualquer overlay,
+/// como o [SnackBar] de sincronismo) precisa reservar esse espaço manualmente
+/// para não ficar atrás da barra.
+const double kFloatingNavClearance = 96;
+
 class NavigationDestinationItem {
   const NavigationDestinationItem({
     required this.icon,
@@ -150,7 +156,7 @@ class _CompactLayout extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(
-              bottom: 96 + MediaQuery.paddingOf(context).bottom,
+              bottom: kFloatingNavClearance + MediaQuery.paddingOf(context).bottom,
             ),
             child: body,
           ),

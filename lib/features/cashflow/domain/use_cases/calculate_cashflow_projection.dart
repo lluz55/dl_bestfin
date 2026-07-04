@@ -16,21 +16,25 @@ class CalculateCashFlowProjection {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final windowEnd = today.add(Duration(days: days));
+    final windowEndInclusive = windowEnd
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
 
-    // 1. Current balance across all accounts
-    final accounts = await db.accountsDao.watchAllAccounts().first;
-    int currentBalance = 0;
-    for (final acc in accounts) {
-      currentBalance += await db.accountsDao.watchAccountBalance(acc.id).first;
-    }
+    // 1. Current balance across all accounts (single aggregated query)
+    final currentBalance = await db.accountsDao.getTotalBalance();
 
     // 2. Future incomplete transactions (recurring instances, bills, etc.)
+    //    within the projection window only.
     final Map<DateTime, int> dailyNet = {};
-    final allTxs = await transactionRepository.watchAllTransactions().first;
-    for (final tx in allTxs) {
-      if (tx.isCompleted) continue;
+    final pendingTxs = await transactionRepository
+        .watchTransactionsWithFilters(
+          startDate: today,
+          endDate: windowEndInclusive,
+          isCompleted: false,
+        )
+        .first;
+    for (final tx in pendingTxs) {
       final d = DateTime(tx.date.year, tx.date.month, tx.date.day);
-      if (d.isBefore(today) || d.isAfter(windowEnd)) continue;
       final isIncome = tx.type == TransactionType.income;
       final isExpense = tx.type == TransactionType.expense;
       if (!isIncome && !isExpense) continue;
@@ -40,10 +44,12 @@ class CalculateCashFlowProjection {
 
     // 3. Unpaid financing installments in the window
     final financings = await db.financingsDao.watchAllFinancings().first;
-    for (final financing in financings) {
-      final installments = await db.financingsDao.getInstallmentsForFinancing(
-        financing.id,
-      );
+    final installmentsByFinancing = await Future.wait(
+      financings.map(
+        (f) => db.financingsDao.getInstallmentsForFinancing(f.id),
+      ),
+    );
+    for (final installments in installmentsByFinancing) {
       for (final inst in installments) {
         if (inst.paidDate != null) continue;
         final d = DateTime(

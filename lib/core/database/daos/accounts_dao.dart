@@ -60,4 +60,16 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
     return query.map((row) => row.read(balanceExpr) ?? 0).watchSingle();
   }
+
+  /// Sums the balance across every account in a single query, instead of
+  /// running one [watchAccountBalance] query per account.
+  Future<int> getTotalBalance() async {
+    final balanceExpr = CustomExpression<int>(
+      "SUM(CASE WHEN type = 'debit' THEN amount ELSE -amount END)",
+    );
+
+    final query = selectOnly(entries)..addColumns([balanceExpr]);
+    final row = await query.getSingle();
+    return row.read(balanceExpr) ?? 0;
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
@@ -82,13 +83,16 @@ class SelectCategoriesStep extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: AppLoadingIndicator()),
               error: (_, __) => Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.error_outline_rounded,
-                        color: cs.error, size: 40),
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: cs.error,
+                      size: 40,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Não foi possível carregar as categorias',

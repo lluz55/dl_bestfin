@@ -54,6 +54,7 @@ class IncomeExpenseBar extends StatelessWidget {
           const SizedBox(height: 32),
           isCompact
               ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _StatItem(
                       label: 'Receitas',

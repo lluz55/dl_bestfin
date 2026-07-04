@@ -35,6 +35,30 @@ class AppTheme {
         ExpressiveShapes.defaultShapes,
         ExpressiveMotion.defaultMotion,
       ],
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surfaceContainerHigh,
+        border: OutlineInputBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.button,
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.button,
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.button,
+          borderSide: BorderSide(color: scheme.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.button,
+          borderSide: BorderSide(color: scheme.error, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.button,
+          borderSide: BorderSide(color: scheme.error, width: 2),
+        ),
+      ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: ExpressiveShapes.defaultShapes.card,
@@ -85,6 +109,15 @@ class AppTheme {
         ),
         elevation: 0,
         backgroundColor: scheme.surfaceContainer,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: scheme.surfaceContainerHigh,
+        contentTextStyle: TextStyle(color: scheme.onSurface),
+        actionTextColor: scheme.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.chip,
+        ),
       ),
     );
   }

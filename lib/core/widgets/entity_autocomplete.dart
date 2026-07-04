@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
@@ -737,7 +738,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
           suffixIcon: const SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: AppLoadingIndicator(strokeWidth: 2),
           ),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         ),

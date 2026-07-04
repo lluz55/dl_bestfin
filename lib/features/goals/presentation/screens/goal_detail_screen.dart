@@ -250,7 +250,7 @@ class _StatsRow extends StatelessWidget {
                 ? 'Meta atingida!'
                 : 'Orçamento excedido!',
             color: goal.isCompleted
-                ? const Color(0xFF43A047)
+                ? context.customColors.income
                 : (goal.type == GoalType.spending && goal.remainingInCents < 0)
                 ? cs.error
                 : cs.onSurfaceVariant,
@@ -371,7 +371,9 @@ class _InfoCard extends StatelessWidget {
             icon: Icons.flag_rounded,
             label: 'Status',
             value: goal.status.label,
-            color: goal.isCompleted ? const Color(0xFF43A047) : cs.onSurface,
+            color: goal.isCompleted
+                ? context.customColors.income
+                : cs.onSurface,
           ),
         ],
       ),

@@ -46,6 +46,18 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
 
   bool get _isTransfer => _type == TransactionType.transfer;
 
+  bool get _canSave {
+    if (_amountInCents <= 0) return false;
+    if (_accountId == null) return false;
+    if (_isTransfer) {
+      if (_toAccountId == null) return false;
+      if (_accountId == _toAccountId) return false;
+    } else {
+      if (_categoryId == null) return false;
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +123,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
@@ -149,6 +162,13 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
         );
         return;
       }
+    }
+
+    if (!_isTransfer && _categoryId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Selecione uma categoria.')),
+      );
+      return;
     }
 
     setState(() => _saving = true);
@@ -271,7 +291,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                   ),
                   const Spacer(),
                   FilledButton.icon(
-                    onPressed: _saving ? null : _save,
+                    onPressed: (_saving || !_canSave) ? null : _save,
                     style: FilledButton.styleFrom(backgroundColor: color),
                     icon: _saving
                         ? const SizedBox(
@@ -301,18 +321,20 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
     required Color color,
   }) {
     final accounts = ref.watch(activeAccountsProvider);
+    final seen = <String>{};
+    final uniqueAccounts = accounts.where((a) => seen.add(a.id)).toList();
     return _SelectorRow(
       label: label,
-      child: accounts.isEmpty
+      child: uniqueAccounts.isEmpty
           ? const _EmptyHint('Nenhuma conta cadastrada')
           : SizedBox(
               height: 40,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: accounts.length,
+                itemCount: uniqueAccounts.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
-                  final Account a = accounts[i];
+                  final Account a = uniqueAccounts[i];
                   return _PickChip(
                     label: a.name,
                     icon: IconMapper.fromCodePoint(

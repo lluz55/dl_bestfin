@@ -18,6 +18,7 @@ abstract class TransactionRepository {
     String? categoryId,
     DateTime? startDate,
     DateTime? endDate,
+    bool? isCompleted,
   });
   Stream<List<TransactionModel>> watchSuggestedTransactions();
   Future<String> createTransaction({
@@ -78,6 +79,7 @@ abstract class TransactionRepository {
     String? type,
     int limit = 10,
   });
+  Future<bool> hasAnyTransactions();
 }
 
 class TransactionRepositoryImpl implements TransactionRepository {
@@ -169,6 +171,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? categoryId,
     DateTime? startDate,
     DateTime? endDate,
+    bool? isCompleted,
   }) {
     final query = _database.select(_database.transactions).join([
       leftOuterJoin(
@@ -204,6 +207,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     }
     if (endDate != null) {
       query.where(_database.transactions.date.isSmallerOrEqualValue(endDate));
+    }
+    if (isCompleted != null) {
+      query.where(_database.transactions.isCompleted.equals(isCompleted));
     }
 
     query.orderBy([
@@ -526,7 +532,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       // 4. Insere splits se existirem
       if (hasSplits) {
-        for (final split in splits!) {
+        for (final split in splits) {
           await _database
               .into(_database.transactionSplits)
               .insert(
@@ -731,7 +737,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         _database.transactionSplits,
       )..where((s) => s.transactionId.equals(id))).go();
       if (hasSplits) {
-        for (final split in splits!) {
+        for (final split in splits) {
           await _database
               .into(_database.transactionSplits)
               .insert(
@@ -820,6 +826,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final entries = await (_database.select(
       _database.entries,
     )..where((e) => e.transactionId.equals(id))).get();
+    final splits = await (_database.select(
+      _database.transactionSplits,
+    )..where((s) => s.transactionId.equals(id))).get();
 
     final payload = tx == null
         ? <String, dynamic>{'id': id}
@@ -853,6 +862,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
                     'amount': entry.amount,
                     'type': entry.type,
                     'created_at': entry.createdAt.toIso8601String(),
+                  },
+                )
+                .toList(),
+            'splits': splits
+                .map(
+                  (split) => <String, dynamic>{
+                    'id': split.id,
+                    'transaction_id': split.transactionId,
+                    'category_id': split.categoryId,
+                    'amount': split.amount,
+                    'description': split.description,
                   },
                 )
                 .toList(),
@@ -1092,5 +1112,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
     return rows
         .map((row) => row.read(_database.transactions.description)!)
         .toList();
+  }
+
+  @override
+  Future<bool> hasAnyTransactions() async {
+    final selectQuery = _database.selectOnly(_database.transactions)
+      ..addColumns([_database.transactions.id])
+      ..where(_database.transactions.isConfirmed.equals(true))
+      ..limit(1);
+    final row = await selectQuery.getSingleOrNull();
+    return row != null;
   }
 }

@@ -72,8 +72,7 @@ class _TutorialRunnerState extends ConsumerState<TutorialRunner> {
         padding: 6,
         align: ContentAlign.top,
         title: 'Explore tudo',
-        body:
-            'Orçamentos, metas, investimentos, IA e muito mais estão aqui.',
+        body: 'Orçamentos, metas, investimentos, IA e muito mais estão aqui.',
         cs: cs,
         tt: tt,
       ),

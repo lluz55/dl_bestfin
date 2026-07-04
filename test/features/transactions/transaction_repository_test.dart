@@ -2,7 +2,6 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/features/transactions/data/repositories/transaction_repository.dart';
-import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:uuid/uuid.dart';
 

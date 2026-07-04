@@ -24,6 +24,7 @@ class IconMapper {
     'price_change': Icons.price_change,
     'price_check': Icons.price_check,
     'show_chart': Icons.show_chart,
+    'subscriptions': Icons.subscriptions,
     // Casa
     'home': Icons.home,
     'house': Icons.house,
@@ -194,6 +195,7 @@ class IconMapper {
       'price_change',
       'price_check',
       'show_chart',
+      'subscriptions',
     ]),
     'Casa': _entries([
       'home',

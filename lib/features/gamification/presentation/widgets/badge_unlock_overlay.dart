@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/gamification/domain/models/badge.dart';
-import 'package:lottie/lottie.dart';
 
 // A better way is to have a provider for the unlock events
 final badgeUnlockEventProvider = StreamProvider<String>((ref) {

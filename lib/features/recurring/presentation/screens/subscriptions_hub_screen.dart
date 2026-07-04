@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_form_modal_provider.dart';
@@ -156,33 +157,16 @@ class SubscriptionsHubScreen extends ConsumerWidget {
                   if (rules.isEmpty) {
                     return SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.subscriptions_outlined,
-                              size: 56,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Nenhuma assinatura ativa',
-                              style: tt.titleMedium?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: EmptyState(
+                          icon: Icons.subscriptions_outlined,
+                          title: 'Nenhuma assinatura ativa',
+                          description:
                               'Adicione serviços de streaming, planos e contas fixas para controlar seus gastos.',
-                              style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                          actionLabel: 'Nova Recorrência',
+                          onAction: () => ref
+                              .read(recurringFormModalProvider.notifier)
+                              .open(),
                         ),
                       ),
                     );

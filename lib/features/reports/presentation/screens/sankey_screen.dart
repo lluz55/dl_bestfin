@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/sankey_widget.dart';
@@ -15,7 +16,7 @@ class SankeyScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (e, _) => Center(child: Text('Erro: $e')),
       data: (data) {
         if (data.isEmpty) {
