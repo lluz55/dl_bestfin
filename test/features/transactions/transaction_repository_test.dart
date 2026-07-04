@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bestfin/core/database/app_database.dart';
@@ -235,5 +236,40 @@ void main() {
 
     final results4 = await repository.getRecentDescriptions(type: 'income');
     expect(results4, ['Salary']);
+  });
+
+  test('markAsPaid completes a pending transaction', () async {
+    final accountId = const Uuid().v4();
+    await db.accountsDao.insertAccount(
+      AccountsCompanion.insert(
+        id: accountId,
+        name: 'Test Checking',
+        type: 'checking',
+      ),
+    );
+
+    final txId = await repository.createTransaction(
+      date: DateTime.now().add(const Duration(days: 3)),
+      description: 'Future installment',
+      type: 'expense',
+      amount: 5000,
+      accountId: accountId,
+    );
+
+    // Simulate a recurring-generated instance not yet due (isCompleted=false).
+    await (db.update(
+      db.transactions,
+    )..where((t) => t.id.equals(txId))).write(
+      const TransactionsCompanion(isCompleted: Value(false)),
+    );
+
+    final pendingTxs = await repository.watchAllTransactions().first;
+    expect(pendingTxs.single.isPending, isTrue);
+
+    await repository.markAsPaid(txId);
+
+    final updatedTxs = await repository.watchAllTransactions().first;
+    expect(updatedTxs.single.isPending, isFalse);
+    expect(updatedTxs.single.isConfirmed, isTrue);
   });
 }

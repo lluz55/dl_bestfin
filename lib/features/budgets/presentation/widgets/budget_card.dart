@@ -43,6 +43,7 @@ class BudgetCard extends StatelessWidget {
         ? IconMapper.fromString(budget.categoryIcon!)
         : Icons.category_rounded;
     final progress = budget.progress.clamp(0.0, 1.2);
+    final projectedProgress = budget.projectedProgress.clamp(0.0, 1.2);
     final progressColor = _progressColor(context, progress);
     final pct = (budget.progress * 100).toStringAsFixed(0);
 
@@ -80,13 +81,27 @@ class BudgetCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress.clamp(0.0, 1.0),
-                        minHeight: 5,
-                        backgroundColor: cs.surfaceContainerHigh,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progressColor,
-                        ),
+                      child: Stack(
+                        children: [
+                          // Camada clara: gasto confirmado + previsto.
+                          LinearProgressIndicator(
+                            value: projectedProgress.clamp(0.0, 1.0),
+                            minHeight: 5,
+                            backgroundColor: cs.surfaceContainerHigh,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              progressColor.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          // Camada sólida: só o gasto confirmado.
+                          LinearProgressIndicator(
+                            value: progress.clamp(0.0, 1.0),
+                            minHeight: 5,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              progressColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -127,6 +142,16 @@ class BudgetCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (budget.pending > 0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '+ ${CurrencyFormatter.formatCents(budget.pending)} previsto',
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -121,9 +121,19 @@ class BudgetsOverviewCard extends ConsumerWidget {
                 (s, b) => s + b.totalBudget,
               );
               final totalSpent = budgets.fold<int>(0, (s, b) => s + b.spent);
+              final totalPending = budgets.fold<int>(
+                0,
+                (s, b) => s + b.pending,
+              );
               final progress = totalBudget == 0
                   ? 0.0
                   : (totalSpent / totalBudget).clamp(0.0, 1.0);
+              final projectedProgress = totalBudget == 0
+                  ? 0.0
+                  : ((totalSpent + totalPending) / totalBudget).clamp(
+                      0.0,
+                      1.0,
+                    );
               final overBudget = budgets.where((b) => b.isOverBudget).length;
               final progressColor = overBudget > 0
                   ? cs.error
@@ -153,6 +163,14 @@ class BudgetsOverviewCard extends ConsumerWidget {
                               color: cs.onSurfaceVariant,
                             ),
                           ),
+                          if (totalPending > 0)
+                            Text(
+                              '+ ${CurrencyFormatter.formatCents(totalPending)} previsto',
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
                         ],
                       ),
                       if (overBudget > 0)
@@ -178,11 +196,27 @@ class BudgetsOverviewCard extends ConsumerWidget {
                   const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 8,
-                      backgroundColor: cs.surfaceContainerHigh,
-                      valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                    child: Stack(
+                      children: [
+                        // Camada clara: gasto confirmado + previsto.
+                        LinearProgressIndicator(
+                          value: projectedProgress,
+                          minHeight: 8,
+                          backgroundColor: cs.surfaceContainerHigh,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            progressColor.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        // Camada sólida: só o gasto confirmado.
+                        LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 8,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            progressColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),

@@ -18,12 +18,23 @@ class TransactionTile extends ConsumerWidget {
     this.onTap,
     this.onDelete,
     this.onClone,
+    this.onMarkAsPaid,
   });
 
   final TransactionModel transaction;
   final VoidCallback? onTap;
   final Future<void> Function()? onDelete;
   final VoidCallback? onClone;
+  final Future<void> Function()? onMarkAsPaid;
+
+  Future<void> _markAsPaid(BuildContext context) async {
+    await onMarkAsPaid?.call();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transação marcada como paga')),
+      );
+    }
+  }
 
   Account? _findAccount(List<Account> accounts, String? id) {
     if (id == null) return null;
@@ -102,14 +113,36 @@ class TransactionTile extends ConsumerWidget {
       );
     }
 
+    final isPending = transaction.isPending;
+
     Widget iconWidget;
-    if (isCreditCard || isRecurring) {
+    if (isCreditCard || isRecurring || isPending) {
       iconWidget = SizedBox(
         width: 44,
         height: 44,
         child: Stack(
           children: [
             baseIcon,
+            if (isPending)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.schedule_rounded,
+                      size: 11,
+                      color: cs.tertiary,
+                    ),
+                  ),
+                ),
+              ),
             if (isCreditCard)
               Positioned(
                 right: 0,
@@ -272,6 +305,17 @@ class TransactionTile extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (isPending && onMarkAsPaid != null)
+                IconButton(
+                  onPressed: () => _markAsPaid(context),
+                  icon: const Icon(Icons.check_circle_outline_rounded),
+                  iconSize: 20,
+                  color: cs.tertiary,
+                  tooltip: 'Marcar como pago',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
             ],
           ),
         ),

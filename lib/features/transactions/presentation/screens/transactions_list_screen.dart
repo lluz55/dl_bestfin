@@ -298,6 +298,11 @@ class TransactionsListScreen extends ConsumerWidget {
                               },
                               onDelete: () =>
                                   showDeleteTransactionSheet(context, ref, tx),
+                              onMarkAsPaid: tx.isPending
+                                  ? () => ref.read(
+                                      markTransactionAsPaidProvider,
+                                    )(tx.id)
+                                  : null,
                             );
                           }
                         }, childCount: flatList.length),

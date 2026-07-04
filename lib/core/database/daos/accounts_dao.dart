@@ -72,4 +72,31 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     final row = await query.getSingle();
     return row.read(balanceExpr) ?? 0;
   }
+
+  /// Saldo apenas de transações já ocorridas e confirmadas (exclui
+  /// pendentes/futuras). Usado como ponto de partida de projeções de fluxo de
+  /// caixa, para não contar pendentes duas vezes — uma no saldo "atual",
+  /// outra nos deltas diários somados ao longo da janela de projeção. Ver
+  /// [getTotalBalance], que deliberadamente inclui pendentes para telas que
+  /// mostram saldo disponível "com pendentes embutidos" (ex.: freeToSpend).
+  Future<int> getConfirmedBalance() async {
+    final balanceExpr = CustomExpression<int>(
+      "SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END)",
+    );
+
+    final query = selectOnly(entries)
+      ..addColumns([balanceExpr])
+      ..join([
+        innerJoin(
+          transactions,
+          transactions.id.equalsExp(entries.transactionId),
+        ),
+      ])
+      ..where(
+        transactions.isCompleted.equals(true) &
+            transactions.isConfirmed.equals(true),
+      );
+    final row = await query.getSingleOrNull();
+    return row?.read(balanceExpr) ?? 0;
+  }
 }

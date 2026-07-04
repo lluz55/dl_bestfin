@@ -20,8 +20,10 @@ class CalculateCashFlowProjection {
         .add(const Duration(days: 1))
         .subtract(const Duration(milliseconds: 1));
 
-    // 1. Current balance across all accounts (single aggregated query)
-    final currentBalance = await db.accountsDao.getTotalBalance();
+    // 1. Current balance across all accounts, excluding pending/future
+    //    transactions — they are added back below via dailyNet deltas, so
+    //    starting from getTotalBalance() here would double-count them.
+    final currentBalance = await db.accountsDao.getConfirmedBalance();
 
     // 2. Future incomplete transactions (recurring instances, bills, etc.)
     //    within the projection window only.

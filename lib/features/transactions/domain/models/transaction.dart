@@ -1,5 +1,6 @@
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/constants/sentiment_types.dart';
+import 'package:bestfin/core/constants/transaction_status.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'entry.dart';
@@ -131,4 +132,11 @@ class TransactionModel {
     );
     return creditEntry.accountId;
   }
+
+  /// Status derivado de [isCompleted] — não confundir com [isConfirmed], que
+  /// distingue transações revisadas de sugestões vindas de notificação.
+  TransactionStatus get status =>
+      TransactionStatus.fromFlags(isCompleted: isCompleted);
+
+  bool get isPending => !isCompleted;
 }

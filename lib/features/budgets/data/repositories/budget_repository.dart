@@ -20,7 +20,11 @@ class BudgetRepositoryImpl implements BudgetRepository {
 
   BudgetRepositoryImpl(this._db);
 
-  Future<BudgetModel> _enrich(Budget budget, {required int spent}) async {
+  Future<BudgetModel> _enrich(
+    Budget budget, {
+    required int spent,
+    int pending = 0,
+  }) async {
     String? name, color, icon;
     try {
       final cat = await _db.categoriesDao.getCategoryById(budget.categoryId);
@@ -31,6 +35,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
     return BudgetModel.fromDbWithSpending(
       budget,
       spent,
+      pending: pending,
       categoryName: name,
       categoryColor: color,
       categoryIcon: icon,
@@ -44,7 +49,9 @@ class BudgetRepositoryImpl implements BudgetRepository {
     ) async {
       final result = <BudgetModel>[];
       for (final item in items) {
-        result.add(await _enrich(item.budget, spent: item.spent));
+        result.add(
+          await _enrich(item.budget, spent: item.spent, pending: item.pending),
+        );
       }
       return result;
     });
@@ -55,7 +62,9 @@ class BudgetRepositoryImpl implements BudgetRepository {
     final items = await _db.budgetsDao.getBudgetsWithSpending(year, month);
     final result = <BudgetModel>[];
     for (final item in items) {
-      result.add(await _enrich(item.budget, spent: item.spent));
+      result.add(
+        await _enrich(item.budget, spent: item.spent, pending: item.pending),
+      );
     }
     return result;
   }

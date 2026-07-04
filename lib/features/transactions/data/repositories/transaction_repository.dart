@@ -46,6 +46,12 @@ abstract class TransactionRepository {
     String? merchant,
   });
   Future<void> confirmSuggestion(String id);
+
+  /// Marca uma transação pendente (futura, `isCompleted == false`) como
+  /// concluída — ex.: uma parcela de recorrência ainda não paga. Diferente de
+  /// [confirmSuggestion], que resolve sugestões vindas de notificação, esta
+  /// ação fica disponível para qualquer transação pendente na UI principal.
+  Future<void> markAsPaid(String id);
   Future<void> updateTransaction({
     required String id,
     required DateTime date,
@@ -410,6 +416,19 @@ class TransactionRepositoryImpl implements TransactionRepository {
         isCompleted: Value(true),
       ),
     );
+  }
+
+  @override
+  Future<void> markAsPaid(String id) async {
+    await (_database.update(
+      _database.transactions,
+    )..where((t) => t.id.equals(id))).write(
+      const db.TransactionsCompanion(
+        isConfirmed: Value(true),
+        isCompleted: Value(true),
+      ),
+    );
+    await _enqueueTransactionSync(id, 'update');
   }
 
   @override

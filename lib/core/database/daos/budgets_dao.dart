@@ -8,11 +8,32 @@ import '../tables/entries.dart';
 
 part 'budgets_dao.g.dart';
 
+class CategorySpendingBreakdown {
+  /// Gasto de transações já ocorridas (`isCompleted == true`).
+  final int confirmed;
+
+  /// Gasto "previsto" de transações futuras/pendentes (`isCompleted ==
+  /// false`) dentro do mesmo período — não entra no gasto confirmado.
+  final int pending;
+
+  const CategorySpendingBreakdown({
+    required this.confirmed,
+    required this.pending,
+  });
+
+  int get total => confirmed + pending;
+}
+
 class BudgetWithSpending {
   final Budget budget;
   final int spent;
+  final int pending;
 
-  const BudgetWithSpending({required this.budget, required this.spent});
+  const BudgetWithSpending({
+    required this.budget,
+    required this.spent,
+    this.pending = 0,
+  });
 
   int get available => budget.amount + budget.rolloverAmount - spent;
   double get progress =>
@@ -48,8 +69,9 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
         .getSingleOrNull();
   }
 
-  /// Calcula o total gasto em [categoryId] durante o período [year]/[month].
-  Future<int> getSpentForCategory(
+  /// Retorna o gasto confirmado e o previsto de [categoryId] durante o
+  /// período [year]/[month] num único round-trip.
+  Future<CategorySpendingBreakdown> getSpendingBreakdownForCategory(
     String categoryId,
     int year,
     int month,
@@ -57,8 +79,15 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     final start = DateTime(year, month);
     final end = DateTime(year, month + 1);
 
+    final confirmedExpr = CustomExpression<int>(
+      "SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END)",
+    );
+    final pendingExpr = CustomExpression<int>(
+      "SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END)",
+    );
+
     final query = selectOnly(transactions)
-      ..addColumns([entries.amount.sum()])
+      ..addColumns([confirmedExpr, pendingExpr])
       ..join([
         innerJoin(entries, entries.transactionId.equalsExp(transactions.id)),
       ])
@@ -72,10 +101,29 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       );
 
     final row = await query.getSingleOrNull();
-    return row?.read(entries.amount.sum()) ?? 0;
+    return CategorySpendingBreakdown(
+      confirmed: row?.read(confirmedExpr) ?? 0,
+      pending: row?.read(pendingExpr) ?? 0,
+    );
   }
 
-  /// Retorna todos os budgets do período com o valor gasto calculado.
+  /// Calcula o total gasto (confirmado) em [categoryId] durante o período
+  /// [year]/[month].
+  Future<int> getSpentForCategory(
+    String categoryId,
+    int year,
+    int month,
+  ) async {
+    final breakdown = await getSpendingBreakdownForCategory(
+      categoryId,
+      year,
+      month,
+    );
+    return breakdown.confirmed;
+  }
+
+  /// Retorna todos os budgets do período com o valor gasto (confirmado e
+  /// previsto) calculado.
   Future<List<BudgetWithSpending>> getBudgetsWithSpending(
     int year,
     int month,
@@ -84,8 +132,18 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     final result = <BudgetWithSpending>[];
 
     for (final budget in periodBudgets) {
-      final spent = await getSpentForCategory(budget.categoryId, year, month);
-      result.add(BudgetWithSpending(budget: budget, spent: spent));
+      final breakdown = await getSpendingBreakdownForCategory(
+        budget.categoryId,
+        year,
+        month,
+      );
+      result.add(
+        BudgetWithSpending(
+          budget: budget,
+          spent: breakdown.confirmed,
+          pending: breakdown.pending,
+        ),
+      );
     }
 
     return result;
@@ -98,8 +156,18 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     return watchByPeriod(year, month).asyncMap((budgetList) async {
       final result = <BudgetWithSpending>[];
       for (final budget in budgetList) {
-        final spent = await getSpentForCategory(budget.categoryId, year, month);
-        result.add(BudgetWithSpending(budget: budget, spent: spent));
+        final breakdown = await getSpendingBreakdownForCategory(
+          budget.categoryId,
+          year,
+          month,
+        );
+        result.add(
+          BudgetWithSpending(
+            budget: budget,
+            spent: breakdown.confirmed,
+            pending: breakdown.pending,
+          ),
+        );
       }
       return result;
     });

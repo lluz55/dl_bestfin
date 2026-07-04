@@ -11,6 +11,10 @@ class BudgetModel {
   final int amount;
   final int rolloverAmount;
   final int spent;
+
+  /// Gasto "previsto" — transações futuras/pendentes dentro do período que
+  /// ainda não ocorreram. Não entra em [spent]/[progress]/[isOverBudget].
+  final int pending;
   final DateTime createdAt;
 
   const BudgetModel({
@@ -24,6 +28,7 @@ class BudgetModel {
     required this.amount,
     required this.rolloverAmount,
     required this.spent,
+    this.pending = 0,
     required this.createdAt,
   });
 
@@ -32,9 +37,15 @@ class BudgetModel {
   double get progress => totalBudget == 0 ? 0.0 : spent / totalBudget;
   bool get isOverBudget => spent > totalBudget;
 
+  /// Gasto confirmado + previsto, para exibir a projeção do período.
+  int get projectedSpent => spent + pending;
+  double get projectedProgress =>
+      totalBudget == 0 ? 0.0 : projectedSpent / totalBudget;
+
   factory BudgetModel.fromDbWithSpending(
     db.Budget budget,
     int spent, {
+    int pending = 0,
     String? categoryName,
     String? categoryColor,
     String? categoryIcon,
@@ -50,6 +61,7 @@ class BudgetModel {
       amount: budget.amount,
       rolloverAmount: budget.rolloverAmount,
       spent: spent,
+      pending: pending,
       createdAt: budget.createdAt,
     );
   }
