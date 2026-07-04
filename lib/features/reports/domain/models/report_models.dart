@@ -5,10 +5,15 @@ class CategorySpending {
   final int amountInCents;
   final double percentage;
 
+  /// Gasto "previsto" (transações futuras/pendentes) da categoria dentro do
+  /// mesmo período. Não entra em [amountInCents]/[percentage].
+  final int pendingAmountInCents;
+
   const CategorySpending({
     this.category,
     required this.amountInCents,
     required this.percentage,
+    this.pendingAmountInCents = 0,
   });
 }
 
@@ -32,11 +37,18 @@ class MonthlyBar {
   final int income;
   final int expense;
 
+  /// Receita/despesa "previstas" (transações futuras/pendentes) do mês,
+  /// exibidas como camada adicional — não somadas a [income]/[expense].
+  final int pendingIncome;
+  final int pendingExpense;
+
   const MonthlyBar({
     required this.year,
     required this.month,
     required this.income,
     required this.expense,
+    this.pendingIncome = 0,
+    this.pendingExpense = 0,
   });
 
   int get net => income - expense;
@@ -71,11 +83,18 @@ class CashFlowPoint {
   final int expense;
   final int cumulativeBalance;
 
+  /// Receita/despesa "previstas" (transações futuras/pendentes) do dia,
+  /// exibidas como camada adicional — não somadas a [income]/[expense].
+  final int pendingIncome;
+  final int pendingExpense;
+
   const CashFlowPoint({
     required this.date,
     required this.income,
     required this.expense,
     required this.cumulativeBalance,
+    this.pendingIncome = 0,
+    this.pendingExpense = 0,
   });
 }
 

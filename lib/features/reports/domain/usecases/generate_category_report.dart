@@ -27,13 +27,16 @@ class GenerateCategoryReport {
           int total = 0;
 
           for (final tx in transactions) {
-            if (!tx.isCompleted) continue;
             if (tx.type != TransactionType.expense) continue;
 
             final catId = tx.categoryId ?? '_none';
-            final g = groups[catId] ?? _Group(tx.category, 0);
-            groups[catId] = _Group(g.category, g.amount + tx.amount);
-            total += tx.amount;
+            final g = groups[catId] ?? _Group(tx.category, 0, 0);
+            if (tx.isCompleted) {
+              groups[catId] = _Group(g.category, g.amount + tx.amount, g.pending);
+              total += tx.amount;
+            } else {
+              groups[catId] = _Group(g.category, g.amount, g.pending + tx.amount);
+            }
           }
 
           final sorted = groups.values.toList()
@@ -49,6 +52,7 @@ class GenerateCategoryReport {
                   category: g.category,
                   amountInCents: g.amount,
                   percentage: total > 0 ? g.amount / total : 0,
+                  pendingAmountInCents: g.pending,
                 ),
               );
             }
@@ -60,12 +64,15 @@ class GenerateCategoryReport {
                   category: g.category,
                   amountInCents: g.amount,
                   percentage: total > 0 ? g.amount / total : 0,
+                  pendingAmountInCents: g.pending,
                 ),
               );
             }
             int othersAmount = 0;
+            int othersPending = 0;
             for (int i = maxSlices - 1; i < sorted.length; i++) {
               othersAmount += sorted[i].amount;
+              othersPending += sorted[i].pending;
             }
             items.add(
               CategorySpending(
@@ -81,6 +88,7 @@ class GenerateCategoryReport {
                 ),
                 amountInCents: othersAmount,
                 percentage: total > 0 ? othersAmount / total : 0,
+                pendingAmountInCents: othersPending,
               ),
             );
           }
@@ -98,5 +106,6 @@ class GenerateCategoryReport {
 class _Group {
   final CategoryModel? category;
   final int amount;
-  const _Group(this.category, this.amount);
+  final int pending;
+  const _Group(this.category, this.amount, this.pending);
 }

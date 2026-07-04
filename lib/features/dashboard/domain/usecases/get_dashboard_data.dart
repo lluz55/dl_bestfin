@@ -294,7 +294,7 @@ class GetDashboardData {
     List<TransactionModel> transactions,
     DateTime now,
   ) {
-    final completed = transactions.where((tx) => tx.isCompleted).toList()
+    final sorted = transactions.toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
     final Map<String, MonthlyBar> monthlyMap = {};
@@ -313,7 +313,7 @@ class GetDashboardData {
 
     final sixMonthsAgo = DateTime(now.year, now.month - 5, 1);
 
-    for (final tx in completed) {
+    for (final tx in sorted) {
       if (tx.date.isBefore(sixMonthsAgo)) continue;
       final key = '${tx.date.year}-${tx.date.month}';
       final existing = monthlyMap[key];
@@ -322,15 +322,27 @@ class GetDashboardData {
           monthlyMap[key] = MonthlyBar(
             year: tx.date.year,
             month: tx.date.month,
-            income: existing.income + tx.amount,
+            income: tx.isCompleted
+                ? existing.income + tx.amount
+                : existing.income,
             expense: existing.expense,
+            pendingIncome: tx.isCompleted
+                ? existing.pendingIncome
+                : existing.pendingIncome + tx.amount,
+            pendingExpense: existing.pendingExpense,
           );
         } else if (tx.type == TransactionType.expense) {
           monthlyMap[key] = MonthlyBar(
             year: tx.date.year,
             month: tx.date.month,
             income: existing.income,
-            expense: existing.expense + tx.amount,
+            expense: tx.isCompleted
+                ? existing.expense + tx.amount
+                : existing.expense,
+            pendingIncome: existing.pendingIncome,
+            pendingExpense: tx.isCompleted
+                ? existing.pendingExpense
+                : existing.pendingExpense + tx.amount,
           );
         }
       }

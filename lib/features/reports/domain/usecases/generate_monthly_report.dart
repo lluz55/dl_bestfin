@@ -38,7 +38,6 @@ class GenerateMonthlyReport {
           }
 
           for (final tx in transactions) {
-            if (!tx.isCompleted) continue;
             final key = '${tx.date.year}-${tx.date.month}';
             final bar = barMap[key];
             if (bar == null) continue;
@@ -47,15 +46,25 @@ class GenerateMonthlyReport {
               barMap[key] = MonthlyBar(
                 year: bar.year,
                 month: bar.month,
-                income: bar.income + tx.amount,
+                income: tx.isCompleted ? bar.income + tx.amount : bar.income,
                 expense: bar.expense,
+                pendingIncome: tx.isCompleted
+                    ? bar.pendingIncome
+                    : bar.pendingIncome + tx.amount,
+                pendingExpense: bar.pendingExpense,
               );
             } else if (tx.type == TransactionType.expense) {
               barMap[key] = MonthlyBar(
                 year: bar.year,
                 month: bar.month,
                 income: bar.income,
-                expense: bar.expense + tx.amount,
+                expense: tx.isCompleted
+                    ? bar.expense + tx.amount
+                    : bar.expense,
+                pendingIncome: bar.pendingIncome,
+                pendingExpense: tx.isCompleted
+                    ? bar.pendingExpense
+                    : bar.pendingExpense + tx.amount,
               );
             }
           }
