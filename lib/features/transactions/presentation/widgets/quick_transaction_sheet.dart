@@ -5,12 +5,15 @@ import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
+import 'package:bestfin/core/widgets/entity_autocomplete.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
+import 'package:bestfin/features/transactions/domain/models/entry.dart';
 import 'package:bestfin/features/transactions/domain/models/quick_suggestion.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/quick_suggestions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
@@ -18,6 +21,80 @@ import 'package:bestfin/features/transactions/presentation/providers/transaction
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/description_autocomplete.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_type_tabs.dart';
+
+/// Builds a draft [TransactionModel] carrying over whatever was already
+/// filled in the quick-entry sheet, so tapping "Mais opções" hands the full
+/// form a pre-filled transaction instead of discarding everything. An empty
+/// `id` keeps `TransactionFormScreen._isEditing` false, so it's still treated
+/// as a brand-new transaction, just pre-filled.
+///
+/// Amount/account/toAccount are only derivable from [TransactionModel.entries]
+/// (see `TransactionModel.amount`/`accountId`/`toAccountId`), so they're
+/// reconstructed here the same way `TransactionRepository` would persist them.
+TransactionModel buildQuickTransactionDraft({
+  required TransactionType type,
+  required int amountInCents,
+  required String description,
+  String? categoryId,
+  String? entityId,
+  String? accountId,
+  String? toAccountId,
+}) {
+  final now = DateTime.now();
+  final isTransfer = type == TransactionType.transfer;
+  final entries = <EntryModel>[];
+
+  if (accountId != null) {
+    if (isTransfer) {
+      entries.add(
+        EntryModel(
+          id: '',
+          transactionId: '',
+          accountId: accountId,
+          amount: amountInCents,
+          type: 'credit',
+          createdAt: now,
+        ),
+      );
+      if (toAccountId != null) {
+        entries.add(
+          EntryModel(
+            id: '',
+            transactionId: '',
+            accountId: toAccountId,
+            amount: amountInCents,
+            type: 'debit',
+            createdAt: now,
+          ),
+        );
+      }
+    } else {
+      entries.add(
+        EntryModel(
+          id: '',
+          transactionId: '',
+          accountId: accountId,
+          amount: amountInCents,
+          type: type == TransactionType.income ? 'debit' : 'credit',
+          createdAt: now,
+        ),
+      );
+    }
+  }
+
+  return TransactionModel(
+    id: '',
+    date: now,
+    description: description,
+    type: type,
+    categoryId: isTransfer ? null : categoryId,
+    entityId: isTransfer ? null : entityId,
+    isCompleted: true,
+    createdAt: now,
+    updatedAt: now,
+    entries: entries,
+  );
+}
 
 /// Bottom sheet de "Lançamento Rápido": cria qualquer transação (despesa,
 /// receita ou transferência) em poucos toques, com chips de sugestão vindos do
@@ -42,6 +119,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   String? _toAccountId;
   String? _categoryId;
   String? _entityId;
+  final _entityController = EntityAutocompleteController();
   bool _saving = false;
 
   bool get _isTransfer => _type == TransactionType.transfer;
@@ -118,14 +196,33 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   }
 
   void _openFullForm() {
+    final draft = buildQuickTransactionDraft(
+      type: _type,
+      amountInCents: _amountInCents,
+      description: _descriptionController.text.trim(),
+      categoryId: _categoryId,
+      entityId: _entityId,
+      accountId: _accountId,
+      toAccountId: _toAccountId,
+    );
     Navigator.of(context).pop();
-    ref.read(transactionFormModalProvider.notifier).open(type: _type);
+    ref
+        .read(transactionFormModalProvider.notifier)
+        .open(type: _type, transaction: draft);
   }
 
   Future<void> _save() async {
     if (_saving) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+
+    if (!_isTransfer) {
+      // Resolves whatever was typed into "Recebido de"/"Pago a" into an
+      // entity even if the field never lost focus before "Salvar" was
+      // tapped (e.g. a fast tap right after typing).
+      await _entityController.commit();
+      if (!mounted) return;
+    }
 
     if (_amountInCents <= 0) {
       messenger.showSnackBar(
@@ -262,6 +359,21 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                 transactionType: _type.name,
                 onSelected: (_) {},
               ),
+              if (!_isTransfer) ...[
+                const SizedBox(height: 16),
+                EntityAutocomplete(
+                  selectedEntityId: _entityId,
+                  entityType: _type == TransactionType.income
+                      ? 'payer'
+                      : 'payee',
+                  label: _type == TransactionType.income
+                      ? 'Recebido de'
+                      : 'Pago a',
+                  onEntitySelected: (entity) =>
+                      setState(() => _entityId = entity?.id),
+                  controller: _entityController,
+                ),
+              ],
               const SizedBox(height: 16),
               _accountSelector(
                 label: _isTransfer ? 'De' : 'Conta',

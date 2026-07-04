@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,6 +56,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final FocusNode _descriptionFocusNode = FocusNode();
   final FocusNode _entityFocusNode = FocusNode();
   final FocusNode _notesFocusNode = FocusNode();
+  final EntityAutocompleteController _entityController =
+      EntityAutocompleteController();
 
   // Stepper navigation
   late PageController _pageController;
@@ -244,7 +248,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     return true;
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
+    // Resolves whatever the user typed into "Recebido de"/"Pago a" into an
+    // entity even if they never explicitly picked it from the suggestion
+    // list — otherwise tapping "Próximo" right after typing a brand-new name
+    // races the field's own focus-loss handling and can block here.
+    if (_currentPage == 2) {
+      await _entityController.commit();
+      if (!mounted) return;
+    }
     final error = _advanceError();
     if (error != null) {
       ScaffoldMessenger.of(
@@ -253,17 +265,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
     final next = _currentPage + 1;
-    _pageController.animateToPage(
-      next,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+    unawaited(
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      ),
     );
     setState(() {
       _currentPage = next;
       if (next > _maxPageReached) _maxPageReached = next;
     });
 
-    Future.delayed(const Duration(milliseconds: 320), () {
+    unawaited(Future.delayed(const Duration(milliseconds: 320), () {
       if (!mounted) return;
       switch (next) {
         case 1:
@@ -275,7 +289,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         case 3:
           break; // Extras: nenhum campo recebe foco automaticamente
       }
-    });
+    }));
   }
 
   void _goBack() {
@@ -494,6 +508,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
+    if (_type != TransactionType.transfer) {
+      await _entityController.commit();
+      if (!mounted) return;
+    }
     if (_amountInCents <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Insira um valor maior que R\$ 0,00')),
@@ -1331,6 +1349,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             });
           },
           focusNode: _entityFocusNode,
+          controller: _entityController,
         ),
         const SizedBox(height: 16),
         AccountSelector(

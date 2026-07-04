@@ -14,6 +14,26 @@ final allEntitiesProvider = StreamProvider<List<db.Entity>>((ref) {
   return database.entitiesDao.watchAllEntities();
 });
 
+/// Lets a parent form force-resolve whatever the user typed into
+/// [EntityAutocomplete] before validating/saving, instead of relying on the
+/// field losing focus (which races with button taps — see [commit]).
+class EntityAutocompleteController {
+  _EntityAutocompleteState? _state;
+
+  void _attach(_EntityAutocompleteState state) => _state = state;
+
+  void _detach(_EntityAutocompleteState state) {
+    if (_state == state) _state = null;
+  }
+
+  /// Resolves the currently typed text into a selected (or newly created)
+  /// entity if it hasn't been resolved yet. Await this before checking
+  /// whether the field was "filled in" — e.g. right before validating a page
+  /// transition or saving — so a name the user typed but never explicitly
+  /// picked from the suggestion list isn't treated as empty.
+  Future<void> commit() => _state?._acceptTypedValue() ?? Future.value();
+}
+
 class EntityAutocomplete extends ConsumerStatefulWidget {
   final String? selectedEntityId;
   final String entityType; // 'payee', 'payer', etc.
@@ -21,6 +41,7 @@ class EntityAutocomplete extends ConsumerStatefulWidget {
   final String label;
   final FocusNode? focusNode;
   final ValueChanged<String>? onFieldSubmitted;
+  final EntityAutocompleteController? controller;
 
   const EntityAutocomplete({
     super.key,
@@ -30,6 +51,7 @@ class EntityAutocomplete extends ConsumerStatefulWidget {
     this.label = 'Pagador / Recebedor',
     this.focusNode,
     this.onFieldSubmitted,
+    this.controller,
   });
 
   @override
@@ -41,6 +63,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   late final FocusNode _focusNode;
   db.Entity? _currentEntity;
   bool _showSuggestions = false;
+  List<db.Entity> _lastFilteredEntities = [];
 
   @override
   void initState() {
@@ -48,10 +71,12 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
     _controller.addListener(_onTextChanged);
+    widget.controller?._attach(this);
   }
 
   @override
   void dispose() {
+    widget.controller?._detach(this);
     _controller.removeListener(_onTextChanged);
     _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
@@ -64,6 +89,48 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   void _onFocusChange() {
     setState(() {
       _showSuggestions = _focusNode.hasFocus;
+    });
+    if (!_focusNode.hasFocus) {
+      _acceptTypedValue();
+    }
+  }
+
+  db.Entity? _matchByName(String name) {
+    for (final e in _lastFilteredEntities) {
+      if (e.name.toLowerCase() == name.toLowerCase()) return e;
+    }
+    return null;
+  }
+
+  /// Resolves whatever the user typed into a selected entity even if they
+  /// never explicitly tapped a suggestion — e.g. they typed a brand-new name
+  /// and just moved on to the next field. Without this, the typed text stays
+  /// visible in the field but [_currentEntity] (and therefore the value
+  /// reported via [EntityAutocomplete.onEntitySelected]) is never set, so the
+  /// form treats the field as empty and rejects a name that looks "entered".
+  /// Unlike the explicit "Criar" suggestion, this path skips the category
+  /// picker so it never blocks on an extra modal.
+  Future<void> _acceptTypedValue() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      if (_currentEntity != null) {
+        widget.onEntitySelected(null);
+        setState(() => _currentEntity = null);
+      }
+      return;
+    }
+    if (_currentEntity != null &&
+        _currentEntity!.name.toLowerCase() == text.toLowerCase()) {
+      return;
+    }
+
+    final existing = _matchByName(text);
+    final entity = existing ?? await _persistNewEntity(text);
+    if (!mounted) return;
+    widget.onEntitySelected(entity);
+    setState(() {
+      _currentEntity = entity;
+      _controller.text = entity.name;
     });
   }
 
@@ -341,10 +408,10 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
     );
   }
 
-  Future<void> _createNewEntity(String name) async {
-    final categoryId = await _showCategoryPicker();
-    if (categoryId == null) return;
-
+  /// Inserts a new entity with an optional category and returns it. Category
+  /// is metadata only (nullable in the table) — never a reason to fail the
+  /// user's actual intent of registering this name.
+  Future<db.Entity> _persistNewEntity(String name, {String? categoryId}) async {
     final database = ref.read(databaseProvider);
     final newId = const Uuid().v4();
 
@@ -360,7 +427,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
 
     await database.entitiesDao.insertEntity(newEntity);
 
-    final created = db.Entity(
+    return db.Entity(
       id: newId,
       name: name,
       type: widget.entityType,
@@ -369,6 +436,15 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+  }
+
+  // Explicit "Criar" selection: offers a category picker, but dismissing it
+  // (tapping outside, back button) still creates the entity without a
+  // category instead of silently discarding the name the user typed.
+  Future<void> _createNewEntity(String name) async {
+    final categoryId = await _showCategoryPicker();
+    final created = await _persistNewEntity(name, categoryId: categoryId);
+    if (!mounted) return;
 
     widget.onEntitySelected(created);
     setState(() {
@@ -414,6 +490,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
         final filteredEntities = entities
             .where((e) => e.type == widget.entityType)
             .toList();
+        _lastFilteredEntities = filteredEntities;
 
         final search = _controller.text.trim();
         final List<String> suggestions = [];
@@ -606,6 +683,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (value) {
                             onFieldSubmitted();
+                            _acceptTypedValue();
                             widget.onFieldSubmitted?.call(value);
                           },
                           decoration: InputDecoration(
