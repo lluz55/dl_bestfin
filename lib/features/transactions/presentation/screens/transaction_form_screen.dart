@@ -21,9 +21,6 @@ import 'package:bestfin/features/installments/presentation/providers/installment
 import 'package:bestfin/features/installments/presentation/screens/installment_wizard_screen.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
-import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
-import 'package:bestfin/features/llm/presentation/providers/llm_categorize_provider.dart';
-import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/goals/presentation/providers/goals_provider.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -1158,34 +1155,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Widget _buildPageOQue(ColorScheme cs, TextTheme tt) {
     final activeColor = _activeColor;
 
-    // AI auto-categorize: heuristic first, LLM fallback when model is ready
-    final heuristic = ref.watch(
-      autoCategorizeProvider(_descriptionController.text),
-    );
-    final suggestion = ref
-        .watch(llmEnhancedCategorizeProvider(_descriptionController.text))
-        .when(
-          data: (s) => s ?? heuristic,
-          loading: () => heuristic,
-          error: (_, _) => heuristic,
-        );
-    if (suggestion != null &&
-        suggestion.confidence >= 0.80 &&
-        _categoryId == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _categoryId == null) {
-          setState(() {
-            _categoryId = suggestion.categoryId;
-            _categoryName = suggestion.categoryName;
-            _categoryColor = suggestion.categoryColor;
-            _categoryIcon = suggestion.categoryIcon;
-          });
-        }
-      });
-    }
-
     return _bottomScrollable([
-      // Description + sentiment — AI chip é passado para dentro do widget
+      // Description + sentiment
       Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -1199,9 +1170,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               },
               onFieldSubmitted: (_) {},
               onChanged: _onDescriptionChanged,
-              aiSuggestionWidget: suggestion != null
-                  ? _buildAiChip(suggestion, cs)
-                  : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -1233,41 +1201,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ],
       ],
     ]);
-  }
-
-  Widget _buildAiChip(dynamic suggestion, ColorScheme cs) {
-    final suggestionColor = Color(
-      int.parse('FF${suggestion.categoryColor.replaceAll('#', '')}', radix: 16),
-    );
-    return ActionChip(
-      avatar: CircleAvatar(
-        backgroundColor: suggestionColor.withValues(alpha: 0.15),
-        child: Icon(
-          IconMapper.fromString(suggestion.categoryIcon),
-          color: suggestionColor,
-          size: 14,
-        ),
-      ),
-      label: Text(
-        'IA: ${suggestion.categoryName} (${(suggestion.confidence * 100).toStringAsFixed(0)}%)',
-        style: TextStyle(
-          color: cs.onSurface,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-      ),
-      backgroundColor: cs.surfaceContainerHigh,
-      side: BorderSide(color: cs.outlineVariant, width: 0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onPressed: () {
-        setState(() {
-          _categoryId = suggestion.categoryId;
-          _categoryName = suggestion.categoryName;
-          _categoryColor = suggestion.categoryColor;
-          _categoryIcon = suggestion.categoryIcon;
-        });
-      },
-    );
   }
 
   Widget _buildCategoryButton(ColorScheme cs, TextTheme tt, Color activeColor) {

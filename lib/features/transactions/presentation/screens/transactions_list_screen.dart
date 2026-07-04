@@ -18,7 +18,6 @@ import 'package:bestfin/features/transactions/presentation/providers/transaction
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_tile.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_filters.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
-import 'package:bestfin/features/transactions/presentation/widgets/duplicate_alert_banner.dart';
 
 class TransactionsListScreen extends ConsumerWidget {
   const TransactionsListScreen({super.key});
@@ -66,7 +65,6 @@ class TransactionsListScreen extends ConsumerWidget {
         children: [
           const TransactionFiltersWidget(),
           const Divider(height: 1, thickness: 0.5),
-          const DuplicateAlertBanner(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {

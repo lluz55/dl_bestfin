@@ -85,12 +85,6 @@ class MoreScreen extends StatelessWidget {
                 onTap: () => context.push('/financing'),
               ),
               _MenuItem(
-                icon: Icons.psychology_rounded,
-                label: 'Painel IA',
-                color: cs.primary,
-                onTap: () => context.push('/ai'),
-              ),
-              _MenuItem(
                 icon: Icons.emoji_events_rounded,
                 label: 'Conquistas',
                 color: Colors.orange,

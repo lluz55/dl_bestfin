@@ -31,11 +31,6 @@ import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:bestfin/features/security/presentation/widgets/lock_overlay.dart';
-import 'package:bestfin/features/llm/domain/models/llm_state.dart';
-import 'package:bestfin/features/llm/presentation/providers/llm_provider.dart';
-import 'package:bestfin/features/llm/presentation/providers/llm_insights_provider.dart';
-import 'package:bestfin/features/llm/presentation/providers/llm_narrative_provider.dart';
-import 'package:bestfin/features/llm/domain/services/financial_context_builder.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 import 'package:mcp_toolkit/mcp_toolkit.dart';
 
@@ -178,13 +173,6 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
       ref.read(syncStateProvider.notifier).onAppResumed();
       // Background sync on every resume — picks up remote changes immediately.
       unawaited(ref.read(syncStateProvider.notifier).syncNow(background: true));
-      // Trigger insight + narrative refresh if LLM is ready and cache is stale
-      final llmStatus = ref.read(llmStateProvider).status;
-      if (llmStatus == LlmStatus.ready) {
-        FinancialContextBuilder.invalidate();
-        ref.read(llmInsightsCacheInvalidatorProvider).call();
-        ref.read(llmNarrativeCacheInvalidatorProvider).call();
-      }
     }
   }
 

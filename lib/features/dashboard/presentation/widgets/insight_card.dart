@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
-import 'package:bestfin/features/ai/presentation/providers/ai_provider.dart';
-import 'package:bestfin/features/ai/presentation/providers/budget_pacing_provider.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 
 class InsightCard extends ConsumerWidget {
@@ -16,73 +14,26 @@ class InsightCard extends ConsumerWidget {
     final cs = context.colorScheme;
     final tt = context.textTheme;
 
-    // Watch providers
-    final forecast = ref.watch(cashFlowForecastingProvider);
-    final anomalies = ref.watch(anomalyDetectionProvider);
-    final sentiments = ref.watch(sentimentCorrelationProvider);
     final gamificationInsightsAsync = ref.watch(insightsFutureProvider);
-    final budgetPacing = ref.watch(budgetPacingProvider);
+    final gInsights = gamificationInsightsAsync.value ?? [];
 
-    // Resolve which insight to display
-    String title = 'Central de IA';
-    String message =
-        'Monitore suas tendências de gastos futuros, sentimentos e anomalias de fluxo de caixa.';
-    IconData icon = Icons.psychology_outlined;
-    String iconEmoji = '';
-    Color iconColor = cs.primary;
-    Color bgIconColor = cs.primaryContainer;
-    String badgeText = 'IA Ativa';
-
-    if (forecast.alertMessage != null && forecast.daysUntilNegative != null) {
-      title = 'Alerta de Fluxo de Caixa';
-      message = forecast.alertMessage!;
-      icon = Icons.warning_amber_rounded;
-      iconColor = cs.error;
-      bgIconColor = cs.errorContainer.withValues(alpha: 0.3);
-      badgeText = 'Crítico';
-    } else if (budgetPacing.isNotEmpty) {
-      final top = budgetPacing.first;
-      title = 'Ritmo de Gastos: ${top.categoryName}';
-      message =
-          'No ritmo atual, você projetará R\$ ${(top.projectedMonthTotal / 100).toStringAsFixed(0)} em ${top.categoryName} este mês — ${top.overspendPercent.toStringAsFixed(0)}% acima da sua média. Faltam ${top.daysRemaining} dias.';
-      icon = Icons.speed_rounded;
-      iconColor = Colors.orange;
-      bgIconColor = Colors.orange.withValues(alpha: 0.15);
-      badgeText = 'Orçamento';
-    } else if (anomalies.isNotEmpty) {
-      final topAnomaly = anomalies.first;
-      title = topAnomaly.title;
-      message = topAnomaly.description;
-      icon = Icons.trending_up_rounded;
-      iconColor = cs.error;
-      bgIconColor = cs.errorContainer.withValues(alpha: 0.3);
-      badgeText = 'Atenção';
-    } else if (sentiments.psychologicalInsights.isNotEmpty) {
-      title = 'Insight de Sentimento';
-      message = sentiments.psychologicalInsights.first;
-      icon = Icons.lightbulb_outline_rounded;
-      iconColor = Colors.amber;
-      bgIconColor = Colors.amber.withValues(alpha: 0.15);
-      badgeText = 'Psicológico';
-    } else {
-      // Try gamification insights
-      final gInsights = gamificationInsightsAsync.value ?? [];
-      if (gInsights.isNotEmpty) {
-        final topG = gInsights.first;
-        title = 'Dica Financeira';
-        message = topG.text;
-        iconEmoji = topG.icon;
-        icon = Icons.tips_and_updates_outlined;
-        iconColor = Colors.blue;
-        bgIconColor = Colors.blue.withValues(alpha: 0.1);
-        badgeText = 'Dica';
-      }
+    if (gInsights.isEmpty) {
+      return const SizedBox.shrink();
     }
+
+    final topInsight = gInsights.first;
+    final title = 'Dica Financeira';
+    final message = topInsight.text;
+    final iconEmoji = topInsight.icon;
+    const icon = Icons.tips_and_updates_outlined;
+    const iconColor = Colors.blue;
+    final bgIconColor = Colors.blue.withValues(alpha: 0.1);
+    const badgeText = 'Dica';
 
     return AnimatedCard(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(20),
-      onTap: () => context.push('/ai'),
+      onTap: () => context.push('/gamification'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,13 +43,13 @@ class InsightCard extends ConsumerWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.auto_awesome_outlined,
+                    Icons.lightbulb_outline_rounded,
                     color: cs.primary,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'INSIGHT DA IA',
+                    'INSIGHT',
                     style: tt.labelSmall?.copyWith(
                       color: cs.primary,
                       letterSpacing: 1.2,
@@ -132,7 +83,7 @@ class InsightCard extends ConsumerWidget {
                 backgroundColor: bgIconColor,
                 child: iconEmoji.isNotEmpty
                     ? Text(iconEmoji, style: const TextStyle(fontSize: 20))
-                    : Icon(icon, color: iconColor, size: 22),
+                    : const Icon(icon, color: iconColor, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(

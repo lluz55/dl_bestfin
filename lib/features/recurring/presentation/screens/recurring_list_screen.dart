@@ -9,7 +9,6 @@ import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_form_modal_provider.dart';
 import 'package:bestfin/features/recurring/presentation/widgets/recurring_card.dart';
-import 'package:bestfin/features/recurring/presentation/widgets/recurring_discovery_banner.dart';
 import 'package:bestfin/features/recurring/presentation/widgets/recurring_form_modal_overlay.dart';
 
 class RecurringListScreen extends ConsumerStatefulWidget {
@@ -115,7 +114,6 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
           ),
           body: Column(
             children: [
-              const RecurringDiscoveryBanner(),
               TabBar(
                 controller: _tabController,
                 tabs: const [
