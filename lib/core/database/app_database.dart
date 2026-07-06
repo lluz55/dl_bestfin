@@ -25,6 +25,7 @@ import 'tables/investments.dart';
 import 'tables/invoices.dart';
 import 'tables/notification_patterns.dart';
 import 'tables/recurring_rules.dart';
+import 'tables/scheduled_reminders.dart';
 import 'tables/transactions.dart';
 import 'tables/sync_queue.dart';
 import 'tables/households.dart';
@@ -49,6 +50,7 @@ import 'daos/investments_dao.dart';
 import 'daos/invoices_dao.dart';
 import 'daos/notification_patterns_dao.dart';
 import 'daos/recurring_rules_dao.dart';
+import 'daos/scheduled_reminders_dao.dart';
 import 'daos/transactions_dao.dart';
 import 'daos/sync_queue_dao.dart';
 import 'daos/households_dao.dart';
@@ -78,6 +80,7 @@ part 'app_database.g.dart';
     Invoices,
     NotificationPatterns,
     RecurringRules,
+    ScheduledReminders,
     Transactions,
     SyncQueue,
     Households,
@@ -103,6 +106,7 @@ part 'app_database.g.dart';
     InvoicesDao,
     NotificationPatternsDao,
     RecurringRulesDao,
+    ScheduledRemindersDao,
     TransactionsDao,
     SyncQueueDao,
     HouseholdsDao,
@@ -119,7 +123,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration {
@@ -324,11 +328,21 @@ class AppDatabase extends _$AppDatabase {
         if (from < 21) {
           await m.createIndex(nostrEventLogPublishedIdx);
         }
+        if (from < 22) {
+          await m.createTable(scheduledReminders);
+          await m.createIndex(scheduledRemindersTransactionIdx);
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
         await customStatement('PRAGMA journal_mode = WAL');
         await customStatement('PRAGMA synchronous = NORMAL');
+        // Without this, any write that races a pending watch-stream re-query
+        // on the same connection (e.g. sync writing to sync_queue while
+        // watchPendingCount() re-evaluates) fails immediately with
+        // SQLITE_BUSY/SQLITE_BUSY_SNAPSHOT instead of waiting for the other
+        // statement to finish.
+        await customStatement('PRAGMA busy_timeout = 5000');
 
         // Ensure system opening balance category exists
         final openingBalanceExists = await (select(
@@ -459,12 +473,13 @@ class AppDatabase extends _$AppDatabase {
     }
 
     for (final r in SeedDataConstants.defaultCategoryRelationships) {
-      final exists = await (select(categoryParents)..where(
-            (t) =>
-                t.parentCategoryId.equals(r.$1) &
-                t.childCategoryId.equals(r.$2),
-          ))
-          .getSingleOrNull();
+      final exists =
+          await (select(categoryParents)..where(
+                (t) =>
+                    t.parentCategoryId.equals(r.$1) &
+                    t.childCategoryId.equals(r.$2),
+              ))
+              .getSingleOrNull();
       if (exists == null) {
         await into(categoryParents).insert(
           CategoryParentsCompanion.insert(
