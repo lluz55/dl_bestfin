@@ -27,11 +27,11 @@ final deleteTransactionProvider = Provider<DeleteTransaction>((ref) {
   return DeleteTransaction(ref.watch(transactionRepositoryProvider));
 });
 
-final markTransactionAsPaidProvider = Provider<Future<void> Function(String)>(
-  (ref) {
-    return ref.watch(transactionRepositoryProvider).markAsPaid;
-  },
-);
+final markTransactionAsPaidProvider = Provider<Future<void> Function(String)>((
+  ref,
+) {
+  return ref.watch(transactionRepositoryProvider).markAsPaid;
+});
 
 final getTransactionsProvider = Provider<GetTransactions>((ref) {
   return GetTransactions(ref.watch(transactionRepositoryProvider));

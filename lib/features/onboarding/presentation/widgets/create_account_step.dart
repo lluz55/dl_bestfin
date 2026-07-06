@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -152,27 +152,11 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
             ),
           ),
           const SizedBox(height: 32),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: _saving
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: AppLoadingIndicator(strokeWidth: 2.5),
-                  )
-                : Text(
-                    'Continuar',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+          AppButton(
+            label: 'Continuar',
+            expanded: true,
+            loading: _saving,
+            onPressed: _save,
           ),
           const SizedBox(height: 24),
         ],

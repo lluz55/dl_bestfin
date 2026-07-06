@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/constants/sentiment_types.dart';
+import 'package:bestfin/core/constants/transaction_status.dart';
+import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
@@ -11,10 +14,10 @@ import 'package:bestfin/core/widgets/category_picker.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/core/widgets/entity_autocomplete.dart';
 import 'package:bestfin/core/widgets/sentiment_emoji_button.dart';
-import 'package:bestfin/core/widgets/numeric_keypad.dart';
-import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/description_autocomplete.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_type_tabs.dart';
 import 'package:bestfin/features/installments/presentation/providers/installments_provider.dart';
@@ -35,6 +38,16 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
   final TransactionModel? transaction;
   final TransactionType? initialType;
   final bool isCloning;
+
+  /// Rascunho vindo do "Lançamento Rápido" (botão "Mais opções"), para não
+  /// perder o que já foi digitado. Ignorado quando [transaction] está presente.
+  final TransactionDraft? draft;
+
+  /// Abre o assistente de recorrência ("Repetir") assim que o formulário
+  /// monta. Ponto de entrada padrão para qualquer "nova transação
+  /// recorrente" — hub de assinaturas, lista de recorrentes, etc. — que
+  /// devem reusar este formulário em vez de implementar o próprio.
+  final bool openRecurringWizardOnStart;
   final VoidCallback? onClose;
 
   const TransactionFormScreen({
@@ -42,6 +55,8 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
     this.transaction,
     this.initialType,
     this.isCloning = false,
+    this.draft,
+    this.openRecurringWizardOnStart = false,
     this.onClose,
   });
 
@@ -55,15 +70,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final FocusNode _entityFocusNode = FocusNode();
   final FocusNode _notesFocusNode = FocusNode();
 
-  // Stepper navigation
-  late PageController _pageController;
-  int _currentPage = 0;
-  int _maxPageReached = 0;
-
   // Form state
   late TransactionType _type;
   late int _amountInCents;
-  String _amountDigits = '';
   late TextEditingController _descriptionController;
   late TextEditingController _notesController;
   late bool _isCloningState;
@@ -78,7 +87,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   String? _categoryIcon;
 
   String? _entityId;
-  String? _entityName;
   String? _goalId;
   SentimentType? _sentiment;
 
@@ -95,10 +103,28 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   List<SplitEntry> _splits = [];
   bool _saving = false;
 
+  /// Transação pendente (ainda não aconteceu). Só é editável pelo usuário
+  /// quando a data não é futura — ver [_effectiveIsCompleted].
+  bool _isPending = false;
+
   bool get _isEditing =>
       widget.transaction != null &&
       widget.transaction!.id.isNotEmpty &&
       !_isCloningState;
+
+  /// Transações futuras não expõem o toggle "Pendente": nascem não
+  /// concluídas e só são marcadas como concluídas quando a data chegar
+  /// (manual ou automaticamente, conforme configuração de recorrência).
+  bool get _isFutureDate => TransactionStatus.isFutureDate(_date);
+
+  /// Com data futura o toggle "Pendente" fica escondido, então o formulário
+  /// não pode decidir o status: preserva o que já existia (ex: uma conta
+  /// futura já quitada antecipadamente via "marcar como paga" na lista) ou,
+  /// para uma transação nova, nasce não concluída.
+  bool get _effectiveIsCompleted {
+    if (!_isFutureDate) return !_isPending;
+    return _isEditing ? widget.transaction!.isCompleted : false;
+  }
 
   bool get _isInstallmentEdit =>
       _isEditing && widget.transaction?.installmentPlanId != null;
@@ -119,44 +145,63 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     super.initState();
     _isCloningState = widget.isCloning;
     final tx = widget.transaction;
+    // Rascunho do "Lançamento Rápido" só se aplica a um formulário novo.
+    final draft = tx == null ? widget.draft : null;
 
-    _type = tx?.type ?? widget.initialType ?? TransactionType.expense;
-    _amountInCents = tx?.amount ?? 0;
-    _amountDigits = _amountInCents == 0 ? '' : _amountInCents.toString();
+    _type =
+        tx?.type ??
+        draft?.type ??
+        widget.initialType ??
+        TransactionType.expense;
+    _amountInCents = tx?.amount ?? draft?.amountInCents ?? 0;
 
     // Strip installment suffix from description when editing a parcelated transaction
-    final rawDesc = tx?.description ?? '';
+    final rawDesc = tx?.description ?? draft?.description ?? '';
     final cleanedDesc = (tx?.installmentPlanId != null && !_isCloningState)
         ? rawDesc.replaceAll(RegExp(r'\s*\(\d+/\d+\)$'), '').trim()
         : rawDesc;
     _descriptionController = TextEditingController(text: cleanedDesc);
     _notesController = TextEditingController(text: tx?.notes ?? '');
 
-    _accountId = tx?.accountId;
-    _toAccountId = tx?.toAccountId;
+    _accountId = tx?.accountId ?? draft?.accountId;
+    _toAccountId = tx?.toAccountId ?? draft?.toAccountId;
     _selectedCreditCardId = tx?.creditCardId;
 
-    _categoryId = tx?.categoryId;
+    _categoryId = tx?.categoryId ?? draft?.categoryId;
     _categoryName = tx?.category?.name;
     _categoryColor = tx?.category?.color;
     _categoryIcon = tx?.category?.icon;
 
-    _entityId = tx?.entityId;
+    _entityId = tx?.entityId ?? draft?.entityId;
     _goalId = tx?.goalId;
     _sentiment = tx?.sentiment;
     _splits = List<SplitEntry>.from(tx?.splits ?? []);
     _date = _isCloningState ? DateTime.now() : (tx?.date ?? DateTime.now());
+    _isPending =
+        tx?.isPending ??
+        draft?.isPending ??
+        (_isFutureDate ? false : ref.read(defaultPendingForPastProvider));
+
+    // Rascunho carrega só o id da categoria; resolve nome/cor/ícone p/ exibição.
+    if (_categoryId != null && _categoryName == null) {
+      for (final c in ref.read(allFlatCategoriesProvider)) {
+        if (c.id == _categoryId) {
+          _categoryName = c.name;
+          _categoryColor = c.color;
+          _categoryIcon = c.icon;
+          break;
+        }
+      }
+    }
 
     _descriptionController.addListener(_onDescriptionChanged);
 
-    // Start on page 1 for editing; page 0 (keypad) for new/cloning
-    final initialPage = _isEditing ? 1 : 0;
-    _pageController = PageController(initialPage: initialPage);
-    _currentPage = initialPage;
-    _maxPageReached = initialPage;
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      if (widget.openRecurringWizardOnStart && !_isEditing) {
+        await _openRecurringForm();
+        if (!mounted) return;
+      }
       if (_accountId == null) {
         if (_selectedCreditCardId != null) {
           _tryRestoreAccountFromCreditCard();
@@ -173,7 +218,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           setState(() {
             _installmentCount = plan.totalInstallments;
             _amountInCents = plan.installmentValue * plan.totalInstallments;
-            _amountDigits = _amountInCents.toString();
           });
         }
       }
@@ -188,45 +232,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _descriptionFocusNode.dispose();
     _entityFocusNode.dispose();
     _notesFocusNode.dispose();
-    _pageController.dispose();
     super.dispose();
-  }
-
-  // ── Navigation ─────────────────────────────────────────────────────────────
-
-  String? _advanceError() {
-    switch (_currentPage) {
-      case 0:
-        if (_amountInCents <= 0) return 'Insira um valor para continuar.';
-      case 1:
-        if (_type != TransactionType.transfer &&
-            _descriptionController.text.trim().isEmpty) {
-          return 'Informe uma descrição.';
-        }
-        if (_type != TransactionType.transfer &&
-            _categoryId == null &&
-            _splits.isEmpty) {
-          return 'Selecione uma categoria.';
-        }
-      case 2:
-        if (_accountId == null) {
-          return _type == TransactionType.transfer
-              ? 'Selecione a conta de origem.'
-              : 'Selecione uma conta.';
-        }
-        if (_type == TransactionType.transfer) {
-          if (_toAccountId == null) return 'Selecione a conta de destino.';
-          if (_accountId == _toAccountId) {
-            return 'As contas de origem e destino devem ser diferentes.';
-          }
-        } else if (_entityId == null) {
-          final label = _type == TransactionType.income
-              ? 'pagador'
-              : 'recebedor';
-          return 'Informe o $label.';
-        }
-    }
-    return null;
   }
 
   bool get _canSave {
@@ -242,83 +248,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       if (_accountId == _toAccountId) return false;
     }
     return true;
-  }
-
-  void _goNext() {
-    final error = _advanceError();
-    if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
-      return;
-    }
-    final next = _currentPage + 1;
-    _pageController.animateToPage(
-      next,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-    setState(() {
-      _currentPage = next;
-      if (next > _maxPageReached) _maxPageReached = next;
-    });
-
-    Future.delayed(const Duration(milliseconds: 320), () {
-      if (!mounted) return;
-      switch (next) {
-        case 1:
-          _descriptionFocusNode.requestFocus();
-        case 2:
-          if (_type != TransactionType.transfer) {
-            _entityFocusNode.requestFocus();
-          }
-        case 3:
-          break; // Extras: nenhum campo recebe foco automaticamente
-      }
-    });
-  }
-
-  void _goBack() {
-    if (_currentPage <= 0) return;
-    final prev = _currentPage - 1;
-    _pageController.animateToPage(
-      prev,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-    setState(() => _currentPage = prev);
-  }
-
-  void _goToPage(int page) {
-    if (page > _maxPageReached) return;
-    _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-    setState(() => _currentPage = page);
-  }
-
-  // ── Keypad ─────────────────────────────────────────────────────────────────
-
-  void _handleAmountKeyPress(String key) {
-    if (key == ',') return;
-    if ((_amountDigits.isEmpty || _amountDigits == '0') &&
-        (key == '0' || key == '00')) {
-      return;
-    }
-    setState(() {
-      _amountDigits += key;
-      _amountInCents = int.tryParse(_amountDigits) ?? 0;
-    });
-  }
-
-  void _handleAmountDelete() {
-    if (_amountDigits.isEmpty) return;
-    setState(() {
-      _amountDigits = _amountDigits.substring(0, _amountDigits.length - 1);
-      _amountInCents = int.tryParse(_amountDigits) ?? 0;
-    });
   }
 
   // ── Account helpers ────────────────────────────────────────────────────────
@@ -359,6 +288,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(_date),
     );
+    final wasFuture = _isFutureDate;
     setState(() {
       _date = DateTime(
         pickedDate.year,
@@ -367,6 +297,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         pickedTime?.hour ?? _date.hour,
         pickedTime?.minute ?? _date.minute,
       );
+      // Deixou de ser futura agora: aplica o padrão de "Pendente" (não havia
+      // toggle visível antes, então não existe escolha do usuário a preservar).
+      if (wasFuture && !_isFutureDate) {
+        _isPending = ref.read(defaultPendingForPastProvider);
+      }
     });
   }
 
@@ -408,7 +343,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       setState(() {
         _installmentCount = result.installments;
         _amountInCents = result.totalAmount;
-        _amountDigits = _amountInCents.toString();
         _clearRecurring();
       });
     }
@@ -445,6 +379,21 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         _recurringAutoConfirm = result.autoConfirm;
         _clearInstallment();
       });
+    }
+  }
+
+  /// Fecha o formulário. Quando hospedado em [AdaptiveModalPanel] (desktop/
+  /// tablet), o painel não tem Navigator próprio — é um overlay desenhado
+  /// direto na árvore — então um `Navigator.pop(context)` aqui resolveria
+  /// para o Navigator real do app (GoRouter) e populariam a rota errada.
+  /// `widget.onClose` já existe para fechar o overlay nesse caso; só cai no
+  /// pop de rota quando o formulário foi de fato empurrado como rota (mobile).
+  void _closeForm() {
+    final onClose = widget.onClose;
+    if (onClose != null) {
+      onClose();
+    } else {
+      Navigator.pop(context);
     }
   }
 
@@ -582,7 +531,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               content: Text('Parcelamento atualizado com sucesso!'),
             ),
           );
-          Navigator.pop(context);
+          _closeForm();
         }
       } catch (e) {
         if (mounted) {
@@ -622,7 +571,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Parcelamento criado com sucesso!')),
             );
-            Navigator.pop(context);
+            _closeForm();
           }
         }
         return;
@@ -703,7 +652,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Recorrência criada com sucesso!')),
             );
-            Navigator.pop(context);
+            _closeForm();
           }
         }
         return;
@@ -739,6 +688,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ? _selectedCreditCardId
               : null,
           splits: _splits.isNotEmpty ? _splits : null,
+          isCompleted: _effectiveIsCompleted,
         );
       } else {
         await ref.read(createTransactionProvider)(
@@ -759,6 +709,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ? _selectedCreditCardId
               : null,
           splits: _splits.isNotEmpty ? _splits : null,
+          isCompleted: _effectiveIsCompleted,
         );
       }
 
@@ -778,7 +729,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
             ),
           );
-          Navigator.pop(context);
+          _closeForm();
         }
       }
     } catch (e) {
@@ -794,23 +745,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // ── Layout helpers ─────────────────────────────────────────────────────────
 
   // Aligns content to the bottom of the available space and scrolls if overflow.
+  /// Empilha os campos de uma seção. Antes cada "página" tinha seu próprio
+  /// scroll; agora o formulário inteiro rola junto (ver [_buildBody]).
   Widget _bottomScrollable(List<Widget> children) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
-              ),
-            ),
-          ),
-        );
-      },
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     );
   }
 
@@ -828,80 +769,99 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       }
     });
 
-    return PopScope(
-      canPop: _currentPage == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _goBack();
-      },
-      child: Scaffold(
-        backgroundColor: cs.surface,
-        appBar: isInModal
-            ? null
-            : AppPageAppBar(
-                title: _isEditing
-                    ? 'Editar Transação'
-                    : (_isCloningState
-                          ? 'Duplicar Transação'
-                          : 'Nova Transação'),
-                actions: [
-                  if (_isEditing) ...[
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      tooltip: 'Excluir transação',
-                      onPressed: () async {
-                        final deleted = await showDeleteTransactionSheet(
-                          context,
-                          ref,
-                          widget.transaction!,
-                        );
-                        if (deleted && context.mounted) context.pop();
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy_rounded),
-                      tooltip: 'Duplicar transação',
-                      onPressed: () {
-                        setState(() {
-                          _isCloningState = true;
-                          _date = DateTime.now();
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Modo de duplicação ativado. Salve para criar uma nova transação.',
-                            ),
+    return Scaffold(
+      backgroundColor: cs.surface,
+      appBar: isInModal
+          ? null
+          : AppPageAppBar(
+              title: _isEditing
+                  ? 'Editar Transação'
+                  : (_isCloningState ? 'Duplicar Transação' : 'Nova Transação'),
+              actions: [
+                if (_isEditing) ...[
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    tooltip: 'Excluir transação',
+                    onPressed: () async {
+                      final deleted = await showDeleteTransactionSheet(
+                        context,
+                        ref,
+                        widget.transaction!,
+                      );
+                      if (deleted && context.mounted) context.pop();
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded),
+                    tooltip: 'Duplicar transação',
+                    onPressed: () {
+                      setState(() {
+                        _isCloningState = true;
+                        _date = DateTime.now();
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Modo de duplicação ativado. Salve para criar uma nova transação.',
                           ),
-                        );
-                      },
-                    ),
-                  ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
-              ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(cs, tt),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: cs.outlineVariant.withValues(alpha: 0.3),
+              ],
             ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPageAmount(cs, tt),
-                  _buildPageOQue(cs, tt),
-                  _buildPageComo(cs, tt),
-                  _buildPageExtras(cs, tt),
-                  _buildPageResumo(cs, tt),
-                ],
-              ),
-            ),
-          ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeader(cs, tt),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+          Expanded(child: _buildBody(cs, tt)),
+        ],
+      ),
+      bottomNavigationBar: _buildFooter(cs, tt),
+    );
+  }
+
+  /// Corpo em scroll único: valor no topo (abre o teclado modal ao tocar,
+  /// como no Lançamento Rápido) seguido das seções O quê · Como · Extras.
+  Widget _buildBody(ColorScheme cs, TextTheme tt) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AmountInput(
+            amountInCents: _amountInCents,
+            color: _activeColor,
+            autoOpen: !_isEditing && _amountInCents == 0,
+            onChanged: (v) => setState(() => _amountInCents = v),
+          ),
+          _sectionLabel(cs, tt, 'O QUÊ'),
+          _buildPageOQue(cs, tt),
+          _sectionLabel(cs, tt, 'COMO'),
+          _buildPageComo(cs, tt),
+          _sectionLabel(cs, tt, 'EXTRAS'),
+          _buildPageExtras(cs, tt),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(ColorScheme cs, TextTheme tt, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 24, 4, 10),
+      child: Text(
+        text,
+        style: tt.labelSmall?.copyWith(
+          color: cs.onSurfaceVariant,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
         ),
-        bottomNavigationBar: _buildFooter(cs, tt),
       ),
     );
   }
@@ -909,67 +869,24 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(ColorScheme cs, TextTheme tt) {
-    final activeColor = _activeColor;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: TransactionTypeTabs(
-            selectedType: _type,
-            onTypeChanged: (type) {
-              setState(() {
-                _type = type;
-                if (type == TransactionType.transfer) {
-                  _categoryId = null;
-                  _categoryName = null;
-                  _categoryIcon = null;
-                  _categoryColor = null;
-                  _entityId = null;
-                  _entityName = null;
-                  _goalId = null;
-                }
-              });
-            },
-          ),
-        ),
-        GestureDetector(
-          onTap: _currentPage > 0 ? () => _goToPage(0) : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  CurrencyFormatter.formatCents(_amountInCents),
-                  style: tt.displayMedium?.copyWith(
-                    color: activeColor,
-                    fontWeight: FontWeight.w900,
-                    fontSize: _amountInCents.toString().length > 7 ? 30 : 36,
-                  ),
-                ),
-                if (_currentPage > 0) ...[
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.edit_outlined,
-                    size: 14,
-                    color: activeColor.withValues(alpha: 0.5),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (_currentPage > 0)
-          _StepIndicator(
-            currentStep: _currentPage,
-            maxStep: _maxPageReached,
-            onStepTap: _goToPage,
-          ),
-        const SizedBox(height: 4),
-      ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: TransactionTypeTabs(
+        selectedType: _type,
+        onTypeChanged: (type) {
+          setState(() {
+            _type = type;
+            if (type == TransactionType.transfer) {
+              _categoryId = null;
+              _categoryName = null;
+              _categoryIcon = null;
+              _categoryColor = null;
+              _entityId = null;
+              _goalId = null;
+            }
+          });
+        },
+      ),
     );
   }
 
@@ -977,104 +894,39 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   Widget _buildFooter(ColorScheme cs, TextTheme tt) {
     final activeColor = _activeColor;
-    final isLastPage = _currentPage == 4;
     final saveLabel = _isEditing
         ? 'Atualizar'
-        : (_isCloningState ? 'Duplicar' : 'Confirmar e Salvar');
-
-    final showCancelButton = _currentPage == 0 && widget.onClose != null;
-    final showBackButton = _currentPage > 0;
+        : (_isCloningState ? 'Duplicar' : 'Salvar');
 
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Row(
           children: [
-            if (showBackButton || showCancelButton) ...[
+            if (widget.onClose != null) ...[
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: showCancelButton ? widget.onClose : _goBack,
-                  icon: Icon(
-                    showCancelButton
-                        ? Icons.close_rounded
-                        : Icons.arrow_back_rounded,
-                    size: 18,
-                  ),
-                  label: Text(showCancelButton ? 'Cancelar' : 'Voltar'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
+                  onPressed: _saving ? null : widget.onClose,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: const Text('Cancelar'),
                 ),
               ),
               const SizedBox(width: 12),
             ],
             Expanded(
               flex: 2,
-              child: FilledButton(
-                onPressed: (_saving || (isLastPage && !_canSave))
-                    ? null
-                    : (isLastPage ? _save : _goNext),
-                style: FilledButton.styleFrom(
-                  backgroundColor: activeColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      isLastPage ? saveLabel : 'Próxima',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    if (!isLastPage) ...[
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ] else ...[
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.check_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ],
-                  ],
-                ),
+              child: AppButton(
+                label: saveLabel,
+                icon: Icons.check_rounded,
+                color: activeColor,
+                loading: _saving,
+                onPressed: (_saving || !_canSave) ? null : _save,
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  // ── Page 0: Valor ──────────────────────────────────────────────────────────
-
-  Widget _buildPageAmount(ColorScheme cs, TextTheme tt) {
-    return _bottomScrollable([
-      Text(
-        'Digite o valor',
-        style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-        textAlign: TextAlign.center,
-      ),
-      const SizedBox(height: 16),
-      NumericKeypad(
-        onKeyPressed: _handleAmountKeyPress,
-        onDeletePressed: _handleAmountDelete,
-      ),
-    ]);
   }
 
   // ── Split ──────────────────────────────────────────────────────────────────
@@ -1098,51 +950,69 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
   }
 
-  Widget _buildSplitsChip(ColorScheme cs, TextTheme tt) {
+  /// Estado "dividida" do campo Categoria — mesmo formato visual do
+  /// [_buildCategoryButton]; o toque abre o editor e o ✕ desfaz a divisão.
+  Widget _buildSplitsField(ColorScheme cs, TextTheme tt, Color activeColor) {
+    final names = _splits
+        .where((s) => s.categoryName != null)
+        .map((s) => s.categoryName!)
+        .join(', ');
+
     return InkWell(
       onTap: _openSplitEditor,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: cs.primaryContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
+          color: activeColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: activeColor.withValues(alpha: 0.25)),
         ),
         child: Row(
           children: [
-            Icon(Icons.call_split_rounded, size: 18, color: cs.primary),
-            const SizedBox(width: 10),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: activeColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.call_split_rounded,
+                color: activeColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_splits.length} categoria${_splits.length > 1 ? 's' : ''} — toque para editar',
-                    style: tt.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: cs.primary,
-                    ),
+                    'Categoria · dividida',
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   Text(
-                    _splits
-                        .where((s) => s.categoryName != null)
-                        .map((s) => s.categoryName!)
-                        .join(', '),
-                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    '${_splits.length} categoria${_splits.length > 1 ? 's' : ''} — $names',
+                    style: tt.bodyMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            TextButton(
+            IconButton(
               onPressed: () => setState(() => _splits = []),
-              style: TextButton.styleFrom(
-                foregroundColor: cs.error,
-                visualDensity: VisualDensity.compact,
-              ),
-              child: const Text('Remover'),
+              icon: const Icon(Icons.close_rounded, size: 20),
+              tooltip: 'Desfazer divisão',
+              visualDensity: VisualDensity.compact,
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: cs.onSurfaceVariant,
+              size: 20,
             ),
           ],
         ),
@@ -1180,25 +1050,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ],
       ),
 
-      // Category button (non-transfer only)
+      // Campo Categoria (exceto transferência). Quando a despesa está
+      // dividida, o mesmo slot mostra o estado "dividida" do campo.
       if (_type != TransactionType.transfer) ...[
         const SizedBox(height: 16),
-        if (_splits.isEmpty) _buildCategoryButton(cs, tt, activeColor),
-        if (_type == TransactionType.expense) ...[
-          const SizedBox(height: 8),
-          if (_splits.isEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ActionChip(
-                avatar: const Icon(Icons.call_split_rounded, size: 16),
-                label: const Text('Dividir entre categorias'),
-                onPressed: _openSplitEditor,
-                visualDensity: VisualDensity.compact,
-              ),
-            )
-          else
-            _buildSplitsChip(cs, tt),
-        ],
+        if (_splits.isEmpty)
+          _buildCategoryButton(cs, tt, activeColor)
+        else
+          _buildSplitsField(cs, tt, activeColor),
       ],
     ]);
   }
@@ -1289,6 +1148,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               )
             else
               Icon(Icons.check_circle_rounded, color: activeColor, size: 20),
+            if (_type == TransactionType.expense)
+              IconButton(
+                onPressed: _openSplitEditor,
+                icon: const Icon(Icons.call_split_rounded, size: 20),
+                tooltip: 'Dividir entre categorias',
+                visualDensity: VisualDensity.compact,
+              ),
             const SizedBox(width: 4),
             Icon(
               Icons.chevron_right_rounded,
@@ -1325,10 +1191,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           entityType: _type == TransactionType.income ? 'payer' : 'payee',
           label: _type == TransactionType.income ? 'Recebido de *' : 'Pago a *',
           onEntitySelected: (entity) {
-            setState(() {
-              _entityId = entity?.id;
-              _entityName = entity?.name;
-            });
+            setState(() => _entityId = entity?.id);
           },
           focusNode: _entityFocusNode,
         ),
@@ -1359,6 +1222,28 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   Widget _buildPageExtras(ColorScheme cs, TextTheme tt) {
     return _bottomScrollable([
+      if (!_isFutureDate) ...[
+        SwitchListTile.adaptive(
+          value: _isPending,
+          onChanged: (v) => setState(() => _isPending = v),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Pendente'),
+          subtitle: Text(
+            _isPending
+                ? 'Ainda não aconteceu — conta no projetado, não no confirmado.'
+                : 'Confirmada — já aconteceu.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          secondary: Icon(
+            _isPending
+                ? Icons.schedule_rounded
+                : Icons.check_circle_outline_rounded,
+            color: _activeColor,
+          ),
+        ),
+        const Divider(height: 32),
+      ],
+
       if (_type != TransactionType.transfer) ...[
         Text(
           'Vincular a uma Meta',
@@ -1436,21 +1321,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       onPressed: _clearInstallment,
                       icon: const Icon(Icons.close),
                       label: Text('${_installmentCount}x'),
-                      style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     )
                   : OutlinedButton.icon(
                       onPressed: _openInstallmentWizard,
                       icon: const Icon(Icons.date_range_outlined),
                       label: const Text('Parcelar'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
             ),
             const SizedBox(width: 12),
@@ -1460,327 +1335,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       onPressed: _clearRecurring,
                       icon: const Icon(Icons.close),
                       label: Text(_recurringFrequency!.label),
-                      style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     )
                   : OutlinedButton.icon(
                       onPressed: _openRecurringForm,
                       icon: const Icon(Icons.repeat),
                       label: const Text('Repetir'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
             ),
           ],
         ),
       ],
     ]);
-  }
-
-  // ── Page 4: Resumo ────────────────────────────────────────────────────────
-
-  Widget _buildPageResumo(ColorScheme cs, TextTheme tt) {
-    final activeColor = _activeColor;
-    final accounts = ref.watch(activeAccountsProvider);
-    final account = accounts.where((a) => a.id == _accountId).firstOrNull;
-    final toAccount = accounts.where((a) => a.id == _toAccountId).firstOrNull;
-
-    final String typeLabel;
-    switch (_type) {
-      case TransactionType.expense:
-        typeLabel = 'Despesa';
-      case TransactionType.income:
-        typeLabel = 'Receita';
-      case TransactionType.transfer:
-        typeLabel = 'Transferência';
-    }
-
-    return _bottomScrollable([
-      // Hero summary card
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: activeColor.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: activeColor.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: activeColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    typeLabel,
-                    style: tt.labelMedium?.copyWith(
-                      color: activeColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (_sentiment != null) ...[
-                  const SizedBox(width: 8),
-                  Text(_sentiment!.emoji, style: const TextStyle(fontSize: 18)),
-                ],
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              CurrencyFormatter.formatCents(_amountInCents),
-              style: tt.headlineLarge?.copyWith(
-                color: activeColor,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _descriptionController.text,
-              style: tt.bodyLarge?.copyWith(color: cs.onSurface),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-
-      // Details card
-      Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Column(
-          children: [
-            if (_type != TransactionType.transfer && _categoryName != null)
-              _summaryRow(
-                Icons.category_outlined,
-                'Categoria',
-                _categoryName!,
-                cs,
-                tt,
-              ),
-            _summaryRow(
-              Icons.account_balance_wallet_outlined,
-              _type == TransactionType.transfer ? 'De' : 'Conta',
-              account?.name ?? '—',
-              cs,
-              tt,
-            ),
-            if (_type == TransactionType.transfer && toAccount != null)
-              _summaryRow(
-                Icons.arrow_forward_rounded,
-                'Para',
-                toAccount.name,
-                cs,
-                tt,
-              ),
-            if (_type != TransactionType.transfer && _entityName != null)
-              _summaryRow(
-                _type == TransactionType.income
-                    ? Icons.person_outlined
-                    : Icons.store_outlined,
-                _type == TransactionType.income ? 'Recebido de' : 'Pago a',
-                _entityName!,
-                cs,
-                tt,
-              ),
-            _summaryRow(
-              Icons.calendar_today_outlined,
-              'Data',
-              _formatDateFull(_date),
-              cs,
-              tt,
-            ),
-          ],
-        ),
-      ),
-
-      // Extras card (shown only if any extra is set)
-      if (_notesController.text.isNotEmpty ||
-          _installmentCount != null ||
-          _recurringFrequency != null) ...[
-        const SizedBox(height: 12),
-        Card(
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              if (_installmentCount != null)
-                _summaryRow(
-                  Icons.date_range_outlined,
-                  'Parcelamento',
-                  '${_installmentCount}x',
-                  cs,
-                  tt,
-                ),
-              if (_recurringFrequency != null)
-                _summaryRow(
-                  Icons.repeat,
-                  'Recorrência',
-                  _recurringFrequency!.label,
-                  cs,
-                  tt,
-                ),
-              if (_notesController.text.isNotEmpty)
-                _summaryRow(
-                  Icons.notes_outlined,
-                  'Notas',
-                  _notesController.text,
-                  cs,
-                  tt,
-                ),
-            ],
-          ),
-        ),
-      ],
-
-      const SizedBox(height: 16),
-      Text(
-        'Revise os dados acima antes de confirmar.',
-        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-        textAlign: TextAlign.center,
-      ),
-    ]);
-  }
-
-  Widget _summaryRow(
-    IconData icon,
-    String label,
-    String value,
-    ColorScheme cs,
-    TextTheme tt,
-  ) {
-    return ListTile(
-      leading: Icon(icon, size: 20, color: cs.onSurfaceVariant),
-      title: Text(
-        label,
-        style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-      ),
-      subtitle: Text(
-        value,
-        style: tt.bodyMedium?.copyWith(
-          color: cs.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      dense: true,
-      visualDensity: VisualDensity.compact,
-    );
-  }
-
-  String _formatDateFull(DateTime d) {
-    const months = [
-      'janeiro',
-      'fevereiro',
-      'março',
-      'abril',
-      'maio',
-      'junho',
-      'julho',
-      'agosto',
-      'setembro',
-      'outubro',
-      'novembro',
-      'dezembro',
-    ];
-    final h = d.hour.toString().padLeft(2, '0');
-    final m = d.minute.toString().padLeft(2, '0');
-    return '${d.day} de ${months[d.month - 1]} de ${d.year}, $h:$m';
-  }
-}
-
-// ── Stepper indicator ────────────────────────────────────────────────────────
-
-class _StepIndicator extends StatelessWidget {
-  final int currentStep; // 1–4 (maps to pages 1–4)
-  final int maxStep;
-  final ValueChanged<int> onStepTap;
-
-  const _StepIndicator({
-    required this.currentStep,
-    required this.maxStep,
-    required this.onStepTap,
-  });
-
-  static const _labels = ['O quê', 'Como', 'Extras', 'Resumo'];
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colorScheme;
-    final tt = context.textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          for (int i = 0; i < 4; i++) ...[
-            GestureDetector(
-              onTap: (i + 1) <= maxStep ? () => onStepTap(i + 1) : null,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    width: (i + 1) == currentStep ? 20 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: (i + 1) <= maxStep
-                          ? (i + 1) == currentStep
-                                ? cs.primary
-                                : cs.primary.withValues(alpha: 0.35)
-                          : cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: (tt.labelSmall ?? const TextStyle()).copyWith(
-                      color: (i + 1) == currentStep
-                          ? cs.primary
-                          : cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      fontWeight: (i + 1) == currentStep
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      fontSize: 10,
-                    ),
-                    child: Text(_labels[i]),
-                  ),
-                ],
-              ),
-            ),
-            if (i < 3)
-              Expanded(
-                child: Container(
-                  height: 2,
-                  margin: const EdgeInsets.only(bottom: 18),
-                  decoration: BoxDecoration(
-                    color: (i + 1) < maxStep
-                        ? cs.primary.withValues(alpha: 0.35)
-                        : cs.outlineVariant.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
   }
 }
 

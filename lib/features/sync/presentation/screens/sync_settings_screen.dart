@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -51,6 +52,29 @@ class SyncSettingsScreen extends ConsumerWidget {
           ),
           const Divider(height: 1),
           const SizedBox(height: 16),
+
+          // ── Update-required banner ─────────────────────────────────────────
+          if (syncState.updateRequired) ...[
+            Card(
+              color: cs.tertiaryContainer,
+              child: ListTile(
+                leading: Icon(
+                  Icons.system_update_rounded,
+                  color: cs.onTertiaryContainer,
+                ),
+                title: Text(
+                  'Atualização necessária',
+                  style: tt.titleSmall?.copyWith(color: cs.onTertiaryContainer),
+                ),
+                subtitle: Text(
+                  'Outro dispositivo usa uma versão mais nova do app. '
+                  'Algumas alterações só serão aplicadas aqui após atualizar.',
+                  style: tt.bodySmall?.copyWith(color: cs.onTertiaryContainer),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // ── Sync status card ───────────────────────────────────────────────
           _SectionHeader(title: 'Status', cs: cs, tt: tt),
@@ -342,22 +366,12 @@ class _SyncButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSyncing = syncState.status == SyncStatus.syncing;
-    return FilledButton.icon(
-      onPressed: isSyncing
-          ? null
-          : () => ref.read(syncStateProvider.notifier).syncNow(),
-      icon: isSyncing
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: cs.onPrimary,
-              ),
-            )
-          : const Icon(Icons.sync_rounded),
-      label: Text(isSyncing ? 'Sincronizando...' : 'Sincronizar agora'),
-      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+    return AppButton(
+      label: isSyncing ? 'Sincronizando...' : 'Sincronizar agora',
+      icon: Icons.sync_rounded,
+      expanded: true,
+      loading: isSyncing,
+      onPressed: () => ref.read(syncStateProvider.notifier).syncNow(),
     );
   }
 }

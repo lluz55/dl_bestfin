@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
@@ -103,12 +105,11 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
+          AppButton(
+            label: 'Excluir',
+            variant: AppButtonVariant.destructive,
+            size: AppButtonSize.compact,
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            child: const Text('Excluir'),
           ),
         ],
       ),
@@ -131,10 +132,10 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
             title: 'Metas',
             showVisibilityToggle: true,
           ),
-          floatingActionButton: FloatingActionButton.extended(
+          floatingActionButton: ExpressiveFAB.extended(
             onPressed: () => ref.read(goalFormModalProvider.notifier).open(),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Nova Meta'),
+            icon: Icons.add_rounded,
+            label: 'Nova Meta',
           ),
           body: Column(
             children: [
@@ -330,37 +331,13 @@ class _ContributeSheetState extends ConsumerState<_ContributeSheet> {
           ),
           const SizedBox(height: 24),
 
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: FilledButton(
-              onPressed:
-                  _saving || _amountInCents <= 0 || _fromAccountId == null
-                  ? null
-                  : _save,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: _saving
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text(
-                      'Contribuir',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
+          AppButton(
+            label: 'Contribuir',
+            expanded: true,
+            loading: _saving,
+            onPressed: _amountInCents <= 0 || _fromAccountId == null
+                ? null
+                : _save,
           ),
           const SizedBox(height: 16),
         ],

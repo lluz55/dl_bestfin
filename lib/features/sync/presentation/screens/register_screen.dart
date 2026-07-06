@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -76,19 +76,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            FilledButton.icon(
-              onPressed: _loading ? null : _create,
-              icon: _loading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: AppLoadingIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome_rounded),
-              label: const Text('Gerar identidade'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-              ),
+            AppButton(
+              label: 'Gerar identidade',
+              icon: Icons.auto_awesome_rounded,
+              expanded: true,
+              loading: _loading,
+              onPressed: _create,
             ),
             const SizedBox(height: 12),
             TextButton(

@@ -192,7 +192,6 @@ class _RecurringWizardSheetState extends State<RecurringWizardSheet> {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              height: 54,
               child: FilledButton(
                 onPressed: () {
                   Navigator.pop(
@@ -205,15 +204,7 @@ class _RecurringWizardSheetState extends State<RecurringWizardSheet> {
                     ),
                   );
                 },
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  'Confirmar Recorrência',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                child: const Text('Confirmar Recorrência'),
               ),
             ),
           ],

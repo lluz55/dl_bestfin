@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/utils/secure_clipboard.dart';
 import 'package:bestfin/core/utils/secure_screen.dart';
@@ -178,17 +179,15 @@ class _MnemonicDisplayScreenState extends State<MnemonicDisplayScreen> {
                 controlAffinity: ListTileControlAffinity.leading,
               ),
               const SizedBox(height: 16),
-              FilledButton(
+              AppButton(
+                label: 'Continuar',
+                expanded: true,
                 onPressed: _confirmed
                     ? () {
                         context.pop();
                         context.pop();
                       }
                     : null,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                child: const Text('Continuar'),
               ),
             ],
           ),

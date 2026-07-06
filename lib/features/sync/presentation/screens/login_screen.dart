@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -116,27 +116,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ],
               const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _import,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: AppLoadingIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Importar'),
+              AppButton(
+                label: 'Importar',
+                expanded: true,
+                loading: _loading,
+                onPressed: _import,
               ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(
+              AppButton(
+                label: 'Escanear QR de outro dispositivo',
+                icon: Icons.qr_code_scanner_rounded,
+                variant: AppButtonVariant.outlined,
+                size: AppButtonSize.compact,
+                expanded: true,
                 onPressed: () => context.push('/sync/scan'),
-                icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: const Text('Escanear QR de outro dispositivo'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
               ),
               const SizedBox(height: 8),
               TextButton(

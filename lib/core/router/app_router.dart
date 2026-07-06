@@ -19,7 +19,6 @@ import 'package:bestfin/features/transactions/presentation/screens/transaction_f
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transactions_list_screen.dart';
 import 'package:bestfin/features/recurring/presentation/screens/recurring_list_screen.dart';
-import 'package:bestfin/features/recurring/presentation/screens/recurring_form_screen.dart';
 import 'package:bestfin/features/recurring/presentation/screens/subscriptions_hub_screen.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
 import 'package:bestfin/features/goals/presentation/screens/goals_list_screen.dart';
@@ -221,24 +220,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/recurring',
         builder: (context, state) => const RecurringListScreen(),
-      ),
-      GoRoute(
-        path: '/recurring/new',
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return RecurringFormScreen(
-            prefillTransactionId: extra?['transactionId'] as String?,
-            prefillAmountInCents: extra?['amountInCents'] as int?,
-            prefillDescription: extra?['description'] as String?,
-            prefillType: extra?['type'] as TransactionType?,
-            prefillAccountId: extra?['accountId'] as String?,
-            prefillToAccountId: extra?['toAccountId'] as String?,
-            prefillCategoryId: extra?['categoryId'] as String?,
-            prefillCategoryName: extra?['categoryName'] as String?,
-            prefillCategoryColor: extra?['categoryColor'] as String?,
-            prefillCategoryIcon: extra?['categoryIcon'] as String?,
-          );
-        },
       ),
       GoRoute(
         path: '/recurring/subscriptions',

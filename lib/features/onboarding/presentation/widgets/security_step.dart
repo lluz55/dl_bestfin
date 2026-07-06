@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -118,66 +119,38 @@ class _SecurityStepState extends ConsumerState<SecurityStep> {
           else if (_biometricsAvailable)
             Column(
               children: [
-                FilledButton.icon(
+                AppButton(
+                  label: 'Ativar Biometria e PIN',
+                  icon: Icons.fingerprint_rounded,
+                  expanded: true,
                   onPressed: _enableBiometrics,
-                  icon: const Icon(Icons.fingerprint_rounded),
-                  label: Text(
-                    'Ativar Biometria e PIN',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 12),
-                TextButton(
+                AppButton(
+                  label: 'Pular por enquanto',
+                  variant: AppButtonVariant.text,
+                  color: cs.onSurfaceVariant,
+                  expanded: true,
                   onPressed: widget.onFinish,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  child: Text(
-                    'Pular por enquanto',
-                    style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-                  ),
                 ),
               ],
             )
           else
             Column(
               children: [
-                FilledButton.icon(
+                AppButton(
+                  label: 'Configurar PIN',
+                  icon: Icons.pin_outlined,
+                  expanded: true,
                   onPressed: _setupPin,
-                  icon: const Icon(Icons.pin_outlined),
-                  label: Text(
-                    'Configurar PIN',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 12),
-                TextButton(
+                AppButton(
+                  label: 'Continuar sem segurança',
+                  variant: AppButtonVariant.text,
+                  color: cs.onSurfaceVariant,
+                  expanded: true,
                   onPressed: widget.onFinish,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  child: Text(
-                    'Continuar sem segurança',
-                    style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-                  ),
                 ),
               ],
             ),

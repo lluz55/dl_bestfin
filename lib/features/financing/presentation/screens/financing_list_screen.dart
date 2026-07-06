@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/modal_overlay_wrapper.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -33,10 +34,10 @@ class FinancingListScreen extends ConsumerWidget {
           title: 'Financiamentos',
           showVisibilityToggle: true,
         ),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: ExpressiveFAB.extended(
           onPressed: () => ref.read(financingFormModalProvider.notifier).open(),
-          icon: const Icon(Icons.add_home_work_rounded),
-          label: const Text('Novo Contrato'),
+          icon: Icons.add_home_work_rounded,
+          label: 'Novo Contrato',
         ),
         body: RefreshIndicator(
           onRefresh: () async {

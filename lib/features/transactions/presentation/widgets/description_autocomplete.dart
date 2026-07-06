@@ -165,7 +165,7 @@ class _DescriptionAutocompleteState
               decoration: InputDecoration(
                 labelText: widget.transactionType == 'transfer'
                     ? 'Descrição (opcional)'
-                    : 'Descrição',
+                    : 'Descrição *',
                 hintText: 'Ex: Compras no mercado, Freelance...',
                 prefixIcon: const Icon(Icons.description_outlined),
                 border: OutlineInputBorder(

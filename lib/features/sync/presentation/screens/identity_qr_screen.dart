@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:bestfin/core/utils/secure_clipboard.dart';
 import 'package:bestfin/core/utils/secure_screen.dart';
@@ -142,16 +143,13 @@ class _IdentityQrScreenState extends State<IdentityQrScreen> {
               style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
-            OutlinedButton.icon(
+            AppButton(
+              label: _copied ? 'Mnemônico copiado!' : 'Copiar mnemônico',
+              icon: _copied ? Icons.check_rounded : Icons.copy_rounded,
+              variant: AppButtonVariant.outlined,
+              size: AppButtonSize.compact,
+              expanded: true,
               onPressed: _copy,
-              icon: Icon(
-                _copied ? Icons.check_rounded : Icons.copy_rounded,
-                size: 18,
-              ),
-              label: Text(_copied ? 'Mnemônico copiado!' : 'Copiar mnemônico'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(44),
-              ),
             ),
           ],
         ),

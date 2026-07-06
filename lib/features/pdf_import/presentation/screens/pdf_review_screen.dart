@@ -248,9 +248,6 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
             ),
             style: FilledButton.styleFrom(
               minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
             ),
           ),
         ),

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bestfin/core/database/app_database.dart' as db;
+import 'package:bestfin/core/notifications/reminder_scheduler.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
 import 'package:bestfin/features/transactions/domain/models/entry.dart';
@@ -21,6 +23,10 @@ abstract class TransactionRepository {
     bool? isCompleted,
   });
   Stream<List<TransactionModel>> watchSuggestedTransactions();
+
+  /// Busca uma transação pelo id, com categoria/entidade/entries agregadas —
+  /// usado para navegação a partir do toque em uma notificação de lembrete.
+  Future<TransactionModel?> getTransactionById(String id);
   Future<String> createTransaction({
     required DateTime date,
     required String description,
@@ -35,6 +41,7 @@ abstract class TransactionRepository {
     String? goalId,
     String? creditCardId,
     List<SplitEntry>? splits,
+    bool isCompleted = true,
   });
   Future<String> createSuggestion({
     required DateTime date,
@@ -67,6 +74,7 @@ abstract class TransactionRepository {
     String? goalId,
     String? creditCardId,
     List<SplitEntry>? splits,
+    bool? isCompleted,
   });
   Future<void> deleteTransaction(String id);
   Future<TransactionDeleteContext> getDeleteContext(String id);
@@ -90,8 +98,22 @@ abstract class TransactionRepository {
 
 class TransactionRepositoryImpl implements TransactionRepository {
   final db.AppDatabase _database;
+  late final ReminderScheduler _reminderScheduler = ReminderScheduler(
+    _database,
+  );
 
   TransactionRepositoryImpl(this._database);
+
+  // Agendar/cancelar lembretes é um efeito colateral best-effort — uma falha
+  // aqui (ex.: plugin de notificação indisponível) nunca deve interromper a
+  // criação/edição/exclusão da transação em si.
+  void _scheduleReminder(String id) {
+    unawaited(_reminderScheduler.scheduleOne(id).catchError((_) {}));
+  }
+
+  void _cancelReminder(String id) {
+    unawaited(_reminderScheduler.cancelOne(id).catchError((_) {}));
+  }
 
   @override
   Stream<List<TransactionModel>> watchAllTransactions() {
@@ -362,6 +384,57 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<TransactionModel?> getTransactionById(String id) async {
+    final query =
+        _database.select(_database.transactions).join([
+            leftOuterJoin(
+              _database.categories,
+              _database.categories.id.equalsExp(
+                _database.transactions.categoryId,
+              ),
+            ),
+            leftOuterJoin(
+              _database.entities,
+              _database.entities.id.equalsExp(_database.transactions.entityId),
+            ),
+            leftOuterJoin(
+              _database.recurringRules,
+              _database.recurringRules.baseTransactionId.equalsExp(
+                _database.transactions.id,
+              ),
+            ),
+            leftOuterJoin(
+              _database.entries,
+              _database.entries.transactionId.equalsExp(
+                _database.transactions.id,
+              ),
+            ),
+          ])
+          ..where(_database.transactions.id.equals(id));
+
+    final rows = await query.get();
+    if (rows.isEmpty) return null;
+
+    final tx = rows.first.readTable(_database.transactions);
+    final cat = rows.first.readTableOrNull(_database.categories);
+    final ent = rows.first.readTableOrNull(_database.entities);
+    final rule = rows.first.readTableOrNull(_database.recurringRules);
+    final entries = rows
+        .map((r) => r.readTableOrNull(_database.entries))
+        .whereType<db.Entry>()
+        .map(EntryModel.fromDb)
+        .toList();
+
+    return TransactionModel.fromDb(
+      tx,
+      category: cat != null ? CategoryModel.fromDb(cat) : null,
+      entity: ent,
+      entries: entries,
+      recurringRuleId: rule?.id,
+    );
+  }
+
+  @override
   Future<String> createSuggestion({
     required DateTime date,
     required String description,
@@ -429,6 +502,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       ),
     );
     await _enqueueTransactionSync(id, 'update');
+    _scheduleReminder(id);
   }
 
   @override
@@ -446,6 +520,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? goalId,
     String? creditCardId,
     List<SplitEntry>? splits,
+    bool isCompleted = true,
   }) async {
     final transactionId = const Uuid().v4();
     final hasSplits = splits != null && splits.isNotEmpty;
@@ -487,7 +562,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
                   ? Value(amount)
                   : const Value.absent(),
               isSplit: Value(hasSplits),
-              isCompleted: const Value(true),
+              // Pendente (isCompleted=false) continua confirmado (revisado pelo
+              // usuário) — só ainda não "aconteceu". Mesma modelagem de uma
+              // parcela futura de recorrência.
+              isCompleted: Value(isCompleted),
             ),
           );
 
@@ -575,6 +653,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
     });
     await _enqueueTransactionSync(transactionId, 'insert');
+    _scheduleReminder(transactionId);
     return transactionId;
   }
 
@@ -647,6 +726,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? goalId,
     String? creditCardId,
     List<SplitEntry>? splits,
+    bool? isCompleted,
   }) async {
     final hasSplits = splits != null && splits.isNotEmpty;
     await _database.transaction(() async {
@@ -690,6 +770,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
           creditCardId: Value(creditCardId),
           rawAmount: creditCardId != null ? Value(amount) : const Value(null),
           isSplit: Value(hasSplits),
+          isCompleted: isCompleted != null
+              ? Value(isCompleted)
+              : const Value.absent(),
           updatedAt: Value(DateTime.now()),
         ),
       );
@@ -779,11 +862,13 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
     });
     await _enqueueTransactionSync(id, 'update');
+    _scheduleReminder(id);
   }
 
   @override
   Future<void> deleteTransaction(String id) async {
     await _enqueueTransactionSync(id, 'delete');
+    _cancelReminder(id);
     await _database.transaction(() async {
       // 0. Desfaz impacto na meta
       final tx = await (_database.select(
@@ -811,6 +896,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   Future<void> _deleteSingleTx(String id) async {
     await _enqueueTransactionSync(id, 'delete');
+    _cancelReminder(id);
     final tx = await (_database.select(
       _database.transactions,
     )..where((t) => t.id.equals(id))).getSingleOrNull();

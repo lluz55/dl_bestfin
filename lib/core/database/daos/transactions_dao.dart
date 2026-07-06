@@ -39,6 +39,28 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return (select(transactions)..where((t) => t.id.equals(id))).getSingle();
   }
 
+  Future<Transaction?> findTransactionById(String id) {
+    return (select(
+      transactions,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Ids de transações pendentes (isCompleted = false) com data de hoje ou
+  /// futura — candidatas a receber um lembrete de notificação. Inclui as de
+  /// hoje (não só as estritamente futuras) para que a antecedência "no dia"
+  /// ainda dispare no próprio dia.
+  Future<List<String>> getReminderCandidateTransactionIds() {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final query = select(transactions)
+      ..where(
+        (t) =>
+            t.isCompleted.equals(false) &
+            t.date.isBiggerOrEqualValue(todayStart),
+      );
+    return query.map((t) => t.id).get();
+  }
+
   /// Partida dobrada (Double-entry accounting):
   /// Para despesa: credit da conta e debit da despesa (categoria).
   /// Porém o entries só mapeia Accounts. Então por enquanto

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
@@ -162,27 +163,17 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _selectedSourceAccountId == null
-                          ? null
-                          : () {
-                              final amount = _calcAmount(paymentType);
-                              if (amount <= 0) return;
-                              Navigator.pop(context);
-                              _executePayment(amount);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        foregroundColor: cs.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('CONFIRMAR PAGAMENTO'),
-                    ),
+                  AppButton(
+                    label: 'CONFIRMAR PAGAMENTO',
+                    expanded: true,
+                    onPressed: _selectedSourceAccountId == null
+                        ? null
+                        : () {
+                            final amount = _calcAmount(paymentType);
+                            if (amount <= 0) return;
+                            Navigator.pop(context);
+                            _executePayment(amount);
+                          },
                   ),
                 ],
               ),
@@ -415,31 +406,15 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                     if (invoice.status == 'closed')
                       Padding(
                         padding: const EdgeInsets.all(20.0),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: cardAsync.value == null
-                                ? null
-                                : () => _showPaymentDialog(
-                                    invoice,
-                                    cardAsync.value!,
-                                  ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: cs.primary,
-                              foregroundColor: cs.onPrimary,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              'PAGAR FATURA',
-                              style: tt.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.1,
-                              ),
-                            ),
-                          ),
+                        child: AppButton(
+                          label: 'PAGAR FATURA',
+                          expanded: true,
+                          onPressed: cardAsync.value == null
+                              ? null
+                              : () => _showPaymentDialog(
+                                  invoice,
+                                  cardAsync.value!,
+                                ),
                         ),
                       ),
                   ],

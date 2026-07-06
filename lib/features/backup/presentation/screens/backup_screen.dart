@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
@@ -354,10 +355,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   style: TextStyle(color: cs.onSurfaceVariant),
                 ),
               ),
-              FilledButton(
+              AppButton(
+                label: 'Substituir',
+                variant: AppButtonVariant.destructive,
+                size: AppButtonSize.compact,
                 onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(backgroundColor: cs.error),
-                child: const Text('Substituir'),
               ),
             ],
           );
@@ -412,12 +414,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 style: TextStyle(color: cs.onSurfaceVariant),
               ),
             ),
-            FilledButton(
+            AppButton(
+              label: danger ? 'Restaurar' : 'Confirmar',
+              variant: danger
+                  ? AppButtonVariant.destructive
+                  : AppButtonVariant.primary,
+              size: AppButtonSize.compact,
               onPressed: () => Navigator.pop(context, true),
-              style: danger
-                  ? FilledButton.styleFrom(backgroundColor: cs.error)
-                  : null,
-              child: Text(danger ? 'Restaurar' : 'Confirmar'),
             ),
           ],
         );
@@ -560,15 +563,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               label: Text(
                                 dateRangeLabel,
                                 overflow: TextOverflow.ellipsis,
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                  horizontal: 16,
-                                ),
                               ),
                             ),
                           ),
@@ -756,11 +750,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               onPressed: _handleImportCsv,
                               icon: const Icon(Icons.file_open_rounded),
                               label: const Text('Importar CSV'),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -769,11 +758,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               onPressed: _handleRestoreJson,
                               icon: const Icon(Icons.restore_rounded),
                               label: const Text('Restaurar JSON'),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
                             ),
                           ),
                         ],
@@ -785,32 +769,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                           onPressed: () => context.push('/pdf-import'),
                           icon: const Icon(Icons.picture_as_pdf_rounded),
                           label: const Text('Importar Fatura PDF'),
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _handleDatabaseRestore,
-                          icon: const Icon(
-                            Icons.settings_system_daydream_rounded,
-                          ),
-                          label: const Text('Substituir Arquivo SQLite'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: cs.error,
-                            side: BorderSide(
-                              color: cs.error.withValues(alpha: 0.5),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
+                      AppButton(
+                        label: 'Substituir Arquivo SQLite',
+                        icon: Icons.settings_system_daydream_rounded,
+                        variant: AppButtonVariant.destructiveOutlined,
+                        expanded: true,
+                        onPressed: _handleDatabaseRestore,
                       ),
                     ],
                   ),

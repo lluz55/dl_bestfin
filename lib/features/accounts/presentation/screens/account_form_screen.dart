@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -252,26 +253,11 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                       const SizedBox(height: 24),
                     ],
                     const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: _saving ? null : _saveForm,
-                        child: Text(
-                          _isEditing ? 'Salvar Alterações' : 'Criar Conta',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        ),
-                      ),
+                    AppButton(
+                      label: _isEditing ? 'Salvar Alterações' : 'Criar Conta',
+                      expanded: true,
+                      loading: _saving,
+                      onPressed: _saveForm,
                     ),
                     const SizedBox(height: 48),
                   ],

@@ -422,6 +422,96 @@ void main() {
     );
   });
 
+  group('versão de schema', () {
+    test(
+      'registro de versão mais nova é adiado, não aplicado, e marca updateRequired',
+      () async {
+        transport.remoteRecords.add(
+          SyncRecord(
+            entityType: 'transaction',
+            entityId: 'tx-futuro',
+            updatedAt: 1000,
+            isDeleted: false,
+            schemaVersion: kSyncSchemaVersion + 1,
+            payload: jsonEncode({
+              'id': 'tx-futuro',
+              'date': '2026-01-01T00:00:00.000',
+              'description': 'Do futuro',
+              'type': 'expense',
+              'updated_at': '2026-01-01T00:00:00.000',
+              'created_at': '2026-01-01T00:00:00.000',
+            }),
+          ),
+        );
+
+        final result = await service.pullRemoteChanges();
+        expect(result.success, isTrue);
+        expect(result.pulled, 0);
+        expect(result.deferred, 1);
+
+        final tx = await (db.select(
+          db.transactions,
+        )..where((t) => t.id.equals('tx-futuro'))).getSingleOrNull();
+        expect(tx, isNull);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getInt(
+            'sync_incompatible_since_${transport.identity!.publicKey}',
+          ),
+          1000,
+        );
+      },
+    );
+
+    test(
+      'registro adiado é relido e aplicado quando volta em versão suportada, '
+      'limpando o marcador',
+      () async {
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+        // 1º pull: evento de versão futura → adiado; o cursor avança mesmo assim.
+        transport.remoteRecords.add(
+          SyncRecord(
+            entityType: 'transaction',
+            entityId: 'tx-adiado',
+            updatedAt: now - 7200, // fora da margem normal de releitura
+            isDeleted: false,
+            schemaVersion: kSyncSchemaVersion + 1,
+            payload: '{}',
+          ),
+        );
+        await service.pullRemoteChanges();
+
+        // Simula o app atualizado: o mesmo evento agora decodifica na versão
+        // suportada (na prática, o build novo entende o payload novo).
+        transport.remoteRecords.clear();
+        transport.remoteRecords.add(
+          remoteTransaction('tx-adiado', updatedAt: now - 7200),
+        );
+
+        // 2º pull: sem o marcador, `since` excluiria o evento (7200s > margem
+        // de 3600s). O marcador força a janela de volta até ele.
+        final result = await service.pullRemoteChanges();
+        expect(result.pulled, 1);
+        expect(result.deferred, 0);
+
+        final tx = await (db.select(
+          db.transactions,
+        )..where((t) => t.id.equals('tx-adiado'))).getSingleOrNull();
+        expect(tx, isNotNull);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getInt(
+            'sync_incompatible_since_${transport.identity!.publicKey}',
+          ),
+          isNull,
+        );
+      },
+    );
+  });
+
   group('cursor de pull', () {
     test(
       'cursor acompanha o relógio local, não o createdAt do evento',

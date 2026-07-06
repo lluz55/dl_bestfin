@@ -149,12 +149,6 @@ class _SplitEditorSheetState extends State<SplitEditorSheet> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(null),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
                         child: const Text('Cancelar'),
                       ),
                     ),
@@ -163,12 +157,6 @@ class _SplitEditorSheetState extends State<SplitEditorSheet> {
                       flex: 2,
                       child: FilledButton(
                         onPressed: canConfirm ? _confirm : null,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
                         child: const Text('Confirmar'),
                       ),
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -165,13 +166,10 @@ class _ShortcutsEditSheetState extends ConsumerState<ShortcutsEditSheet> {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-              child: FilledButton(
+              child: AppButton(
+                label: 'Salvar',
+                expanded: true,
                 onPressed: _save,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(borderRadius: shapes.button),
-                ),
-                child: const Text('Salvar'),
               ),
             ),
           ),

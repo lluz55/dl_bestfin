@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
-import 'package:bestfin/features/recurring/presentation/providers/recurring_form_modal_provider.dart';
 import 'package:bestfin/features/recurring/presentation/widgets/recurring_card.dart';
-import 'package:bestfin/features/recurring/presentation/widgets/recurring_form_modal_overlay.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 
 class RecurringListScreen extends ConsumerStatefulWidget {
   const RecurringListScreen({super.key});
@@ -67,12 +68,11 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
+          AppButton(
+            label: 'Excluir',
+            variant: AppButtonVariant.destructive,
+            size: AppButtonSize.compact,
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            child: const Text('Excluir'),
           ),
         ],
       ),
@@ -92,82 +92,75 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
 
-    return Stack(
-      children: [
-        Scaffold(
-          backgroundColor: cs.surface,
-          appBar: AppPageAppBar(
-            title: 'Recorrentes',
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.dashboard_rounded),
-                tooltip: 'Hub de Assinaturas',
-                onPressed: () => context.push('/recurring/subscriptions'),
-              ),
+    return Scaffold(
+      backgroundColor: cs.surface,
+      appBar: AppPageAppBar(
+        title: 'Recorrentes',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dashboard_rounded),
+            tooltip: 'Hub de Assinaturas',
+            onPressed: () => context.push('/recurring/subscriptions'),
+          ),
+        ],
+      ),
+      floatingActionButton: ExpressiveFAB.extended(
+        onPressed: () => ref
+            .read(transactionFormModalProvider.notifier)
+            .open(openRecurringWizard: true),
+        icon: Icons.add_rounded,
+        label: 'Nova',
+      ),
+      body: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Ativas'),
+              Tab(text: 'Pausadas'),
+              Tab(text: 'Finalizadas'),
             ],
+            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () =>
-                ref.read(recurringFormModalProvider.notifier).open(),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Nova'),
-          ),
-          body: Column(
-            children: [
-              TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Ativas'),
-                  Tab(text: 'Pausadas'),
-                  Tab(text: 'Finalizadas'),
-                ],
-                labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _RuleList(
-                      watchProvider: (ref) =>
-                          ref.watch(activeRecurringProvider),
-                      onPause: _pause,
-                      onResume: _resume,
-                      onDelete: _delete,
-                      emptyTitle: 'Nenhuma recorrência ativa',
-                      emptyDescription:
-                          'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
-                      emptyIcon: Icons.repeat_rounded,
-                    ),
-                    _RuleList(
-                      watchProvider: (ref) =>
-                          ref.watch(pausedRecurringProvider),
-                      onPause: _pause,
-                      onResume: _resume,
-                      onDelete: _delete,
-                      emptyTitle: 'Nenhuma recorrência pausada',
-                      emptyDescription:
-                          'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
-                      emptyIcon: Icons.pause_circle_outline_rounded,
-                    ),
-                    _RuleList(
-                      watchProvider: (ref) =>
-                          ref.watch(finishedRecurringProvider),
-                      onPause: _pause,
-                      onResume: _resume,
-                      onDelete: _delete,
-                      emptyTitle: 'Nenhuma recorrência finalizada',
-                      emptyDescription:
-                          'Recorrências que atingiram a data de término aparecem aqui.',
-                      emptyIcon: Icons.check_circle_outline_rounded,
-                    ),
-                  ],
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _RuleList(
+                  watchProvider: (ref) => ref.watch(activeRecurringProvider),
+                  onPause: _pause,
+                  onResume: _resume,
+                  onDelete: _delete,
+                  emptyTitle: 'Nenhuma recorrência ativa',
+                  emptyDescription:
+                      'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
+                  emptyIcon: Icons.repeat_rounded,
                 ),
-              ),
-            ],
+                _RuleList(
+                  watchProvider: (ref) => ref.watch(pausedRecurringProvider),
+                  onPause: _pause,
+                  onResume: _resume,
+                  onDelete: _delete,
+                  emptyTitle: 'Nenhuma recorrência pausada',
+                  emptyDescription:
+                      'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
+                  emptyIcon: Icons.pause_circle_outline_rounded,
+                ),
+                _RuleList(
+                  watchProvider: (ref) => ref.watch(finishedRecurringProvider),
+                  onPause: _pause,
+                  onResume: _resume,
+                  onDelete: _delete,
+                  emptyTitle: 'Nenhuma recorrência finalizada',
+                  emptyDescription:
+                      'Recorrências que atingiram a data de término aparecem aqui.',
+                  emptyIcon: Icons.check_circle_outline_rounded,
+                ),
+              ],
+            ),
           ),
-        ),
-        const RecurringFormModalOverlay(),
-      ],
+        ],
+      ),
     );
   }
 }

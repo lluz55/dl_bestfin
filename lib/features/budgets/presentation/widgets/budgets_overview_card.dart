@@ -104,10 +104,8 @@ class BudgetsOverviewCard extends ConsumerWidget {
                       FilledButton.tonal(
                         onPressed: () => context.push('/budgets'),
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
+                          minimumSize: const Size(48, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         child: const Text('Criar'),
                       ),
@@ -130,10 +128,7 @@ class BudgetsOverviewCard extends ConsumerWidget {
                   : (totalSpent / totalBudget).clamp(0.0, 1.0);
               final projectedProgress = totalBudget == 0
                   ? 0.0
-                  : ((totalSpent + totalPending) / totalBudget).clamp(
-                      0.0,
-                      1.0,
-                    );
+                  : ((totalSpent + totalPending) / totalBudget).clamp(0.0, 1.0);
               final overBudget = budgets.where((b) => b.isOverBudget).length;
               final progressColor = overBudget > 0
                   ? cs.error

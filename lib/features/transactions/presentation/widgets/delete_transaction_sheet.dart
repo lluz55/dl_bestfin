@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
@@ -315,13 +316,10 @@ class _DeleteOptionSheetState extends State<_DeleteOptionSheet> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: cs.error,
-                      foregroundColor: cs.onError,
-                    ),
+                  child: AppButton(
+                    label: 'Excluir',
+                    variant: AppButtonVariant.destructive,
                     onPressed: () => Navigator.of(context).pop(_selected),
-                    child: const Text('Excluir'),
                   ),
                 ),
               ],

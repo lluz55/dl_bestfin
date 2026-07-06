@@ -429,8 +429,12 @@ class GetDashboardData {
       final key = '${tx.date.year}-${tx.date.month}-${tx.date.day}';
       final existing = pendingByDay[key] ?? (income: 0, expense: 0);
       pendingByDay[key] = (
-        income: existing.income + (tx.type == TransactionType.income ? tx.amount : 0),
-        expense: existing.expense + (tx.type == TransactionType.expense ? tx.amount : 0),
+        income:
+            existing.income +
+            (tx.type == TransactionType.income ? tx.amount : 0),
+        expense:
+            existing.expense +
+            (tx.type == TransactionType.expense ? tx.amount : 0),
       );
     }
 

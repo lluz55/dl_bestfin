@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -109,22 +110,7 @@ class SelectCategoriesStep extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          FilledButton(
-            onPressed: onNext,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: Text(
-              'Continuar',
-              style: tt.titleMedium?.copyWith(
-                color: cs.onPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          AppButton(label: 'Continuar', expanded: true, onPressed: onNext),
           const SizedBox(height: 24),
         ],
       ),

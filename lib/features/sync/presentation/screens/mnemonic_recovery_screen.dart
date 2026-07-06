@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -111,18 +111,11 @@ class _MnemonicRecoveryScreenState
                 ),
               ],
               const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _recover,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: AppLoadingIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Recuperar identidade'),
+              AppButton(
+                label: 'Recuperar identidade',
+                expanded: true,
+                loading: _loading,
+                onPressed: _recover,
               ),
               const SizedBox(height: 8),
               TextButton(

@@ -269,7 +269,6 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              height: 54,
               child: FilledButton(
                 onPressed: () {
                   Navigator.pop(
@@ -280,15 +279,7 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
                     ),
                   );
                 },
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  'Confirmar Parcelamento',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                child: const Text('Confirmar Parcelamento'),
               ),
             ),
           ],

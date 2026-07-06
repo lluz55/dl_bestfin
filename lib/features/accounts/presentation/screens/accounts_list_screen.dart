@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/balance_card.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -28,10 +29,10 @@ class AccountsListScreen extends ConsumerWidget {
         title: 'Minhas Contas',
         showVisibilityToggle: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: ExpressiveFAB.extended(
         onPressed: () => context.push('/accounts/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Conta'),
+        icon: Icons.add,
+        label: 'Nova Conta',
       ),
       body: RefreshIndicator(
         onRefresh: () async {

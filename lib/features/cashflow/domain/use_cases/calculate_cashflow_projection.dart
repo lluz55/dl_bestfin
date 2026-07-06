@@ -47,9 +47,7 @@ class CalculateCashFlowProjection {
     // 3. Unpaid financing installments in the window
     final financings = await db.financingsDao.watchAllFinancings().first;
     final installmentsByFinancing = await Future.wait(
-      financings.map(
-        (f) => db.financingsDao.getInstallmentsForFinancing(f.id),
-      ),
+      financings.map((f) => db.financingsDao.getInstallmentsForFinancing(f.id)),
     );
     for (final installments in installmentsByFinancing) {
       for (final inst in installments) {

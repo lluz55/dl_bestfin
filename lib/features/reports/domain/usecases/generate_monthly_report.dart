@@ -58,9 +58,7 @@ class GenerateMonthlyReport {
                 year: bar.year,
                 month: bar.month,
                 income: bar.income,
-                expense: tx.isCompleted
-                    ? bar.expense + tx.amount
-                    : bar.expense,
+                expense: tx.isCompleted ? bar.expense + tx.amount : bar.expense,
                 pendingIncome: bar.pendingIncome,
                 pendingExpense: tx.isCompleted
                     ? bar.pendingExpense

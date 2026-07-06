@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -141,20 +142,12 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
 
                   // Botão contribuir
                   if (!goal.isCompleted) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: () => _showContributeSheet(goal),
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Contribuir'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: goalColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                      ),
+                    AppButton(
+                      label: 'Contribuir',
+                      icon: Icons.add_rounded,
+                      color: goalColor,
+                      expanded: true,
+                      onPressed: () => _showContributeSheet(goal),
                     ),
                     const SizedBox(height: 24),
                   ],
@@ -431,12 +424,14 @@ class _ActionsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-
     return Column(
       children: [
         if (goal.status == GoalStatus.active)
-          OutlinedButton.icon(
+          AppButton(
+            label: 'Arquivar objetivo',
+            icon: Icons.archive_outlined,
+            variant: AppButtonVariant.outlined,
+            expanded: true,
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -459,17 +454,13 @@ class _ActionsSection extends ConsumerWidget {
                 if (context.mounted) context.pop();
               }
             },
-            icon: const Icon(Icons.archive_outlined),
-            label: const Text('Arquivar objetivo'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
           ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
+        AppButton(
+          label: 'Excluir objetivo',
+          icon: Icons.delete_outline_rounded,
+          variant: AppButtonVariant.destructiveOutlined,
+          expanded: true,
           onPressed: () async {
             final confirm = await showDialog<bool>(
               context: context,
@@ -481,10 +472,11 @@ class _ActionsSection extends ConsumerWidget {
                     onPressed: () => Navigator.pop(ctx, false),
                     child: const Text('Cancelar'),
                   ),
-                  FilledButton(
+                  AppButton(
+                    label: 'Excluir',
+                    variant: AppButtonVariant.destructive,
+                    size: AppButtonSize.compact,
                     onPressed: () => Navigator.pop(ctx, true),
-                    style: FilledButton.styleFrom(backgroundColor: cs.error),
-                    child: const Text('Excluir'),
                   ),
                 ],
               ),
@@ -494,15 +486,6 @@ class _ActionsSection extends ConsumerWidget {
               if (context.mounted) context.pop();
             }
           },
-          icon: Icon(Icons.delete_outline_rounded, color: cs.error),
-          label: Text('Excluir objetivo', style: TextStyle(color: cs.error)),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-            side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
         ),
       ],
     );
@@ -582,36 +565,13 @@ class _ContributeSheetDetailState
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton(
-              onPressed:
-                  _saving || _amountInCents <= 0 || _fromAccountId == null
-                  ? null
-                  : _save,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: _saving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text(
-                      'Confirmar contribuição',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
+          AppButton(
+            label: 'Confirmar contribuição',
+            expanded: true,
+            loading: _saving,
+            onPressed: _amountInCents <= 0 || _fromAccountId == null
+                ? null
+                : _save,
           ),
           const SizedBox(height: 16),
         ],

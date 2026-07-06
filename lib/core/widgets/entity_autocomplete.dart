@@ -199,12 +199,6 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
                       onPressed: () async {
                         if (formKey.currentState!.validate()) {
                           final label = nameController.text.trim();

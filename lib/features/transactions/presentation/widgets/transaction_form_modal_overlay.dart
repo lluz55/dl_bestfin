@@ -50,6 +50,8 @@ class _TransactionFormModalOverlayState
                   initialType: current.initialType,
                   transaction: current.transaction,
                   isCloning: current.isCloning,
+                  draft: current.draft,
+                  openRecurringWizardOnStart: current.openRecurringWizard,
                   onClose: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -66,6 +68,8 @@ class _TransactionFormModalOverlayState
         initialType: modalState.initialType,
         transaction: modalState.transaction,
         isCloning: modalState.isCloning,
+        draft: modalState.draft,
+        openRecurringWizardOnStart: modalState.openRecurringWizard,
         onClose: requestClose,
       ),
     );

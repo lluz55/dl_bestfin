@@ -1,10 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/providers/sidebar_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/motion.dart';
 
@@ -26,7 +26,7 @@ class NavigationDestinationItem {
   final String label;
 }
 
-class ResponsiveNavigation extends StatefulWidget {
+class ResponsiveNavigation extends ConsumerStatefulWidget {
   const ResponsiveNavigation({
     super.key,
     required this.selectedIndex,
@@ -49,36 +49,10 @@ class ResponsiveNavigation extends StatefulWidget {
   final GlobalKey? lastDestinationKey;
 
   @override
-  State<ResponsiveNavigation> createState() => _ResponsiveNavigationState();
+  ConsumerState<ResponsiveNavigation> createState() => _ResponsiveNavigationState();
 }
 
-class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
-  bool _isCollapsed = false;
-
-  static const _prefsKey = 'sidebar_collapsed';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCollapsed();
-  }
-
-  Future<void> _loadCollapsed() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _isCollapsed = prefs.getBool(_prefsKey) ?? false;
-    });
-  }
-
-  Future<void> _toggleCollapsed() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isCollapsed = !_isCollapsed;
-    });
-    await prefs.setBool(_prefsKey, _isCollapsed);
-  }
-
+class _ResponsiveNavigationState extends ConsumerState<ResponsiveNavigation> {
   void _onTap(int index) {
     HapticFeedback.selectionClick();
     widget.onDestinationSelected(index);
@@ -86,6 +60,8 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final isCollapsed = ref.watch(sidebarCollapsedProvider);
+
     if (Breakpoints.isExpanded(context)) {
       return _ExpandedLayout(
         selectedIndex: widget.selectedIndex,
@@ -94,8 +70,8 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
         body: widget.body,
         floatingActionButton: widget.floatingActionButton,
         bottomOverlay: widget.bottomOverlay,
-        isCollapsed: _isCollapsed,
-        onToggleCollapsed: _toggleCollapsed,
+        isCollapsed: isCollapsed,
+        onToggleCollapsed: () => ref.read(sidebarCollapsedProvider.notifier).toggle(),
       );
     }
     if (Breakpoints.isMedium(context)) {
@@ -156,7 +132,8 @@ class _CompactLayout extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(
-              bottom: kFloatingNavClearance + MediaQuery.paddingOf(context).bottom,
+              bottom:
+                  kFloatingNavClearance + MediaQuery.paddingOf(context).bottom,
             ),
             child: body,
           ),
@@ -327,9 +304,6 @@ class _MediumOverlayDrawer extends StatelessWidget {
                     icon: const Icon(Icons.close_rounded, size: 20),
                     visualDensity: VisualDensity.compact,
                     tooltip: 'Fechar menu',
-                    style: IconButton.styleFrom(
-                      foregroundColor: cs.onSurfaceVariant,
-                    ),
                   ),
               ],
             ),
@@ -350,6 +324,25 @@ class _MediumOverlayDrawer extends StatelessWidget {
                     tt: tt,
                   ),
               ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              left: 12,
+              right: 12,
+              bottom: 12 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: _DrawerItem(
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings_rounded,
+              label: 'Configurações',
+              isSelected: false,
+              onTap: () {
+                if (onClose != null) onClose!();
+                context.push('/settings');
+              },
+              cs: cs,
+              tt: tt,
             ),
           ),
         ],
@@ -573,9 +566,6 @@ class _AnimatedNavigationDrawer extends StatelessWidget {
                     icon: const Icon(Icons.chevron_left_rounded, size: 20),
                     visualDensity: VisualDensity.compact,
                     tooltip: 'Recolher menu',
-                    style: IconButton.styleFrom(
-                      foregroundColor: cs.onSurfaceVariant,
-                    ),
                   ),
               ],
             ),
@@ -596,6 +586,22 @@ class _AnimatedNavigationDrawer extends StatelessWidget {
                     tt: tt,
                   ),
               ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              left: 12,
+              right: 12,
+              bottom: 12 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: _DrawerItem(
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings_rounded,
+              label: 'Configurações',
+              isSelected: false,
+              onTap: () => context.push('/settings'),
+              cs: cs,
+              tt: tt,
             ),
           ),
         ],
@@ -637,29 +643,12 @@ class _CollapsedDrawer extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(height: MediaQuery.paddingOf(context).top + 20),
-          Center(
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
           if (onExpand != null)
             IconButton(
               onPressed: onExpand,
               icon: const Icon(Icons.chevron_right_rounded, size: 20),
               visualDensity: VisualDensity.compact,
               tooltip: 'Expandir menu',
-              style: IconButton.styleFrom(foregroundColor: cs.onSurfaceVariant),
             ),
           const SizedBox(height: 12),
           Expanded(
@@ -676,6 +665,19 @@ class _CollapsedDrawer extends StatelessWidget {
                     cs: cs,
                   ),
               ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: 12 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: _CollapsedDrawerItem(
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings_rounded,
+              label: 'Configurações',
+              isSelected: false,
+              onTap: () => context.push('/settings'),
+              cs: cs,
             ),
           ),
         ],

@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
@@ -7,6 +11,8 @@ import 'package:bestfin/core/constants/default_categories.dart';
 import 'package:bestfin/core/database/app_database.dart' hide Account;
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/notifications/notification_service.dart';
+import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
@@ -14,10 +20,18 @@ import 'package:bestfin/features/security/presentation/providers/security_provid
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
+import 'package:bestfin/core/providers/reminders_settings_provider.dart';
+import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
+
+final _androidNotificationsEnabledProvider = FutureProvider.autoDispose<bool>((
+  ref,
+) {
+  return areAndroidNotificationsEnabled();
+});
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -89,10 +103,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: TextStyle(color: cs.onSurfaceVariant),
               ),
             ),
-            FilledButton(
+            AppButton(
+              label: 'Apagar tudo',
+              variant: AppButtonVariant.destructive,
+              size: AppButtonSize.compact,
               onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: cs.error),
-              child: const Text('Apagar tudo'),
             ),
           ],
         );
@@ -278,6 +293,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
               _SectionHeader(title: 'Transações', tt: tt, cs: cs),
               _DefaultAccountTile(cs: cs, tt: tt),
+              _SettingsTile(
+                icon: Icons.schedule_rounded,
+                title: 'Pendente por padrão',
+                subtitle:
+                    'Novos lançamentos de hoje ou datas passadas já nascem marcados como pendentes',
+                cs: cs,
+                tt: tt,
+                trailing: Switch(
+                  value: ref.watch(defaultPendingForPastProvider),
+                  onChanged: (v) =>
+                      ref.read(defaultPendingForPastProvider.notifier).set(v),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _SectionHeader(title: 'Notificações', tt: tt, cs: cs),
+              _SettingsTile(
+                icon: Icons.notifications_active_outlined,
+                title: 'Lembretes de transações agendadas',
+                subtitle: 'Avisar antes de transações e recorrências futuras',
+                cs: cs,
+                tt: tt,
+                trailing: Switch(
+                  value: ref.watch(remindersEnabledProvider),
+                  onChanged: (v) async {
+                    await ref.read(remindersEnabledProvider.notifier).set(v);
+                    unawaited(ref.read(reminderReconcileProvider.future));
+                  },
+                ),
+              ),
+              if (ref.watch(remindersEnabledProvider)) ...[
+                _SettingsTile(
+                  icon: Icons.schedule_outlined,
+                  title: 'Antecedência do lembrete',
+                  subtitle: ref.watch(reminderLeadTimeProvider).label,
+                  cs: cs,
+                  tt: tt,
+                  onTap: () => _showLeadTimePicker(context, ref),
+                ),
+                if (Platform.isAndroid)
+                  const _AndroidNotificationPermissionTile(),
+              ],
               const SizedBox(height: 8),
               _SectionHeader(title: 'Dados', tt: tt, cs: cs),
               _SettingsTile(
@@ -386,6 +442,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       case ThemeMode.dark:
         return Icons.dark_mode_rounded;
     }
+  }
+
+  void _showLeadTimePicker(BuildContext context, WidgetRef ref) {
+    final current = ref.read(reminderLeadTimeProvider);
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final cs = context.colorScheme;
+        final tt = context.textTheme;
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Antecedência do lembrete',
+                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+              for (final preset in ReminderLeadTime.values)
+                ListTile(
+                  title: Text(preset.label),
+                  selected: current == preset,
+                  selectedColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onTap: () async {
+                    await ref
+                        .read(reminderLeadTimeProvider.notifier)
+                        .set(preset);
+                    unawaited(ref.read(reminderReconcileProvider.future));
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -503,6 +600,48 @@ class _DefaultAccountTile extends ConsumerWidget {
   }
 }
 
+class _AndroidNotificationPermissionTile extends ConsumerWidget {
+  const _AndroidNotificationPermissionTile();
+
+  Future<void> _requestPermission(BuildContext context, WidgetRef ref) async {
+    final granted = await requestAndroidNotificationPermission();
+    ref.invalidate(_androidNotificationsEnabledProvider);
+    if (!context.mounted) return;
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Permissão negada. Ative manualmente nas configurações do sistema.',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final enabledAsync = ref.watch(_androidNotificationsEnabledProvider);
+    final enabled = enabledAsync.maybeWhen(
+      data: (v) => v,
+      orElse: () => true,
+    );
+
+    if (enabled) return const SizedBox.shrink();
+
+    return _SettingsTile(
+      icon: Icons.notifications_off_outlined,
+      title: 'Permissão de notificação necessária',
+      subtitle: 'Toque para permitir que o app envie lembretes',
+      cs: cs,
+      tt: tt,
+      iconColor: cs.error,
+      onTap: () => _requestPermission(context, ref),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
@@ -582,4 +721,3 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
-

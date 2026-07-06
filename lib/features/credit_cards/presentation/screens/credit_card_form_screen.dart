@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -321,23 +322,10 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                     previewIcon: Icons.credit_card_rounded,
                   ),
                   const SizedBox(height: 36),
-                  ElevatedButton(
+                  AppButton(
+                    label: isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR CARTÃO',
+                    expanded: true,
                     onPressed: _saveForm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.primary,
-                      foregroundColor: cs.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR CARTÃO',
-                      style: tt.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
                   ),
                 ],
               ),

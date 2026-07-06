@@ -108,7 +108,8 @@ class SeedDataConstants {
       icon: 'account_balance',
       color: '#43A047',
       type: CategoryType.income,
-      description: 'Receitas diversas que não se enquadram nas demais categorias.',
+      description:
+          'Receitas diversas que não se enquadram nas demais categorias.',
     ),
     // Expenses
     DefaultCategory(
@@ -288,7 +289,8 @@ class SeedDataConstants {
       icon: 'security',
       color: '#455A64',
       type: CategoryType.expense,
-      description: 'Seguro de vida, residencial ou outros seguros não veiculares.',
+      description:
+          'Seguro de vida, residencial ou outros seguros não veiculares.',
     ),
     DefaultCategory(
       id: 'cat_gifts_given',
@@ -296,7 +298,8 @@ class SeedDataConstants {
       icon: 'card_giftcard',
       color: '#AB47BC',
       type: CategoryType.expense,
-      description: 'Presentes oferecidos, doações e contribuições beneficentes.',
+      description:
+          'Presentes oferecidos, doações e contribuições beneficentes.',
     ),
     DefaultCategory(
       id: 'cat_taxes_fees',
@@ -330,7 +333,8 @@ class SeedDataConstants {
       icon: 'category',
       color: '#757575',
       type: CategoryType.expense,
-      description: 'Despesas diversas que não se enquadram nas demais categorias.',
+      description:
+          'Despesas diversas que não se enquadram nas demais categorias.',
     ),
     // Transfers
     DefaultCategory(

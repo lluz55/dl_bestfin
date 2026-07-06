@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/domain/usecases/delete_category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -41,10 +43,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: ExpressiveFAB.extended(
         onPressed: () => _openForm(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Categoria'),
+        icon: Icons.add,
+        label: 'Nova Categoria',
       ),
       body: CategoryTree(
         isReorderMode: _isReorderMode,
@@ -71,7 +73,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     WidgetRef ref,
     CategoryModel category,
   ) async {
-    final cs = context.colorScheme;
     final tt = context.textTheme;
 
     if (category.isSystem) {
@@ -98,10 +99,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: cs.error),
+          AppButton(
+            label: 'Excluir',
+            variant: AppButtonVariant.destructive,
+            size: AppButtonSize.compact,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Excluir'),
           ),
         ],
       ),

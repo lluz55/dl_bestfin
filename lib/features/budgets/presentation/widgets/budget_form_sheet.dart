@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
@@ -192,24 +192,11 @@ class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
               Text(_error!, style: TextStyle(color: cs.error, fontSize: 12)),
             ],
             const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: AppLoadingIndicator(strokeWidth: 2),
-                      )
-                    : Text(isEditing ? 'Salvar' : 'Criar Envelope'),
-              ),
+            AppButton(
+              label: isEditing ? 'Salvar' : 'Criar Envelope',
+              expanded: true,
+              loading: _saving,
+              onPressed: _save,
             ),
           ],
         ),

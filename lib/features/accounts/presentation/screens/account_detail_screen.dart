@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -26,8 +27,6 @@ class AccountDetailScreen extends ConsumerWidget {
   }
 
   void _showDeleteDialog(BuildContext context, WidgetRef ref, Account account) {
-    final theme = context.theme;
-
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -42,11 +41,10 @@ class AccountDetailScreen extends ConsumerWidget {
               onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Cancelar'),
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
+            AppButton(
+              label: 'Confirmar',
+              variant: AppButtonVariant.destructive,
+              size: AppButtonSize.compact,
               onPressed: () async {
                 Navigator.pop(dialogCtx);
                 try {
@@ -71,7 +69,6 @@ class AccountDetailScreen extends ConsumerWidget {
                   }
                 }
               },
-              child: const Text('Confirmar'),
             ),
           ],
         );

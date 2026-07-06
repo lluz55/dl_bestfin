@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
@@ -147,20 +148,10 @@ class TransactionFiltersWidget extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: context.colorScheme.primary,
-                            foregroundColor: context.colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('APLICAR'),
-                        ),
+                      AppButton(
+                        label: 'APLICAR',
+                        expanded: true,
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
@@ -248,20 +239,10 @@ class TransactionFiltersWidget extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: context.colorScheme.primary,
-                            foregroundColor: context.colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('APLICAR'),
-                        ),
+                      AppButton(
+                        label: 'APLICAR',
+                        expanded: true,
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),

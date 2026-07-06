@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -138,16 +139,11 @@ class _PdfImportScreenState extends ConsumerState<PdfImportScreen> {
                   style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ] else
-                FilledButton.icon(
+                AppButton(
+                  label: 'Selecionar PDF',
+                  icon: Icons.upload_file_rounded,
+                  expanded: true,
                   onPressed: _pickAndParse,
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text('Selecionar PDF'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
                 ),
 
               const Spacer(),

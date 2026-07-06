@@ -21,6 +21,7 @@ class UpdateTransaction {
     String? goalId,
     String? creditCardId,
     List<SplitEntry>? splits,
+    bool? isCompleted,
   }) {
     return repository.updateTransaction(
       id: id,
@@ -37,6 +38,7 @@ class UpdateTransaction {
       goalId: goalId,
       creditCardId: creditCardId,
       splits: splits,
+      isCompleted: isCompleted,
     );
   }
 }

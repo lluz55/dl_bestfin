@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
@@ -24,6 +25,7 @@ class SyncService {
   static const _lastSyncKey = 'sync_last_synced_at';
   static const _pullCursorKeyPrefix = 'sync_pull_cursor_';
   static const _backfillDoneKeyPrefix = 'sync_backfill_done_';
+  static const _incompatibleSinceKeyPrefix = 'sync_incompatible_since_';
 
   // How far back each pull re-reads relative to the stored cursor. The cursor
   // is this device's own wall clock at the previous pull (see pullRemoteChanges),
@@ -100,18 +102,15 @@ class SyncService {
               continue;
             }
 
-            await _transport.pushRecords(
-              [
-                SyncRecord(
-                  entityType: item.entityType,
-                  entityId: item.entityId,
-                  payload: item.payload,
-                  updatedAt: item.createdAt.millisecondsSinceEpoch ~/ 1000,
-                  isDeleted: item.operation == 'delete',
-                ),
-              ],
-              onProgress: (_, itemBytes) => bytesSent += itemBytes,
-            );
+            await _transport.pushRecords([
+              SyncRecord(
+                entityType: item.entityType,
+                entityId: item.entityId,
+                payload: item.payload,
+                updatedAt: item.createdAt.millisecondsSinceEpoch ~/ 1000,
+                isDeleted: item.operation == 'delete',
+              ),
+            ], onProgress: (_, itemBytes) => bytesSent += itemBytes);
 
             await _db.syncQueueDao.markSynced(item.id);
             pushed++;
@@ -166,11 +165,29 @@ class SyncService {
     // during this pull is still caught on the next one.
     final pullStartedAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final cursor = await _getPullCursor();
-    final since = cursor <= _clockSkewMarginSeconds
+    var since = cursor <= _clockSkewMarginSeconds
         ? 0
         : cursor - _clockSkewMarginSeconds;
+
+    // Records written by a peer on a newer app (higher schema version) are
+    // deferred, not applied — merging them here would drop the fields this
+    // build doesn't know about, and the next local edit would republish that
+    // truncated snapshot to every peer. The relay itself is the buffer:
+    // replaceable events persist there, so it's enough to remember the
+    // earliest deferred timestamp and keep re-reading from it until an
+    // updated build can finally apply everything.
+    final incompatibleSince = await _getIncompatibleSince();
+    if (incompatibleSince != null) {
+      final rereadFrom = incompatibleSince <= _clockSkewMarginSeconds
+          ? 0
+          : incompatibleSince - _clockSkewMarginSeconds;
+      since = min(since, rereadFrom);
+    }
+
     int pulled = 0;
     int failed = 0;
+    int deferred = 0;
+    int? earliestDeferredAt;
 
     try {
       final records = await _transport.pullRecords(
@@ -189,6 +206,13 @@ class SyncService {
         });
 
       for (final record in sorted) {
+        if (record.schemaVersion > kSyncSchemaVersion) {
+          deferred++;
+          earliestDeferredAt = earliestDeferredAt == null
+              ? record.updatedAt
+              : min(earliestDeferredAt, record.updatedAt);
+          continue;
+        }
         try {
           final row = jsonDecode(record.payload) as Map<String, dynamic>;
           row['id'] ??= record.entityId;
@@ -242,6 +266,22 @@ class SyncService {
         }
       }
 
+      if (deferred > 0) {
+        await _saveIncompatibleSince(
+          incompatibleSince == null
+              ? earliestDeferredAt
+              : min(incompatibleSince, earliestDeferredAt!),
+        );
+        debugPrint(
+          '[Sync] $deferred registros publicados por uma versão mais nova do '
+          'app foram adiados — atualize o app para aplicá-los.',
+        );
+      } else if (incompatibleSince != null) {
+        // Everything inside the re-read window applied cleanly — this build
+        // now understands all published records, stop re-reading.
+        await _saveIncompatibleSince(null);
+      }
+
       await _savePullCursor(pullStartedAt);
       await _updateLastSyncAt();
     } catch (e, st) {
@@ -249,7 +289,12 @@ class SyncService {
       return SyncResult.error;
     }
 
-    return SyncResult.completed(pushed: 0, failed: failed, pulled: pulled);
+    return SyncResult.completed(
+      pushed: 0,
+      failed: failed,
+      pulled: pulled,
+      deferred: deferred,
+    );
   }
 
   static int _mergePriority(String entityType) {
@@ -332,7 +377,10 @@ class SyncService {
     if (pushResult == SyncResult.notConfigured) return pushResult;
 
     onProgress?.call(
-      const SyncProgress(phase: 'Baixando atualizações...', kind: SyncPhaseKind.pull),
+      const SyncProgress(
+        phase: 'Baixando atualizações...',
+        kind: SyncPhaseKind.pull,
+      ),
     );
     return pullRemoteChanges(
       onProgress: (received, bytesReceived) {
@@ -1462,6 +1510,28 @@ class SyncService {
     return prefs.getInt('$_pullCursorKeyPrefix$pubkey') ?? 0;
   }
 
+  /// Event timestamp (unix seconds) of the earliest record deferred because
+  /// it was published with a schema version above this build's. Null when
+  /// nothing is deferred. Namespaced by identity, like the pull cursor.
+  Future<int?> _getIncompatibleSince() async {
+    final pubkey = _transport.identity?.publicKey;
+    if (pubkey == null) return null;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('$_incompatibleSinceKeyPrefix$pubkey');
+  }
+
+  Future<void> _saveIncompatibleSince(int? value) async {
+    final pubkey = _transport.identity?.publicKey;
+    if (pubkey == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$_incompatibleSinceKeyPrefix$pubkey';
+    if (value == null) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setInt(key, value);
+    }
+  }
+
   /// Persists [localPulledAtSeconds] — this device's wall clock (unix seconds)
   /// at the moment the pull began. Stored per identity. Both the old event-time
   /// cursor and this one are unix-epoch seconds, so upgrading in place needs no
@@ -1514,6 +1584,12 @@ class SyncResult {
   final int pushed;
   final int pulled;
   final int failed;
+
+  /// Records skipped because a peer published them with a newer schema
+  /// version than this build supports. They stay on the relays and are
+  /// re-read on every pull until the app is updated.
+  final int deferred;
+
   final String? errorMessage;
 
   const SyncResult._({
@@ -1521,6 +1597,7 @@ class SyncResult {
     this.pushed = 0,
     this.pulled = 0,
     this.failed = 0,
+    this.deferred = 0,
     this.errorMessage,
   });
 
@@ -1548,10 +1625,12 @@ class SyncResult {
     required int pushed,
     required int failed,
     int pulled = 0,
+    int deferred = 0,
   }) => SyncResult._(
     success: true,
     pushed: pushed,
     pulled: pulled,
     failed: failed,
+    deferred: deferred,
   );
 }

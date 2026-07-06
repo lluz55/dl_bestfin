@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -103,7 +104,6 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
-    final shapes = context.shapes;
 
     final allCategories = ref.watch(allFlatCategoriesProvider);
     final editingId = widget.categoryToEdit?.id;
@@ -261,24 +261,10 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
               const SizedBox(height: 16),
 
               // Save button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: shapes.button),
-                  ),
-                  onPressed: _save,
-                  child: Text(
-                    _isEditing ? 'Salvar Alterações' : 'Criar Categoria',
-                    style: tt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: cs.onPrimary,
-                    ),
-                  ),
-                ),
+              AppButton(
+                label: _isEditing ? 'Salvar Alterações' : 'Criar Categoria',
+                expanded: true,
+                onPressed: _save,
               ),
             ],
           ),

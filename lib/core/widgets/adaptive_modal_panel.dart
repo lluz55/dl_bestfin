@@ -26,6 +26,7 @@ class _AdaptiveModalPanelState extends State<AdaptiveModalPanel>
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -52,6 +53,11 @@ class _AdaptiveModalPanelState extends State<AdaptiveModalPanel>
   }
 
   void _handleClose() {
+    // Evita popar a rota mais de uma vez quando o conteúdo (ex.: um botão
+    // "Salvar"/"Confirmar") já fechou o modal diretamente enquanto o toque na
+    // barreira também está em andamento.
+    if (_closing) return;
+    _closing = true;
     _controller.reverse().then((_) {
       if (mounted) {
         widget.onClose();

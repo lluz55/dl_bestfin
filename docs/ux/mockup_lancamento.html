@@ -1,0 +1,522 @@
+<title>bestfin — Redesenho do Lançamento</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    /* Neutros com leve viés índigo (a cor de marca), não cinza puro */
+    --bg:        #eef0f7;
+    --surface:   #ffffff;
+    --surface-2: #f4f5fb;
+    --surface-3: #e9ebf4;
+    --ink:       #16181f;
+    --ink-2:     #565c6e;
+    --line:      #dcdfeb;
+    --line-soft: #e7e9f2;
+    /* Marca + semânticos (do app: seed índigo, income/expense/transfer) */
+    --brand:     #3D5AFE;
+    --income:    #2E7D32;
+    --income-bg: rgba(46,125,50,.10);
+    --expense:   #D32F2F;
+    --expense-bg:rgba(211,47,47,.10);
+    --transfer:  #1565C0;
+    --pending:   #B26A00;
+    --pending-bg:rgba(178,106,0,.12);
+    --shadow:    0 1px 2px rgba(20,24,40,.06), 0 12px 30px -12px rgba(20,24,40,.22);
+    --shadow-sm: 0 1px 2px rgba(20,24,40,.05), 0 6px 16px -10px rgba(20,24,40,.18);
+    --radius:    22px;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Fira Code", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #0c0d13;
+      --surface:   #16171f;
+      --surface-2: #1c1e28;
+      --surface-3: #242633;
+      --ink:       #eceef6;
+      --ink-2:     #9aa0b4;
+      --line:      #2a2d3a;
+      --line-soft: #23262f;
+      --brand:     #7C8CFF;
+      --income:    #66BB6A;
+      --income-bg: rgba(102,187,106,.14);
+      --expense:   #EF5350;
+      --expense-bg:rgba(239,83,80,.14);
+      --transfer:  #42A5F5;
+      --pending:   #E9A33B;
+      --pending-bg:rgba(233,163,59,.16);
+      --shadow:    0 1px 2px rgba(0,0,0,.4), 0 16px 40px -14px rgba(0,0,0,.6);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#eef0f7; --surface:#fff; --surface-2:#f4f5fb; --surface-3:#e9ebf4;
+    --ink:#16181f; --ink-2:#565c6e; --line:#dcdfeb; --line-soft:#e7e9f2;
+    --brand:#3D5AFE; --income:#2E7D32; --income-bg:rgba(46,125,50,.10);
+    --expense:#D32F2F; --expense-bg:rgba(211,47,47,.10); --transfer:#1565C0;
+    --pending:#B26A00; --pending-bg:rgba(178,106,0,.12);
+    --shadow:0 1px 2px rgba(20,24,40,.06),0 12px 30px -12px rgba(20,24,40,.22);
+    --shadow-sm:0 1px 2px rgba(20,24,40,.05),0 6px 16px -10px rgba(20,24,40,.18);
+  }
+  :root[data-theme="dark"] {
+    --bg:#0c0d13; --surface:#16171f; --surface-2:#1c1e28; --surface-3:#242633;
+    --ink:#eceef6; --ink-2:#9aa0b4; --line:#2a2d3a; --line-soft:#23262f;
+    --brand:#7C8CFF; --income:#66BB6A; --income-bg:rgba(102,187,106,.14);
+    --expense:#EF5350; --expense-bg:rgba(239,83,80,.14); --transfer:#42A5F5;
+    --pending:#E9A33B; --pending-bg:rgba(233,163,59,.16);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -14px rgba(0,0,0,.6);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.35),0 8px 20px -12px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 72px; }
+
+  /* ---------- Cabeçalho ---------- */
+  header.page { margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--brand); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 4.4vw, 42px); line-height: 1.08; margin: 0 0 12px;
+    letter-spacing: -.02em; font-weight: 800; text-wrap: balance; max-width: 20ch;
+  }
+  .lede { font-size: 17px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Grid de telas ---------- */
+  .screens {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 40px 28px; margin: 48px 0 8px; align-items: start;
+  }
+  .screen { display: flex; flex-direction: column; gap: 16px; }
+  .screen > .cap { order: 2; }
+  .cap .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 7px; background: var(--brand);
+    color: #fff; font-size: 13px; font-weight: 700; margin-right: 9px; flex: none;
+  }
+  .cap h3 { font-size: 16px; margin: 0 0 4px; font-weight: 700; letter-spacing: -.01em;
+            display: flex; align-items: center; }
+  .cap p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+
+  /* ---------- Moldura de telefone ---------- */
+  .phone {
+    order: 1; background: var(--surface-3); border-radius: 34px; padding: 10px;
+    box-shadow: var(--shadow); border: 1px solid var(--line-soft);
+    margin: 0 auto; width: 100%; max-width: 340px;
+  }
+  .phone-inner {
+    background: var(--surface-2); border-radius: 26px; overflow: hidden;
+    position: relative; aspect-ratio: 320 / 640;
+  }
+  .statusbar {
+    height: 34px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; font-size: 12px; font-weight: 600; color: var(--ink-2);
+  }
+  .statusbar .dots { display: flex; gap: 4px; align-items: center; }
+  .statusbar .dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-2); opacity: .5; }
+
+  /* Backdrop "app atrás do sheet" */
+  .appdim { position:absolute; inset:0; background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 60%); }
+
+  /* Bottom sheet */
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: var(--surface); border-radius: 24px 24px 0 0;
+    padding: 10px 16px 16px; box-shadow: 0 -8px 30px -12px rgba(0,0,0,.3);
+    border-top: 1px solid var(--line-soft);
+  }
+  .sheet.tall { top: 34px; border-radius: 20px; overflow: hidden;
+                display: flex; flex-direction: column; }
+  .grip { width: 34px; height: 4px; border-radius: 3px; background: var(--line);
+          margin: 2px auto 12px; }
+  .sheet-title { font-size: 15px; font-weight: 700; margin: 0 0 12px; text-align: center; }
+
+  /* Segmented tabs */
+  .tabs { display: flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; }
+  .tabs button {
+    flex: 1; border: 0; background: transparent; color: var(--ink-2);
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 4px; border-radius: 9px;
+    cursor: default;
+  }
+  .tabs button.on { background: var(--surface); color: var(--expense); box-shadow: var(--shadow-sm); }
+  .tabs button.on.inc { color: var(--income); }
+
+  .row-label { font-size: 11px; font-weight: 700; color: var(--ink-2);
+               letter-spacing: .04em; margin: 14px 0 7px; display: flex; align-items: center; gap: 6px; }
+  .row-label .opt { font-weight: 500; letter-spacing: 0; color: var(--ink-2); opacity: .8; }
+
+  /* Suggestion chips */
+  .sugg { display: flex; gap: 8px; overflow: hidden; }
+  .sugg .s {
+    flex: none; background: var(--surface-2); border: 1px solid var(--line-soft);
+    border-radius: 14px; padding: 7px 10px; min-width: 92px;
+  }
+  .sugg .s .t { font-size: 11px; color: var(--ink-2); display:flex; align-items:center; gap:4px; }
+  .sugg .s .v { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Amount display (amount-first) */
+  .amount {
+    background: var(--expense-bg); border: 1.5px solid color-mix(in srgb, var(--expense) 22%, transparent);
+    border-radius: 18px; padding: 14px; text-align: center; margin-top: 4px; position: relative;
+  }
+  .amount .lab { font-size: 11px; font-weight: 700; color: var(--expense); opacity: .85; letter-spacing: .05em; }
+  .amount .big {
+    font-size: 34px; font-weight: 800; color: var(--expense); letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums; margin: 2px 0 0;
+  }
+  .amount .big .cur { font-size: 18px; font-weight: 700; opacity: .7; margin-right: 3px; }
+  .caret { display:inline-block; width:2px; height:30px; background: var(--expense);
+           vertical-align: -6px; margin-left: 2px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+  /* Chips (categoria/conta recentes) */
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-2); border: 1px solid var(--line-soft);
+    border-radius: 20px; padding: 7px 11px; font-size: 12.5px; font-weight: 600; color: var(--ink);
+  }
+  .chip .i { width: 16px; height: 16px; display: grid; place-items: center; font-size: 13px; }
+  .chip.sel { border-color: var(--expense); background: var(--expense-bg); color: var(--expense); }
+  .chip.sel.predicted { border-style: dashed; }
+  .chip.more { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+               background: color-mix(in srgb, var(--brand) 8%, transparent); }
+  .chip.ghost { color: var(--ink-2); border-style: dashed; }
+
+  /* Progressive-disclosure row */
+  .meta { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line-soft);
+    padding: 6px 10px; border-radius: 11px;
+  }
+  .pill.pending { color: var(--pending); background: var(--pending-bg);
+                  border-color: color-mix(in srgb, var(--pending) 30%, transparent); }
+  .pill .sw { width: 22px; height: 13px; border-radius: 9px; background: var(--pending);
+              position: relative; }
+  .pill .sw::after { content:""; position:absolute; top:1.5px; right:1.5px; width:10px; height:10px;
+              border-radius:50%; background:#fff; }
+
+  /* Footer */
+  .foot { display: flex; align-items: center; gap: 10px; margin-top: 16px;
+          padding-top: 14px; border-top: 1px solid var(--line-soft); }
+  .btn-text { font-size: 13px; font-weight: 600; color: var(--brand);
+              display: inline-flex; align-items: center; gap: 5px; }
+  .btn-save {
+    margin-left: auto; background: var(--expense); color: #fff; border: 0;
+    font: inherit; font-size: 13.5px; font-weight: 700; padding: 11px 22px; border-radius: 13px;
+    display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm);
+  }
+
+  /* ----- Tela 2: picker de categoria ----- */
+  .picker-head { padding: 4px 4px 12px; }
+  .searchbar {
+    display: flex; align-items: center; gap: 8px; background: var(--surface-2);
+    border: 1px solid var(--line-soft); border-radius: 14px; padding: 10px 12px;
+    color: var(--ink-2); font-size: 13px;
+  }
+  .cat-list { flex: 1; overflow: hidden; padding: 0 4px; }
+  .cat-parent { display: flex; align-items: center; gap: 11px; padding: 11px 6px;
+                font-size: 14px; font-weight: 600; }
+  .cat-parent .chev { margin-left: auto; color: var(--ink-2); font-size: 12px; }
+  .cat-child { display: flex; align-items: center; gap: 11px; padding: 10px 6px 10px 34px;
+               font-size: 13.5px; color: var(--ink); border-radius: 10px; }
+  .cat-child.on { background: var(--expense-bg); color: var(--expense); font-weight: 700; }
+  .catic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+           font-size: 15px; flex: none; color: #fff; }
+
+  /* ----- Tela 3: form scroll único ----- */
+  .form-top { padding: 12px 14px 10px; background: var(--surface);
+              border-bottom: 1px solid var(--line-soft); }
+  .form-scroll { flex: 1; overflow: hidden; padding: 4px 14px 14px; display: flex; flex-direction: column; }
+  .mini-amount { text-align: center; }
+  .mini-amount .v { font-size: 24px; font-weight: 800; color: var(--expense);
+                    font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .sec-h { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+           color: var(--ink-2); margin: 15px 0 8px; }
+  .field { display: flex; align-items: center; gap: 11px; padding: 11px 12px;
+           background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 13px;
+           font-size: 13.5px; margin-bottom: 8px; }
+  .field .k { color: var(--ink-2); font-size: 12.5px; }
+  .field .v { margin-left: auto; font-weight: 600; display:flex; align-items:center; gap:7px; }
+  .field .ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+               font-size: 13px; color: #fff; flex: none; }
+
+  /* ---------- Antes/Depois ---------- */
+  .compare {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;
+    margin: 52px 0 8px;
+  }
+  .cmp {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .cmp h4 { margin: 0 0 4px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
+            color: var(--ink-2); font-weight: 700; }
+  .cmp .metric { font-size: 30px; font-weight: 800; letter-spacing: -.02em; display: flex;
+                 align-items: baseline; gap: 8px; }
+  .cmp .metric small { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .cmp.after .metric { color: var(--income); }
+  .cmp ul { margin: 12px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .cmp li { font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: flex-start; }
+  .cmp li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--line);
+                    margin-top: 7px; flex: none; }
+  .cmp.after li::before { background: var(--income); }
+  .cmp li b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Princípios ---------- */
+  .sec-title { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+               color: var(--ink-2); margin: 56px 0 18px; padding-bottom: 12px;
+               border-bottom: 1px solid var(--line); }
+  .principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .pr { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px;
+        box-shadow: var(--shadow-sm); }
+  .pr .tag { font-size: 11px; font-weight: 700; color: var(--brand); letter-spacing: .05em;
+             text-transform: uppercase; }
+  .pr h4 { margin: 8px 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+  .pr p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2);
+         padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line-soft); }
+
+  footer.page { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line);
+                font-size: 12.5px; color: var(--ink-2); }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0 0; font-size: 12px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 22px; height: 12px; border-radius: 4px; display: inline-block; }
+  .dash { border: 1.5px dashed var(--expense); background: var(--expense-bg); }
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <p class="eyebrow">bestfin · Proposta de UX</p>
+    <h1>Lançar uma transação em segundos, não em telas</h1>
+    <p class="lede">Redesenho do <b>lançamento rápido</b> e do <b>adicionar/editar</b> guiado pelo
+      princípio <b>“capturar agora, entender depois”</b> — valor primeiro, palpites inteligentes,
+      um único jeito de escolher categoria e conta, e profundidade opcional sem nunca perder o que
+      já foi digitado.</p>
+  </header>
+
+  <div class="screens">
+    <!-- ============ TELA 1 ============ -->
+    <div class="screen">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="statusbar"><span>9:41</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <div class="appdim"></div>
+          <div class="sheet">
+            <div class="grip"></div>
+            <p class="sheet-title">Lançamento rápido</p>
+            <div class="tabs">
+              <button class="on">Despesa</button>
+              <button class="inc">Receita</button>
+              <button>Transferência</button>
+            </div>
+
+            <div class="row-label">⌁ Sugestões pra você</div>
+            <div class="sugg">
+              <div class="s"><div class="t">🚗 Uber</div><div class="v">R$ 18,90</div></div>
+              <div class="s"><div class="t">🍔 iFood</div><div class="v">R$ 42,00</div></div>
+              <div class="s"><div class="t">☕ Padaria</div><div class="v">R$ 9,50</div></div>
+            </div>
+
+            <div class="amount">
+              <div class="lab">VALOR</div>
+              <div class="big"><span class="cur">R$</span>42,00<span class="caret"></span></div>
+            </div>
+
+            <div class="row-label">🏷 Categoria <span class="opt">· palpite pelo histórico</span></div>
+            <div class="chips">
+              <span class="chip sel predicted"><span class="i">🍔</span>Alimentação</span>
+              <span class="chip"><span class="i">🚗</span>Transporte</span>
+              <span class="chip more">＋ Todas</span>
+            </div>
+
+            <div class="row-label">🏦 Conta</div>
+            <div class="chips">
+              <span class="chip sel"><span class="i">💜</span>Nubank</span>
+              <span class="chip"><span class="i">🏦</span>Itaú</span>
+              <span class="chip more">＋ Contas · cartões</span>
+            </div>
+
+            <div class="meta">
+              <span class="pill">📅 Hoje</span>
+              <span class="pill ghost">👤 Pago a <span class="opt">· opcional</span></span>
+              <span class="pill">📝 Nota</span>
+              <span class="pill pending"><span class="sw"></span> Pendente</span>
+            </div>
+
+            <div class="foot">
+              <span class="btn-text">⚙ Mais opções</span>
+              <button class="btn-save">✓ Salvar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">
+        <h3><span class="n">1</span>Amount-first, campos mínimos</h3>
+        <p>O sheet abre com o teclado já no <b>valor</b>. Categoria vem <b>pré-selecionada por
+          palpite</b> (borda tracejada), conta usa a padrão, data = hoje. “Pago a” deixa de ser
+          obrigatório. Meta realista: <b>1 toque de valor + Salvar</b>.</p>
+      </div>
+    </div>
+
+    <!-- ============ TELA 2 ============ -->
+    <div class="screen">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="statusbar"><span>9:41</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <div class="appdim"></div>
+          <div class="sheet tall">
+            <div class="picker-head">
+              <div class="grip"></div>
+              <p class="sheet-title" style="margin-bottom:12px">Escolher categoria</p>
+              <div class="searchbar">🔍 Buscar categoria…</div>
+            </div>
+            <div class="cat-list">
+              <div class="cat-parent">
+                <span class="catic" style="background:#E67E22">🍔</span> Alimentação
+                <span class="chev">▾</span>
+              </div>
+              <div class="cat-child on"><span class="catic" style="background:#E67E22;width:26px;height:26px">🍽️</span> Restaurantes ✓</div>
+              <div class="cat-child"><span class="catic" style="background:#E67E22;width:26px;height:26px">🛒</span> Mercado</div>
+              <div class="cat-parent">
+                <span class="catic" style="background:#2980B9">🚗</span> Transporte
+                <span class="chev">▸</span>
+              </div>
+              <div class="cat-parent">
+                <span class="catic" style="background:#8E44AD">🏠</span> Moradia
+                <span class="chev">▸</span>
+              </div>
+              <div class="cat-parent">
+                <span class="catic" style="background:#16A085">💊</span> Saúde
+                <span class="chev">▸</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">
+        <h3><span class="n">2</span>Um único picker, em todo lugar</h3>
+        <p>O <b>[＋]</b> dos chips abre o <b>mesmo picker hierárquico com busca</b> tanto no
+          lançamento rápido quanto no formulário completo — hoje são dois seletores diferentes.
+          Reaproveita <code>showCategoryPicker</code> e <code>AccountSelector</code> (com saldos e
+          cartões).</p>
+      </div>
+    </div>
+
+    <!-- ============ TELA 3 ============ -->
+    <div class="screen">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="statusbar"><span>9:41</span><span class="dots"><span></span><span></span><span></span></span></div>
+          <div class="sheet tall" style="top:0;border-radius:0">
+            <div class="form-top">
+              <div class="tabs" style="margin-bottom:10px">
+                <button class="on">Despesa</button><button class="inc">Receita</button><button>Transf.</button>
+              </div>
+              <div class="mini-amount"><span class="v">R$ 42,00</span></div>
+            </div>
+            <div class="form-scroll">
+              <div class="sec-h">O quê</div>
+              <div class="field"><span class="k">Descrição</span><span class="v">Almoço 🙂</span></div>
+              <div class="field"><span class="ic" style="background:#E67E22">🍔</span><span class="k">Categoria</span><span class="v">Restaurantes ›</span></div>
+
+              <div class="sec-h">Como</div>
+              <div class="field"><span class="ic" style="background:#7C4DFF">💜</span><span class="k">Conta</span><span class="v">Nubank ›</span></div>
+              <div class="field"><span class="k">Pago a</span><span class="v">iFood ›</span></div>
+              <div class="field"><span class="k">Data</span><span class="v">Hoje, 12:30 ›</span></div>
+
+              <div class="sec-h">Extras</div>
+              <div class="field"><span class="k">Status</span><span class="v"><span class="pill pending" style="padding:3px 8px"><span class="sw"></span>Pendente</span></span></div>
+              <div class="field"><span class="k">Nota · Meta · Parcelar</span><span class="v" style="color:var(--brand)">＋</span></div>
+            </div>
+            <div class="foot" style="margin:0;padding:12px 14px;border-top:1px solid var(--line-soft)">
+              <span class="btn-text">🗑 Excluir</span>
+              <button class="btn-save">✓ Salvar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">
+        <h3><span class="n">3</span>Editar em uma rolagem, não em 5 passos</h3>
+        <p>O formulário completo vira <b>scroll único</b> em seções (Valor · O quê · Como · Extras).
+          Editar uma nota deixa de exigir navegar por um wizard. Splits, parcelas e recorrência ficam
+          como seções expansíveis. O toggle <b>Pendente</b> passa a ter UI.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dash"></i> Borda tracejada = valor <b style="color:var(--ink)">&nbsp;previsto/palpite</b>, editável em 1 toque</span>
+    <span>🎨 Cores income/expense/transfer e seed índigo vindas do tema real do app</span>
+  </div>
+
+  <!-- ===== Antes / Depois ===== -->
+  <div class="compare">
+    <div class="cmp">
+      <h4>Hoje · despesa rápida</h4>
+      <div class="metric">~7 <small>toques + campo obrigatório</small></div>
+      <ul>
+        <li>Escolher tipo <b>no FAB antes</b> de abrir o sheet</li>
+        <li>Tocar no valor → abre <b>teclado modal-sobre-modal</b></li>
+        <li><b>“Pago a” obrigatório</b> mesmo pra um café</li>
+        <li>“Mais opções” <b>descarta</b> o que já digitei</li>
+      </ul>
+    </div>
+    <div class="cmp after">
+      <h4>Proposta · despesa rápida</h4>
+      <div class="metric">2–3 <small>toques na maioria dos casos</small></div>
+      <ul>
+        <li>Abre <b>direto no valor</b>, tipo alternável dentro</li>
+        <li>Categoria <b>já sugerida</b>, conta padrão, data = hoje</li>
+        <li>Entidade <b>opcional</b> — captura sem fricção</li>
+        <li>“Mais opções” <b>preserva o rascunho</b> inteiro</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== Princípios ===== -->
+  <h2 class="sec-title">Princípios que guiam o redesenho</h2>
+  <div class="principles">
+    <div class="pr">
+      <span class="tag">Velocidade</span>
+      <h4>Amount-first</h4>
+      <p>A ação mais frequente — digitar o valor — é a primeira e não exige um toque extra pra abrir
+        o teclado.</p>
+    </div>
+    <div class="pr">
+      <span class="tag">Inteligência</span>
+      <h4>Smart defaults</h4>
+      <p>Conta padrão, data de hoje e <b>categoria prevista</b> pelo histórico da mesma entidade/descrição,
+        reusando o motor de sugestões que já existe.</p>
+    </div>
+    <div class="pr">
+      <span class="tag">Continuidade</span>
+      <h4>Profundidade sem perda</h4>
+      <p>O rápido resolve ~90%. Ir para “Mais opções” <b>leva o rascunho junto</b> em vez de zerar
+        os campos.</p>
+    </div>
+    <div class="pr">
+      <span class="tag">Consistência</span>
+      <h4>Um seletor só</h4>
+      <p>Mesmo picker de categoria (hierárquico + busca) e de conta (saldos + cartões) no rápido e no
+        completo. Fim da divergência entre as telas.</p>
+    </div>
+  </div>
+
+  <footer class="page">
+    Mockup de referência (não é o app rodando) para validar a direção visual antes da implementação
+    em Flutter. Paleta e semânticos derivados de <code>lib/core/theme/color_schemes.dart</code>.
+    Etapas seguintes no plano aprovado: sheet amount-first → palpite de categoria → rascunho
+    preservado → pickers unificados → formulário em scroll único → toggle pendente.
+  </footer>
+</div>

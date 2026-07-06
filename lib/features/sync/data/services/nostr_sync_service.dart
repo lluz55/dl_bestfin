@@ -196,7 +196,7 @@ class NostrSyncService implements SyncTransport {
     for (final record in records) {
       final encPayload = await E2ECryptoService.encryptPayload(
         _masterKey!,
-        record.payload,
+        encodeSyncEnvelope(record.payload, schemaVersion: record.schemaVersion),
       );
       final publishedAt = DateTime.fromMillisecondsSinceEpoch(
         (DateTime.now().millisecondsSinceEpoch ~/ 1000) * 1000,
@@ -330,6 +330,7 @@ class NostrSyncService implements SyncTransport {
           _masterKey!,
           event.content!,
         );
+        final envelope = decodeSyncEnvelope(plainPayload);
         final tags = event.tags ?? [];
         final dTag = tags.firstWhere(
           (t) => t.isNotEmpty && t[0] == 'd',
@@ -353,7 +354,7 @@ class NostrSyncService implements SyncTransport {
             try {
               _peerConnectionsController.add(
                 DevicePresenceInfo.fromJson(
-                  jsonDecode(plainPayload) as Map<String, dynamic>,
+                  jsonDecode(envelope.payload) as Map<String, dynamic>,
                 ),
               );
             } catch (_) {
@@ -373,9 +374,10 @@ class NostrSyncService implements SyncTransport {
           SyncRecord(
             entityId: entityId,
             entityType: entityType,
-            payload: plainPayload,
+            payload: envelope.payload,
             updatedAt: event.createdAt!.millisecondsSinceEpoch ~/ 1000,
             isDeleted: isDeleted,
+            schemaVersion: envelope.schemaVersion,
           ),
         );
       } catch (_) {
@@ -549,11 +551,12 @@ class NostrSyncService implements SyncTransport {
       deviceName: '$platformName • $shortId',
       platform: platformName,
       connectedAt: DateTime.now(),
+      schemaVersion: kSyncSchemaVersion,
     );
 
     final encPayload = await E2ECryptoService.encryptPayload(
       _masterKey!,
-      jsonEncode(info.toJson()),
+      encodeSyncEnvelope(jsonEncode(info.toJson())),
     );
 
     final event = NostrEvent.fromPartialData(

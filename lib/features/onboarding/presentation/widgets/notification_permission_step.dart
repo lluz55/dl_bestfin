@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
@@ -127,39 +128,20 @@ class _NotificationPermissionStepState
               ),
             )
           else
-            FilledButton.icon(
-              onPressed: _requesting ? null : _enableNotifications,
-              icon: _requesting
-                  ? SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: cs.onPrimary,
-                      ),
-                    )
-                  : const Icon(Icons.notifications_rounded),
-              label: Text(
-                'Habilitar Notificações',
-                style: tt.titleMedium?.copyWith(
-                  color: cs.onPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
+            AppButton(
+              label: 'Habilitar Notificações',
+              icon: Icons.notifications_rounded,
+              expanded: true,
+              loading: _requesting,
+              onPressed: _enableNotifications,
             ),
           const SizedBox(height: 12),
-          TextButton(
+          AppButton(
+            label: Platform.isAndroid ? 'Agora não' : 'Continuar',
+            variant: AppButtonVariant.text,
+            color: cs.onSurfaceVariant,
+            expanded: true,
             onPressed: widget.onNext,
-            style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            child: Text(
-              Platform.isAndroid ? 'Agora não' : 'Continuar',
-              style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-            ),
           ),
           const SizedBox(height: 32),
         ],

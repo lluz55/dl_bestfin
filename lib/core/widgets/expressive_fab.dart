@@ -2,19 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../extensions/context_extensions.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/dimens.dart';
 
 class ExpressiveFAB extends StatefulWidget {
+  /// FAB com interação de confirmação em dois toques: o primeiro expande
+  /// revelando o label, o segundo dispara [onPressed]. Long-press dispara
+  /// imediatamente.
   const ExpressiveFAB({
     super.key,
     required this.onPressed,
     this.icon = Icons.add,
     this.label = 'Nova transação',
-  });
+  }) : expandOnTap = true;
+
+  /// FAB sempre expandido com toque único — substituto padronizado do
+  /// [FloatingActionButton.extended].
+  const ExpressiveFAB.extended({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  }) : expandOnTap = false;
 
   final VoidCallback onPressed;
   final IconData icon;
   final String label;
+
+  /// Se `true` (default), o primeiro toque expande e o segundo confirma.
+  /// Se `false`, o FAB nasce expandido e dispara no primeiro toque.
+  final bool expandOnTap;
 
   @override
   State<ExpressiveFAB> createState() => _ExpressiveFABState();
@@ -22,7 +39,7 @@ class ExpressiveFAB extends StatefulWidget {
 
 class _ExpressiveFABState extends State<ExpressiveFAB>
     with SingleTickerProviderStateMixin {
-  bool _expanded = false;
+  late bool _expanded = !widget.expandOnTap;
   bool _pressed = false;
   late final AnimationController _rotateCtrl;
 
@@ -43,6 +60,10 @@ class _ExpressiveFABState extends State<ExpressiveFAB>
 
   void _toggle() {
     HapticFeedback.lightImpact();
+    if (!widget.expandOnTap) {
+      widget.onPressed();
+      return;
+    }
     if (_expanded) {
       widget.onPressed();
       setState(() => _expanded = false);
@@ -79,8 +100,10 @@ class _ExpressiveFABState extends State<ExpressiveFAB>
             child: AnimatedContainer(
               duration: motion.morphDuration,
               curve: motion.morphCurve,
-              height: 56,
-              width: _expanded ? 196 : 56,
+              height: AppDimens.fabHeight,
+              // Largura intrínseca: colapsado = 16 + ícone 24 + 16 = 56;
+              // expandido acomoda qualquer label sem largura fixa.
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: targetRadius,
@@ -88,10 +111,11 @@ class _ExpressiveFABState extends State<ExpressiveFAB>
               child: ClipRRect(
                 borderRadius: targetRadius,
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     AnimatedRotation(
-                      turns: _expanded ? 0.125 : 0,
+                      turns: widget.expandOnTap && _expanded ? 0.125 : 0,
                       duration: motion.morphDuration,
                       curve: motion.morphCurve,
                       child: Icon(widget.icon, color: fgColor, size: 24),

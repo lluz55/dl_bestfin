@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/budgets/domain/models/budget_model.dart';
 import 'package:bestfin/features/budgets/presentation/providers/budgets_provider.dart';
@@ -93,12 +95,11 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
+          AppButton(
+            label: 'Excluir',
+            variant: AppButtonVariant.destructive,
+            size: AppButtonSize.compact,
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('Excluir'),
           ),
         ],
       ),
@@ -145,11 +146,11 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: ExpressiveFAB.extended(
         onPressed: () =>
             showBudgetFormSheet(context, year: _year, month: _month),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Novo envelope'),
+        icon: Icons.add_rounded,
+        label: 'Novo envelope',
       ),
       body: Column(
         children: [

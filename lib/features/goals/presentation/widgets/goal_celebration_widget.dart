@@ -111,15 +111,6 @@ class _GoalCelebrationWidgetState extends State<GoalCelebrationWidget>
                           onPressed: widget.onDismiss,
                           icon: const Icon(Icons.celebration_rounded),
                           label: const Text('Incrível!'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
                         )
                         .animate()
                         .fadeIn(delay: 700.ms)

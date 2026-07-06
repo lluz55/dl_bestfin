@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -315,11 +316,6 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
                 setState(() => _type = newSelection.first);
               },
               showSelectedIcon: false,
-              style: SegmentedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
             ),
             const SizedBox(height: 24),
 
@@ -358,11 +354,6 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
                 onSelectionChanged: (s) =>
                     setState(() => _recurrenceFrequency = s.first),
                 showSelectedIcon: false,
-                style: SegmentedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
               ),
             ],
             const SizedBox(height: 24),
@@ -412,33 +403,11 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
             ],
 
             // Botão salvar
-            SizedBox(
-              height: 54,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        isEditing ? 'Salvar Alterações' : 'Criar Meta',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
+            AppButton(
+              label: isEditing ? 'Salvar Alterações' : 'Criar Meta',
+              expanded: true,
+              loading: _saving,
+              onPressed: _save,
             ),
           ],
         ),
@@ -686,16 +655,14 @@ class _IconColorPickerState extends State<_IconColorPicker> {
                         ),
                       ),
                     ),
-                    FilledButton(
+                    AppButton(
+                      label: 'Confirmar',
+                      color: goalColor,
+                      size: AppButtonSize.compact,
                       onPressed: () {
                         widget.onSelected(_icon, _color);
                         Navigator.pop(context);
                       },
-                      style: FilledButton.styleFrom(backgroundColor: goalColor),
-                      child: const Text(
-                        'Confirmar',
-                        style: TextStyle(color: Colors.white),
-                      ),
                     ),
                   ],
                 ),

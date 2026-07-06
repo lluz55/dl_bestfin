@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/database/daos/recurring_rules_dao.dart';
+import 'package:bestfin/core/notifications/reminder_scheduler.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -80,6 +83,9 @@ class RecurringRepositoryImpl implements RecurringRepository {
   Future<void> generatePendingTransactions({int daysAhead = 30}) async {
     final limit = DateTime.now().add(Duration(days: daysAhead));
     await _dao.generatePendingTransactions(limit);
+    // Reconciliar lembretes é um efeito colateral best-effort — uma falha
+    // aqui nunca deve interromper a geração das transações recorrentes.
+    unawaited(ReminderScheduler(_database).reconcileAll().catchError((_) {}));
   }
 
   // ── Internal helpers ──────────────────────────────────────────────────────

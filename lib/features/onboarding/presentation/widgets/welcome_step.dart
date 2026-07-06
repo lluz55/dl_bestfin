@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -94,42 +95,16 @@ class WelcomeStep extends StatelessWidget {
                 .fadeIn()
                 .slideX(begin: -0.1, end: 0),
             const SizedBox(height: 32),
-            FilledButton(
-                  onPressed: onNext,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    'Começar',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                )
+            AppButton(label: 'Começar', expanded: true, onPressed: onNext)
                 .animate(delay: const Duration(milliseconds: 750))
                 .fadeIn()
                 .slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack),
             const SizedBox(height: 12),
-            OutlinedButton(
+            AppButton(
+                  label: 'Sincronizar com dispositivo existente',
+                  variant: AppButtonVariant.outlined,
+                  expanded: true,
                   onPressed: () => context.push('/sync/login'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    side: BorderSide(color: cs.outlineVariant),
-                  ),
-                  child: Text(
-                    'Sincronizar com dispositivo existente',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 )
                 .animate(delay: const Duration(milliseconds: 820))
                 .fadeIn()

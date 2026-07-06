@@ -133,10 +133,17 @@ class TransactionModel {
     return creditEntry.accountId;
   }
 
-  /// Status derivado de [isCompleted] — não confundir com [isConfirmed], que
-  /// distingue transações revisadas de sugestões vindas de notificação.
+  /// Status derivado de [isCompleted] e [date] — não confundir com
+  /// [isConfirmed], que distingue transações revisadas de sugestões vindas
+  /// de notificação.
   TransactionStatus get status =>
-      TransactionStatus.fromFlags(isCompleted: isCompleted);
+      TransactionStatus.fromFlags(isCompleted: isCompleted, date: date);
 
   bool get isPending => !isCompleted;
+
+  /// Pendente com data futura — ainda não venceu, não precisa de ação agora.
+  bool get isScheduled => status == TransactionStatus.scheduled;
+
+  /// Pendente com data de hoje ou passada — precisa de confirmação/revisão.
+  bool get isOverdue => status == TransactionStatus.pending;
 }

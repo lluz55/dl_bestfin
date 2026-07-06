@@ -114,6 +114,8 @@ class TransactionTile extends ConsumerWidget {
     }
 
     final isPending = transaction.isPending;
+    final isScheduled = transaction.isScheduled;
+    final isOverdue = transaction.isOverdue;
 
     Widget iconWidget;
     if (isCreditCard || isRecurring || isPending) {
@@ -123,7 +125,7 @@ class TransactionTile extends ConsumerWidget {
         child: Stack(
           children: [
             baseIcon,
-            if (isPending)
+            if (isOverdue)
               Positioned(
                 right: 0,
                 top: 0,
@@ -139,6 +141,26 @@ class TransactionTile extends ConsumerWidget {
                       Icons.schedule_rounded,
                       size: 11,
                       color: cs.tertiary,
+                    ),
+                  ),
+                ),
+              ),
+            if (isScheduled)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.event_available_rounded,
+                      size: 11,
+                      color: cs.secondary,
                     ),
                   ),
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -150,15 +151,10 @@ class _HomeWidgetsEditSheetState extends ConsumerState<HomeWidgetsEditSheet> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: FilledButton(
+                  child: AppButton(
+                    label: 'Salvar',
+                    expanded: true,
                     onPressed: _save,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text('Salvar'),
                   ),
                 ),
               ),

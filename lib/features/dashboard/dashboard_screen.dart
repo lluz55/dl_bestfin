@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/providers/sidebar_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
@@ -98,6 +99,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   hidden: hidden,
                   syncIndicator: syncIndicator,
                   customizeKey: _customizeKey,
+                  showHeaderIcon: !Breakpoints.isExpanded(context) ||
+                      ref.watch(sidebarCollapsedProvider),
                   onToggleHidden: () =>
                       ref.read(valuesHiddenProvider.notifier).toggle(),
                   onTheme: () => showThemeSettingsSheet(context),
@@ -472,6 +475,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onToggleHidden,
     required this.onTheme,
     required this.onCustomize,
+    required this.showHeaderIcon,
     this.onSyncErrorTap,
     this.customizeKey,
   });
@@ -486,6 +490,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onCustomize;
   final VoidCallback? onSyncErrorTap;
   final GlobalKey? customizeKey;
+  final bool showHeaderIcon;
 
   @override
   double get maxExtent => 96.0;
@@ -498,7 +503,8 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
       old.greeting != greeting ||
       old.hidden != hidden ||
       old.syncIndicator != syncIndicator ||
-      old.cs != cs;
+      old.cs != cs ||
+      old.showHeaderIcon != showHeaderIcon;
 
   @override
   Widget build(
@@ -529,6 +535,24 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            if (showHeaderIcon) ...[
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [cs.primary, cs.secondary],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.account_balance_wallet_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
                             Text(
                               'BestFin',
                               style: TextStyle.lerp(
@@ -556,14 +580,14 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                                   padding: const EdgeInsets.only(left: 6),
                                   child:
                                       Icon(
-                                        Icons.sync_rounded,
-                                        size: 14,
-                                        color: cs.primary.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                      ).animate(
-                                        onPlay: (c) => c.repeat(),
-                                      ).rotate(duration: 1200.ms),
+                                            Icons.sync_rounded,
+                                            size: 14,
+                                            color: cs.primary.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                          )
+                                          .animate(onPlay: (c) => c.repeat())
+                                          .rotate(duration: 1200.ms),
                                 ),
                                 _SyncIndicator.success => Padding(
                                   key: const ValueKey('success'),

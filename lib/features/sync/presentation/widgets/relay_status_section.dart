@@ -45,10 +45,7 @@ class RelayStatusSection extends ConsumerWidget {
                   label: '$connected conectado${connected == 1 ? '' : 's'}',
                 ),
                 if (errored > 0)
-                  _StatusSummary(
-                    color: cs.error,
-                    label: '$errored com erro',
-                  ),
+                  _StatusSummary(color: cs.error, label: '$errored com erro'),
                 if (connecting > 0)
                   _StatusSummary(
                     color: cs.onSurfaceVariant,
@@ -100,10 +97,7 @@ class _StatusSummary extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-        ),
+        Text(label, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
       ],
     );
   }

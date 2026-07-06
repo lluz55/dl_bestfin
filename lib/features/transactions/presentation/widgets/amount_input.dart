@@ -243,6 +243,7 @@ class _KeypadSheetState extends State<_KeypadSheet> {
                 onKeyPressed: _handleKeyPress,
                 onDeletePressed: _handleDelete,
                 onConfirmPressed: _handleConfirm,
+                autofocus: true,
               ),
             ],
           ),

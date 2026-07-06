@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'color_schemes.dart';
-import 'motion.dart';
-import 'shapes.dart';
-import 'typography.dart';
+import 'package:bestfin/core/theme/color_schemes.dart';
+import 'package:bestfin/core/theme/dimens.dart';
+import 'package:bestfin/core/theme/motion.dart';
+import 'package:bestfin/core/theme/shapes.dart';
+import 'package:bestfin/core/theme/typography.dart';
 
 class AppTheme {
   static ThemeData build(ColorScheme scheme) {
@@ -68,6 +69,9 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          minimumSize: AppDimens.buttonMinSize,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           shape: RoundedRectangleBorder(
             borderRadius: ExpressiveShapes.defaultShapes.button,
           ),
@@ -75,6 +79,9 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          minimumSize: AppDimens.buttonMinSize,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           shape: RoundedRectangleBorder(
             borderRadius: ExpressiveShapes.defaultShapes.button,
           ),
@@ -83,9 +90,45 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          minimumSize: AppDimens.buttonMinSize,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           shape: RoundedRectangleBorder(
             borderRadius: ExpressiveShapes.defaultShapes.button,
           ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: AppDimens.buttonMinSizeCompact,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: ExpressiveShapes.defaultShapes.button,
+          ),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: ExpressiveShapes.defaultShapes.button,
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(
+            AppDimens.minTapTarget,
+            AppDimens.minTapTarget,
+          ),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        elevation: 0,
+        backgroundColor: scheme.primaryContainer,
+        foregroundColor: scheme.onPrimaryContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: ExpressiveShapes.defaultShapes.fabDefault,
         ),
       ),
       dialogTheme: DialogThemeData(

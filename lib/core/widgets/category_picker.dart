@@ -139,8 +139,7 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
               ),
               Flexible(
                 child: asyncTree.when(
-                  loading: () =>
-                      const Center(child: AppLoadingIndicator()),
+                  loading: () => const Center(child: AppLoadingIndicator()),
                   error: (e, _) => Center(child: Text('Erro: $e')),
                   data: (roots) {
                     final items = _buildItems(roots);

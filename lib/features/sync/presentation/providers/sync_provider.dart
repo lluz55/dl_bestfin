@@ -108,6 +108,12 @@ class SyncState {
   /// (background or manual) starts.
   final String? backgroundErrorMessage;
 
+  /// True when the last pull found records published by a peer running a
+  /// newer app version — they were deferred, not applied, so this device is
+  /// behind until the app is updated. Cleared automatically once a sync
+  /// applies everything.
+  final bool updateRequired;
+
   const SyncState({
     this.status = SyncStatus.idle,
     this.pendingCount = 0,
@@ -124,6 +130,7 @@ class SyncState {
     this.isBackground = false,
     this.backgroundJustSucceeded = false,
     this.backgroundErrorMessage,
+    this.updateRequired = false,
   });
 
   double get syncPercent =>
@@ -145,6 +152,7 @@ class SyncState {
     bool? isBackground,
     bool? backgroundJustSucceeded,
     String? backgroundErrorMessage,
+    bool? updateRequired,
     bool clearError = false,
     bool clearPhase = false,
     bool clearResults = false,
@@ -171,6 +179,7 @@ class SyncState {
     backgroundErrorMessage: clearBackgroundError
         ? null
         : (backgroundErrorMessage ?? this.backgroundErrorMessage),
+    updateRequired: updateRequired ?? this.updateRequired,
   );
 }
 
@@ -430,6 +439,7 @@ class SyncStateNotifier extends Notifier<SyncState> {
         syncProgress: totalItems,
         syncTotal: totalItems,
         backgroundJustSucceeded: background,
+        updateRequired: result.deferred > 0,
       );
       if (background) unawaited(_clearBackgroundSuccessAfterDelay());
     } else if (result == SyncResult.alreadyRunning) {

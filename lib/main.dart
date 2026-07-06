@@ -29,9 +29,17 @@ import 'package:bestfin/features/recurring/presentation/providers/recurring_prov
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
+import 'package:bestfin/core/providers/sidebar_provider.dart';
+import 'package:bestfin/core/providers/reminders_settings_provider.dart';
+import 'package:bestfin/core/providers/pending_default_provider.dart';
+import 'package:bestfin/core/database/database_provider.dart';
+import 'package:bestfin/core/notifications/notification_service.dart';
+import 'package:bestfin/core/notifications/reminder_provider.dart';
+import 'package:bestfin/core/notifications/reminder_scheduler.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:bestfin/features/security/presentation/widgets/lock_overlay.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:mcp_toolkit/mcp_toolkit.dart';
 
 void main() async {
@@ -48,6 +56,12 @@ void main() async {
     }
   }
 
+  try {
+    await initializeNotifications();
+  } catch (e) {
+    debugPrint('Failed to initialize notifications: $e');
+  }
+
   initialOnboardingCompleted = await OnboardingActions.readCompleted();
   initialBiometricsEnabled = await OnboardingActions.readBiometrics();
   initialTutorialSeen = await TutorialActions.readSeen();
@@ -60,6 +74,12 @@ void main() async {
     initialValuesHidden = prefs.getBool(kValuesHiddenKey) ?? false;
   }
   initialDefaultAccountId = prefs.getString(kDefaultAccountIdKey);
+  initialSidebarCollapsed = prefs.getBool(kSidebarCollapsedKey) ?? false;
+  initialRemindersEnabled = prefs.getBool(kRemindersEnabledKey) ?? true;
+  initialReminderLeadTimeDays =
+      prefs.getInt(kReminderLeadTimeDaysKey) ?? ReminderLeadTime.oneDay.days;
+  initialDefaultPendingForPast =
+      prefs.getBool(kDefaultPendingForPastKey) ?? true;
   runApp(const ProviderScope(child: BestFinApp()));
 }
 
@@ -73,31 +93,71 @@ class BestFinApp extends ConsumerStatefulWidget {
 class _BestFinAppState extends ConsumerState<BestFinApp>
     with WidgetsBindingObserver {
   DateTime? _backgroundedAt;
+  Timer? _reminderDueCheckTimer;
+  StreamSubscription<String>? _notificationTapSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_handleEscKey);
-    // Gera transações pendentes para regras de recorrência ao abrir o app
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(generateRecurringProvider);
-      ref.read(gamificationServiceProvider).onAppStarted();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Gera transações pendentes para regras de recorrência e só então
+      // reconcilia os lembretes (a geração pode criar novas ocorrências
+      // futuras que precisam de notificação agendada).
+      await ref.read(generateRecurringProvider.future);
+      unawaited(ref.read(reminderReconcileProvider.future));
+      unawaited(ref.read(gamificationServiceProvider).onAppStarted());
       unawaited(_startSync());
     });
+
+    // Checagem periódica de lembretes vencidos — mecanismo principal no
+    // Linux (sem agendamento nativo no SO) e rede de segurança no Android.
+    _reminderDueCheckTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      unawaited(
+        ReminderScheduler(ref.read(databaseProvider)).fireDueReminders(),
+      );
+    });
+
+    _notificationTapSubscription = notificationTapController.stream.listen(
+      _handleNotificationTap,
+    );
+    // getNotificationAppLaunchDetails não é implementado no Linux — só faz
+    // sentido em plataformas onde uma notificação pode abrir o app.
+    if (Platform.isAndroid || Platform.isIOS) {
+      notificationsPlugin.getNotificationAppLaunchDetails().then((details) {
+        final payload = details?.notificationResponse?.payload;
+        if (details?.didNotificationLaunchApp == true && payload != null) {
+          _handleNotificationTap(payload);
+        }
+      });
+    }
+  }
+
+  Future<void> _handleNotificationTap(String transactionId) async {
+    final tx = await ref
+        .read(transactionRepositoryProvider)
+        .getTransactionById(transactionId);
+    if (tx == null || !mounted) return;
+    unawaited(ref.read(appRouterProvider).push('/transaction/edit', extra: tx));
   }
 
   bool _handleEscKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     if (event.logicalKey != LogicalKeyboardKey.escape) return false;
 
-    final router = ref.read(appRouterProvider);
-    final context = router.routerDelegate.navigatorKey.currentContext;
-    if (context == null) return false;
+    // Com o app bloqueado a árvore de navegação continua montada atrás da
+    // tela de bloqueio — Esc não pode navegar às escondidas.
+    if (ref.read(isLockedProvider) && ref.read(biometricsEnabledProvider)) {
+      return true;
+    }
 
-    final navigator = Navigator.of(context, rootNavigator: true);
-    if (navigator.canPop()) {
-      navigator.pop();
+    // Popar via GoRouter (e não direto no Navigator raiz) mantém a lista de
+    // rotas do go_router em sincronia — um pop cru pode abortar no meio e
+    // deixar o Navigator travado (assert `!_debugLocked` no dispose).
+    final router = ref.read(appRouterProvider);
+    if (router.canPop()) {
+      router.pop();
     } else {
       router.go('/home');
     }
@@ -150,6 +210,8 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
     HardwareKeyboard.instance.removeHandler(_handleEscKey);
     WidgetsBinding.instance.removeObserver(this);
     _syncBannerTimer?.cancel();
+    _reminderDueCheckTimer?.cancel();
+    _notificationTapSubscription?.cancel();
     super.dispose();
   }
 

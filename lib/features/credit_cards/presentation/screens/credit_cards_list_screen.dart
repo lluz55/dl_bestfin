@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -31,13 +32,11 @@ class CreditCardsListScreen extends ConsumerWidget {
             title: 'Meus Cartões',
             showVisibilityToggle: true,
           ),
-          floatingActionButton: FloatingActionButton.extended(
+          floatingActionButton: ExpressiveFAB.extended(
             onPressed: () =>
                 ref.read(creditCardFormModalProvider.notifier).open(),
-            icon: const Icon(Icons.add_card_rounded),
-            label: const Text('Novo Cartão'),
-            backgroundColor: cs.primaryContainer,
-            foregroundColor: cs.onPrimaryContainer,
+            icon: Icons.add_card_rounded,
+            label: 'Novo Cartão',
           ),
           body: cardsAsync.when(
             data: (cards) {

@@ -3,7 +3,7 @@ type: Feature
 title: Segurança
 description: Autenticação biométrica, PIN local e lock overlay para proteger dados financeiros.
 tags: [segurança, biometria, pin, lock, autenticação]
-timestamp: 2026-06-29T00:00:00Z
+timestamp: 2026-07-06T00:00:00Z
 ---
 
 ## Responsabilidade
@@ -15,6 +15,10 @@ Protege o app com autenticação biométrica (impressão digital, face ID) e PIN
 - **Primeira abertura**: usuário configura PIN e biometria no onboarding.
 - **Background > 60s**: ao retornar ao app, `LockOverlay` é exibido. O timer é verificado em `didChangeAppLifecycleState` em `main.dart`.
 - **Lock overlay**: cobre toda a árvore de widgets — implementado como wrapper global.
+
+## Armadilha de agente
+
+O `LockOverlay` deve **sobrepor** a tela de bloqueio ao conteúdo (Stack), nunca **substituir** a subárvore do app. Substituí-la desmonta todos os Navigators (raiz + branches do shell); se houver navegação em andamento no mesmo frame, o `NavigatorState.dispose` dispara o assert `!_debugLocked`, além de perder toda a pilha de rotas ao desbloquear. Enquanto bloqueado, o conteúdo fica atrás da tela opaca com toques, foco e semântica bloqueados (`IgnorePointer`/`ExcludeFocus`/`ExcludeSemantics`). Teste de regressão: `test/features/security/lock_overlay_test.dart`.
 
 ## Providers
 

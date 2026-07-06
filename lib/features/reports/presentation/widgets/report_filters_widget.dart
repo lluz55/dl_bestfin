@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -211,20 +212,10 @@ class ReportFiltersWidget extends ConsumerWidget {
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: context.colorScheme.primary,
-                              foregroundColor: context.colorScheme.onPrimary,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('APLICAR'),
-                          ),
+                        child: AppButton(
+                          label: 'APLICAR',
+                          expanded: true,
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ),
                     ],
@@ -335,20 +326,10 @@ class ReportFiltersWidget extends ConsumerWidget {
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: context.colorScheme.primary,
-                              foregroundColor: context.colorScheme.onPrimary,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('APLICAR'),
-                          ),
+                        child: AppButton(
+                          label: 'APLICAR',
+                          expanded: true,
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ),
                     ],

@@ -32,10 +32,18 @@ class GenerateCategoryReport {
             final catId = tx.categoryId ?? '_none';
             final g = groups[catId] ?? _Group(tx.category, 0, 0);
             if (tx.isCompleted) {
-              groups[catId] = _Group(g.category, g.amount + tx.amount, g.pending);
+              groups[catId] = _Group(
+                g.category,
+                g.amount + tx.amount,
+                g.pending,
+              );
               total += tx.amount;
             } else {
-              groups[catId] = _Group(g.category, g.amount, g.pending + tx.amount);
+              groups[catId] = _Group(
+                g.category,
+                g.amount,
+                g.pending + tx.amount,
+              );
             }
           }
 

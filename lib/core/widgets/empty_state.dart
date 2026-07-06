@@ -56,11 +56,6 @@ class EmptyState extends StatelessWidget {
                     onPressed: onAction,
                     icon: const Icon(Icons.add),
                     label: Text(actionLabel!),
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: context.shapes.button,
-                      ),
-                    ),
                   ),
                 ],
               ],

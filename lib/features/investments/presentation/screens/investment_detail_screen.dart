@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -161,13 +162,11 @@ class InvestmentDetailScreen extends ConsumerWidget {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
+          AppButton(
+            label: 'Excluir',
+            variant: AppButtonVariant.destructive,
+            size: AppButtonSize.compact,
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.colorScheme.error,
-              foregroundColor: context.colorScheme.onError,
-            ),
-            child: const Text('Excluir'),
           ),
         ],
       ),
@@ -429,17 +428,13 @@ class InvestmentDetailScreen extends ConsumerWidget {
                       ),
                       const Divider(height: 16),
                       const SizedBox(height: 8),
-                      ElevatedButton.icon(
+                      AppButton(
+                        label: 'Atualizar Rendimento',
+                        icon: Icons.price_change_outlined,
+                        variant: AppButtonVariant.tonal,
+                        expanded: true,
                         onPressed: () =>
                             _showUpdateYieldDialog(context, ref, inv),
-                        icon: const Icon(Icons.price_change_outlined),
-                        label: const Text('Atualizar Rendimento'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
                       ),
                     ],
                   ),

@@ -117,7 +117,8 @@ class _EmptyState extends StatelessWidget {
                     context,
                   ).read(goalFormModalProvider.notifier).open(),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(48, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
             ),
             child: const Text('Criar'),
           ),

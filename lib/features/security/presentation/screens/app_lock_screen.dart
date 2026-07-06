@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -154,16 +155,11 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
                   enabled: _lockedUntil == null,
                 )
               else ...[
-                FilledButton.icon(
+                AppButton(
+                  label: 'Usar Biometria',
+                  icon: Icons.fingerprint_rounded,
+                  expanded: true,
                   onPressed: _authenticating ? null : _authenticate,
-                  icon: const Icon(Icons.fingerprint_rounded),
-                  label: const Text('Usar Biometria'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 12),
                 TextButton(

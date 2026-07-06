@@ -86,10 +86,6 @@ class SuggestionCard extends ConsumerWidget {
                     onPressed: () => _discard(context, ref),
                     icon: const Icon(Icons.close_rounded, size: 18),
                     label: const Text('Descartar'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: cs.onSurfaceVariant,
-                      side: BorderSide(color: cs.outlineVariant),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

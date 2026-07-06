@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -29,12 +30,12 @@ class CreditCardDetailScreen extends ConsumerWidget {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('CANCELAR'),
           ),
-          TextButton(
+          AppButton(
+            label: 'EXCLUIR',
+            variant: AppButtonVariant.text,
+            size: AppButtonSize.compact,
+            color: context.colorScheme.error,
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: context.colorScheme.error,
-            ),
-            child: const Text('EXCLUIR'),
           ),
         ],
       ),

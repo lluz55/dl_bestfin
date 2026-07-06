@@ -172,7 +172,6 @@ class RecurringCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _StatusBadge extends StatelessWidget {

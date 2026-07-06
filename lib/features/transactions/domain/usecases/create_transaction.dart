@@ -36,6 +36,7 @@ class CreateTransaction {
       goalId: goalId,
       creditCardId: creditCardId,
       splits: splits,
+      isCompleted: isCompleted,
     );
   }
 }
