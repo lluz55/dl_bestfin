@@ -168,11 +168,10 @@ final deleteRecurringCloneAndFutureProvider =
           .deleteRecurringCloneAndFuture;
     });
 
-final recentDescriptionsProvider =
-    FutureProvider.family<List<String>, ({String query, String? type})>((
-      ref,
-      params,
-    ) async {
+// autoDispose: a chave inclui o texto digitado, então sem isso cada tecla
+// deixaria uma entrada de cache presa na árvore de providers para sempre.
+final recentDescriptionsProvider = FutureProvider.autoDispose
+    .family<List<String>, ({String query, String? type})>((ref, params) async {
       final repository = ref.watch(transactionRepositoryProvider);
       return repository.getRecentDescriptions(
         query: params.query,

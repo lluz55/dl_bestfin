@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,9 +40,14 @@ class QuickTransactionSheet extends ConsumerStatefulWidget {
       _QuickTransactionSheetState();
 }
 
+/// [predictCategory] varre todo o histórico de 180 dias a cada chamada —
+/// esperar o usuário parar de digitar evita repetir essa varredura por tecla.
+const _predictCategoryDebounce = Duration(milliseconds: 300);
+
 class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   late TransactionType _type;
   final _descriptionController = TextEditingController();
+  Timer? _predictDebounce;
 
   int _amountInCents = 0;
   String? _accountId;
@@ -103,6 +110,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
 
   @override
   void dispose() {
+    _predictDebounce?.cancel();
     _descriptionController.removeListener(_onDescriptionChanged);
     _descriptionController.dispose();
     super.dispose();
@@ -111,7 +119,9 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   void _onDescriptionChanged() {
     // Rebuild para reavaliar _canSave (habilita/desabilita "Salvar") ao digitar.
     setState(() {});
-    if (!_categoryTouched) _predictCategory();
+    if (_categoryTouched) return;
+    _predictDebounce?.cancel();
+    _predictDebounce = Timer(_predictCategoryDebounce, _predictCategory);
   }
 
   /// Preenche a categoria com o palpite do histórico ([predictCategory]),

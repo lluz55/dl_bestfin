@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+
+/// Espera o usuário parar de digitar antes de consultar o histórico —
+/// sem isso, cada tecla disparava um SELECT contra a tabela inteira.
+const _suggestionsDebounce = Duration(milliseconds: 250);
 
 class DescriptionAutocomplete extends ConsumerStatefulWidget {
   final TextEditingController controller;
@@ -32,6 +38,7 @@ class _DescriptionAutocompleteState
   late final FocusNode _focusNode;
   List<String> _suggestions = [];
   bool _showSuggestions = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -44,6 +51,7 @@ class _DescriptionAutocompleteState
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _focusNode.removeListener(_onFocusChange);
     widget.controller.removeListener(_onTextChanged);
     if (widget.focusNode == null) _focusNode.dispose();
@@ -61,7 +69,8 @@ class _DescriptionAutocompleteState
 
   void _onTextChanged() {
     widget.onChanged?.call();
-    _loadSuggestions();
+    _debounce?.cancel();
+    _debounce = Timer(_suggestionsDebounce, _loadSuggestions);
   }
 
   Future<void> _loadSuggestions() async {
@@ -146,6 +155,13 @@ class _DescriptionAutocompleteState
                 )).future,
               );
               return results;
+            }
+
+            // Espera o usuário parar de digitar antes de consultar — evita um
+            // SELECT por tecla enquanto o desktop reconstrói as opções.
+            await Future.delayed(_suggestionsDebounce);
+            if (widget.controller.text != textEditingValue.text) {
+              return const Iterable<String>.empty();
             }
 
             final results = await ref.read(
