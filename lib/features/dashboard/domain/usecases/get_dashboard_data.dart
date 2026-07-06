@@ -294,9 +294,6 @@ class GetDashboardData {
     List<TransactionModel> transactions,
     DateTime now,
   ) {
-    final sorted = transactions.toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-
     final Map<String, MonthlyBar> monthlyMap = {};
 
     // Initialize the last 6 months in chronological order to ensure 6 months are always represented
@@ -313,7 +310,10 @@ class GetDashboardData {
 
     final sixMonthsAgo = DateTime(now.year, now.month - 5, 1);
 
-    for (final tx in sorted) {
+    // A agregação por chave de mês independe da ordem de iteração — sortear
+    // o histórico inteiro aqui custaria O(n log n) sobre TODAS as transações
+    // do usuário a cada save, só para descartar tudo além dos últimos 6 meses.
+    for (final tx in transactions) {
       if (tx.date.isBefore(sixMonthsAgo)) continue;
       final key = '${tx.date.year}-${tx.date.month}';
       final existing = monthlyMap[key];
@@ -362,26 +362,26 @@ class GetDashboardData {
     List<TransactionModel> transactions,
     DateTime now,
   ) {
-    final completed = transactions.where((tx) => tx.isCompleted).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-
     final sixMonthsAgo = DateTime(now.year, now.month - 5, 1);
 
-    // Calculate cumulative balance before the six-month period
+    // Particiona antes de ordenar: o saldo acumulado anterior à janela é uma
+    // soma simples (não depende de ordem), então só a janela de 6 meses
+    // precisa ser ordenada — o custo deixa de crescer com o histórico total.
     int cumulative = 0;
-    for (final tx in completed) {
+    final filtered = <TransactionModel>[];
+    for (final tx in transactions) {
+      if (!tx.isCompleted) continue;
       if (tx.date.isBefore(sixMonthsAgo)) {
         if (tx.type == TransactionType.income) {
           cumulative += tx.amount;
         } else if (tx.type == TransactionType.expense) {
           cumulative -= tx.amount;
         }
+      } else {
+        filtered.add(tx);
       }
     }
-
-    final filtered = completed
-        .where((tx) => !tx.date.isBefore(sixMonthsAgo))
-        .toList();
+    filtered.sort((a, b) => a.date.compareTo(b.date));
 
     final Map<String, CashFlowPoint> pointsMap = {};
 
@@ -487,11 +487,11 @@ class GetDashboardData {
       orderedKeys.add(key);
     }
 
-    final completed = transactions.where((tx) => tx.isCompleted).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-
+    // Agregação por chave de mês independe de ordem — evita sortear o
+    // histórico inteiro (ver mesmo raciocínio em _calculateMonthlyHistory).
     // Aggregate monthly changes within the 6-month window
-    for (final tx in completed) {
+    for (final tx in transactions) {
+      if (!tx.isCompleted) continue;
       if (tx.type == TransactionType.transfer) continue;
       final key = '${tx.date.year}-${tx.date.month}';
       if (!monthlyNet.containsKey(key)) continue;
