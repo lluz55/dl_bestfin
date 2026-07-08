@@ -57,7 +57,10 @@ class _SplitEditorSheetState extends State<SplitEditorSheet> {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final remaining = _remaining;
-    final canConfirm = remaining == 0 && _rows.isNotEmpty;
+    final canConfirm =
+        remaining == 0 &&
+        _rows.isNotEmpty &&
+        _rows.every((r) => r.categoryId != null);
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),

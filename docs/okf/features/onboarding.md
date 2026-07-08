@@ -55,8 +55,16 @@ Chaves:
 - `onboarding_completed` → `onboardingCompletedProvider`
 - `biometrics_enabled` → `biometricsEnabledProvider`
 - `tutorial_seen` → `tutorialSeenProvider`
+- `onboarding_step` → `initialOnboardingStep` (só SharedPreferences)
+- `onboarding_account_draft` → `onboardingAccountDraftProvider` (JSON com o formulário do step 1; espelhado em memória para restauração síncrona ao navegar entre steps)
 
 Todos lidos antes de `runApp()` em `main.dart` para bootstrap síncrono.
+
+**Retomada de progresso:** o step atual do wizard é persistido em
+`onboarding_step` a cada `onPageChanged` e removido em
+`OnboardingActions.complete()`. Se o SO matar o processo no meio do setup, o
+`PageController` retoma do step salvo — sem isso o usuário refaria tudo
+(inclusive a conta do step 1, que já foi criada no banco).
 
 ## Tutorial Coach Marks
 
@@ -92,3 +100,7 @@ Targets com `GlobalKey.currentContext == null` são filtrados antes de exibir.
 - **Usar `tutorialKeysProvider` em dois lugares diferentes esperando GlobalKeys distintas** → Provider é um singleton em Riverpod; sempre retorna a mesma instância.
 - **Não filtrar targets inválidos** → `tutorial_coach_mark` pode crashar se `keyTarget.currentContext` for null.
 - **Pular step em `OnboardingScreen`**: "Pular" chama `_finish()` (completa onboarding), não `_nextPage()`. Comportamento intencional.
+- **Resetar o wizard sem limpar `onboarding_step`** → o usuário volta no meio de um onboarding "novo". Ao zerar o onboarding (ex.: limpar todos os dados), zere também a chave, `initialOnboardingStep` e `initialOnboardingAccountDraft` (+ invalidar `onboardingAccountDraftProvider`).
+- **Push de rota durante o onboarding** → o guard do router rebate para `/onboarding` qualquer rota fora da allowlist (`/security/pin-setup`, `/categories/new`, rotas `/sync/*` de auth). Se um step precisar abrir outra tela por push, adicione a rota à allowlist `isOnboardingSubflow` em `app_router.dart`, senão o usuário é jogado de volta ao wizard.
+- **A conta do step 1 NÃO é criada no step** — o formulário só grava o rascunho (`onboardingAccountDraftProvider`); a criação acontece uma única vez em `OnboardingScreen._finish()` (inclusive quando o usuário "Pula"). Se o onboarding for abandonado, nada é gravado no banco. `DuplicateAccountNameException` no finish é engolida de propósito (conta homônima pode ter vindo do sync).
+- **Permissões de notificação no Android são DUAS**: `requestAndroidNotificationPermission()` (POST_NOTIFICATIONS — exibir lembretes, diálogo do sistema) e `AndroidNotificationService.requestPermission()` (listener de captura — abre as configurações do SO). O `NotificationPermissionStep` pede as duas, nessa ordem.

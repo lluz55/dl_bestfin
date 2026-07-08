@@ -7,6 +7,8 @@ import 'package:bestfin/features/transactions/domain/usecases/create_transaction
 import 'package:bestfin/features/transactions/domain/usecases/update_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/delete_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/get_transactions.dart';
+import 'package:bestfin/core/utils/date_formatter.dart';
+import 'package:bestfin/core/constants/transaction_types.dart';
 
 // Repository
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
@@ -178,3 +180,54 @@ final recentDescriptionsProvider = FutureProvider.autoDispose
         type: params.type,
       );
     });
+
+class GroupedTransactions {
+  final Map<String, List<TransactionModel>> grouped;
+  final List<String> sortedDates;
+  final List<Object> flatList;
+  final int totalIncomes;
+  final int totalExpenses;
+
+  const GroupedTransactions({
+    required this.grouped,
+    required this.sortedDates,
+    required this.flatList,
+    required this.totalIncomes,
+    required this.totalExpenses,
+  });
+}
+
+final groupedTransactionsProvider = Provider.autoDispose<AsyncValue<GroupedTransactions>>((ref) {
+  final transactionsAsync = ref.watch(filteredTransactionsProvider);
+  return transactionsAsync.whenData((transactions) {
+    final Map<String, List<TransactionModel>> grouped = {};
+    for (final tx in transactions) {
+      final dateKey = DateFormatter.formatDate(tx.date);
+      grouped.putIfAbsent(dateKey, () => []).add(tx);
+    }
+    final sortedDates = grouped.keys.toList();
+    final List<Object> flatList = [];
+    for (final dateKey in sortedDates) {
+      flatList.add(dateKey);
+      flatList.addAll(grouped[dateKey]!);
+    }
+
+    int totalIncomes = 0;
+    int totalExpenses = 0;
+    for (final tx in transactions) {
+      if (tx.type == TransactionType.income) {
+        totalIncomes += tx.amount;
+      } else if (tx.type == TransactionType.expense) {
+        totalExpenses += tx.amount;
+      }
+    }
+
+    return GroupedTransactions(
+      grouped: grouped,
+      sortedDates: sortedDates,
+      flatList: flatList,
+      totalIncomes: totalIncomes,
+      totalExpenses: totalExpenses,
+    );
+  });
+});

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 
 class PinInputWidget extends StatefulWidget {
@@ -46,6 +47,30 @@ class PinInputWidgetState extends State<PinInputWidget>
     _shakeController.forward(from: 0);
   }
 
+  /// Limpa os dígitos sem animação de erro. Deve ser chamado pelo pai ao
+  /// reaproveitar o widget para uma nova entrada (ex.: etapa de confirmação
+  /// do PIN) — sem isso `_pin` fica cheio e o teclado para de responder.
+  void clear() {
+    if (_pin.isEmpty) return;
+    setState(() => _pin = '');
+  }
+
+  KeyEventResult _onHardwareKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      _onBackspace();
+      return KeyEventResult.handled;
+    }
+    final char = event.character;
+    if (char != null && char.length == 1 && '0123456789'.contains(char)) {
+      _onKey(char);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   void _onKey(String digit) {
     if (!widget.enabled || _pin.length >= 4) return;
     setState(() => _pin += digit);
@@ -64,59 +89,65 @@ class PinInputWidgetState extends State<PinInputWidget>
     final cs = context.colorScheme;
     final tt = context.textTheme;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedBuilder(
-          animation: _shakeAnimation,
-          builder: (context, child) {
-            final offset = _shakeController.isAnimating
-                ? 8 * (0.5 - (_shakeAnimation.value - 0.5).abs()) * 2
-                : 0.0;
-            return Transform.translate(
-              offset: Offset(offset * 10, 0),
-              child: child,
-            );
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (i) {
-              final filled = i < _pin.length;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: filled ? cs.primary : Colors.transparent,
-                  border: Border.all(
-                    color: filled ? cs.primary : cs.outline,
-                    width: 2,
-                  ),
-                ),
+    // Focus com autofocus permite digitar o PIN pelo teclado físico
+    // (essencial no Linux desktop, onde só existe o numpad em tela).
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _onHardwareKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _shakeAnimation,
+            builder: (context, child) {
+              final offset = _shakeController.isAnimating
+                  ? 8 * (0.5 - (_shakeAnimation.value - 0.5).abs()) * 2
+                  : 0.0;
+              return Transform.translate(
+                offset: Offset(offset * 10, 0),
+                child: child,
               );
-            }),
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(4, (i) {
+                final filled = i < _pin.length;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: filled ? cs.primary : Colors.transparent,
+                    border: Border.all(
+                      color: filled ? cs.primary : cs.outline,
+                      width: 2,
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
-        ),
-        if (widget.errorMessage != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            widget.errorMessage!,
-            style: tt.bodySmall?.copyWith(color: cs.error),
-            textAlign: TextAlign.center,
+          if (widget.errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              widget.errorMessage!,
+              style: tt.bodySmall?.copyWith(color: cs.error),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: 32),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: widget.enabled ? 1 : 0.4,
+            child: IgnorePointer(
+              ignoring: !widget.enabled,
+              child: _buildNumpad(cs, tt),
+            ),
           ),
         ],
-        const SizedBox(height: 32),
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 200),
-          opacity: widget.enabled ? 1 : 0.4,
-          child: IgnorePointer(
-            ignoring: !widget.enabled,
-            child: _buildNumpad(cs, tt),
-          ),
-        ),
-      ],
+      ),
     );
   }
 

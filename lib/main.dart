@@ -63,6 +63,8 @@ void main() async {
   }
 
   initialOnboardingCompleted = await OnboardingActions.readCompleted();
+  initialOnboardingStep = await OnboardingActions.readStep();
+  initialOnboardingAccountDraft = await OnboardingActions.readAccountDraft();
   initialBiometricsEnabled = await OnboardingActions.readBiometrics();
   initialTutorialSeen = await TutorialActions.readSeen();
   initialIsLocked = initialBiometricsEnabled;
@@ -273,18 +275,15 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
             darkDynamic != null) {
           lightScheme = lightDynamic.harmonized();
           darkScheme = darkDynamic.harmonized();
-        } else if (customSeed.useCustomSeed && customSeed.seedColor != null) {
+        } else {
           lightScheme = ColorScheme.fromSeed(
-            seedColor: customSeed.seedColor!,
+            seedColor: customSeed.effectiveSeed,
             brightness: Brightness.light,
           );
           darkScheme = ColorScheme.fromSeed(
-            seedColor: customSeed.seedColor!,
+            seedColor: customSeed.effectiveSeed,
             brightness: Brightness.dark,
           );
-        } else {
-          lightScheme = themeState.preset.light();
-          darkScheme = themeState.preset.dark();
         }
 
         return MaterialApp.router(

@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/byte_formatter.dart';
+import 'package:bestfin/features/accounts/data/repositories/account_repository.dart';
+import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/create_account_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/notification_permission_step.dart';
@@ -24,14 +29,20 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  final _controller = PageController();
-  int _currentPage = 0;
   static const _totalPages = 5;
+
+  // Retoma do último step persistido — sem isso, se o SO matar o processo
+  // no meio do setup, o wizard volta ao início e o usuário refaz tudo
+  // (inclusive a conta do step 1, que já foi criada no banco).
+  late final PageController _controller;
+  late int _currentPage;
   bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
+    _currentPage = initialOnboardingStep.clamp(0, _totalPages - 1);
+    _controller = PageController(initialPage: _currentPage);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final identity = ref.read(currentIdentityProvider).value;
@@ -62,9 +73,44 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  bool _finishing = false;
+
+  /// Cria a conta configurada no step 1 (a criação é adiada até aqui — se o
+  /// usuário abandonar o onboarding, nada é gravado no banco) e então marca
+  /// o onboarding como completo.
   Future<void> _finish() async {
-    await OnboardingActions.complete(ref);
-    // Router guard will automatically navigate to /home
+    if (_finishing) return;
+    _finishing = true;
+    try {
+      final draft = ref.read(onboardingAccountDraftProvider);
+      if (draft != null && draft.name.trim().isNotEmpty) {
+        final type = AccountType.fromString(draft.type);
+        try {
+          await ref.read(createAccountProvider)(
+            name: draft.name.trim(),
+            type: type.name,
+            icon: type.defaultIcon.codePoint.toString(),
+            color: draft.colorHex.isNotEmpty
+                ? draft.colorHex
+                : type.defaultColorHex,
+            initialBalance: draft.balanceCents,
+          );
+          ref.invalidate(accountsProvider);
+        } on DuplicateAccountNameException {
+          // Conta homônima já existe (ex.: restaurada via sync) — segue.
+        }
+      }
+      await OnboardingActions.complete(ref);
+      // Router guard will automatically navigate to /home
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao criar conta: $e')));
+      }
+    } finally {
+      _finishing = false;
+    }
   }
 
   @override
@@ -288,7 +334,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: PageView(
                 controller: _controller,
                 physics: const NeverScrollableScrollPhysics(),
-                onPageChanged: (i) => setState(() => _currentPage = i),
+                onPageChanged: (i) {
+                  setState(() => _currentPage = i);
+                  unawaited(OnboardingActions.saveStep(i));
+                },
                 children: [
                   WelcomeStep(onNext: _nextPage),
                   CreateAccountStep(onNext: _nextPage),

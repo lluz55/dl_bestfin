@@ -5,7 +5,8 @@ class CreateAccount {
 
   CreateAccount(this.repository);
 
-  Future<void> call({
+  /// Retorna o id da conta criada.
+  Future<String> call({
     required String name,
     required String type,
     required String? icon,

@@ -49,7 +49,8 @@ class ResponsiveNavigation extends ConsumerStatefulWidget {
   final GlobalKey? lastDestinationKey;
 
   @override
-  ConsumerState<ResponsiveNavigation> createState() => _ResponsiveNavigationState();
+  ConsumerState<ResponsiveNavigation> createState() =>
+      _ResponsiveNavigationState();
 }
 
 class _ResponsiveNavigationState extends ConsumerState<ResponsiveNavigation> {
@@ -71,7 +72,8 @@ class _ResponsiveNavigationState extends ConsumerState<ResponsiveNavigation> {
         floatingActionButton: widget.floatingActionButton,
         bottomOverlay: widget.bottomOverlay,
         isCollapsed: isCollapsed,
-        onToggleCollapsed: () => ref.read(sidebarCollapsedProvider.notifier).toggle(),
+        onToggleCollapsed: () =>
+            ref.read(sidebarCollapsedProvider.notifier).toggle(),
       );
     }
     if (Breakpoints.isMedium(context)) {

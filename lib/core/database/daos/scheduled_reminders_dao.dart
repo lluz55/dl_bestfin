@@ -36,14 +36,14 @@ class ScheduledRemindersDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> markFired(String transactionId, DateTime firedAt) {
-    return (update(scheduledReminders)
-          ..where((r) => r.transactionId.equals(transactionId)))
-        .write(
-          ScheduledRemindersCompanion(
-            firedAt: Value(firedAt),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
+    return (update(
+      scheduledReminders,
+    )..where((r) => r.transactionId.equals(transactionId))).write(
+      ScheduledRemindersCompanion(
+        firedAt: Value(firedAt),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Lembretes cujo horário já passou mas ainda não foram exibidos —
@@ -51,9 +51,7 @@ class ScheduledRemindersDao extends DatabaseAccessor<AppDatabase>
   /// segurança no Android caso o alarme inexato atrase.
   Future<List<ScheduledReminder>> findDue(DateTime now) {
     return (select(scheduledReminders)..where(
-          (r) =>
-              r.scheduledFor.isSmallerOrEqualValue(now) &
-              r.firedAt.isNull(),
+          (r) => r.scheduledFor.isSmallerOrEqualValue(now) & r.firedAt.isNull(),
         ))
         .get();
   }

@@ -197,18 +197,42 @@ class AppButton extends StatelessWidget {
         side == null) {
       return null;
     }
+
+    // WidgetStatePropertyAll ignoraria o estado desabilitado e manteria a cor
+    // de domínio (ex: verde de receita) a todo vapor mesmo com onPressed nulo
+    // — o botão parecia clicável quando não estava. Aplica os tokens M3 de
+    // desabilitado (onSurface em baixa opacidade) nesse estado.
+    WidgetStateProperty<Color>? disabledAware(Color enabledColor) {
+      return WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return cs.onSurface.withValues(alpha: 0.38);
+        }
+        return enabledColor;
+      });
+    }
+
     return ButtonStyle(
       minimumSize: minimumSize != null
           ? WidgetStatePropertyAll(minimumSize)
           : null,
       backgroundColor: background != null
-          ? WidgetStatePropertyAll(background)
+          ? WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return cs.onSurface.withValues(alpha: 0.12);
+              }
+              return background;
+            })
           : null,
-      foregroundColor: foreground != null
-          ? WidgetStatePropertyAll(foreground)
+      foregroundColor: foreground != null ? disabledAware(foreground) : null,
+      iconColor: foreground != null ? disabledAware(foreground) : null,
+      side: side != null
+          ? WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return BorderSide(color: cs.onSurface.withValues(alpha: 0.12));
+              }
+              return side;
+            })
           : null,
-      iconColor: foreground != null ? WidgetStatePropertyAll(foreground) : null,
-      side: side != null ? WidgetStatePropertyAll(side) : null,
     );
   }
 

@@ -20,8 +20,14 @@ Definidos em `lib/core/constants/account_types.dart`:
 | `savings` | Conta poupança |
 | `wallet` | Carteira de dinheiro físico |
 | `investment` | Conta de investimento |
-| `credit` | Cartão de crédito (passivo) |
-| `loan` | Empréstimo/financiamento (passivo) |
+| `reserve` | Reserva de emergência |
+| `foodVoucher` | Vale Alimentação (VA) |
+| `mealVoucher` | Vale Refeição (VR) |
+
+Nomes de conta são únicos (comparação case-insensitive, sem espaços nas
+bordas). `AccountRepositoryImpl` lança `DuplicateAccountNameException` ao
+criar/renomear com nome já existente — trate na UI com a mensagem do próprio
+`toString()`.
 
 ## Campos
 

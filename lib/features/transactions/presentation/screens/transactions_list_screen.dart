@@ -22,17 +22,6 @@ import 'package:bestfin/features/transactions/presentation/widgets/delete_transa
 class TransactionsListScreen extends ConsumerWidget {
   const TransactionsListScreen({super.key});
 
-  Map<String, List<TransactionModel>> _groupTransactionsByDay(
-    List<TransactionModel> list,
-  ) {
-    final Map<String, List<TransactionModel>> groups = {};
-    for (final tx in list) {
-      final dateKey = DateFormatter.formatDate(tx.date);
-      groups.putIfAbsent(dateKey, () => []).add(tx);
-    }
-    return groups;
-  }
-
   int _calculateDayNet(List<TransactionModel> list) {
     int net = 0;
     for (final tx in list) {
@@ -52,7 +41,7 @@ class TransactionsListScreen extends ConsumerWidget {
     final shapes = context.shapes;
     final colors = context.customColors;
     ref.watch(valuesHiddenProvider);
-    final transactionsAsync = ref.watch(filteredTransactionsProvider);
+    final groupedDataAsync = ref.watch(groupedTransactionsProvider);
     final filters = ref.watch(transactionFiltersProvider);
 
     return Scaffold(
@@ -70,9 +59,9 @@ class TransactionsListScreen extends ConsumerWidget {
               onRefresh: () async {
                 ref.invalidate(filteredTransactionsProvider);
               },
-              child: transactionsAsync.when(
-                data: (transactions) {
-                  if (transactions.isEmpty) {
+              child: groupedDataAsync.when(
+                data: (groupedData) {
+                  if (groupedData.flatList.isEmpty) {
                     return Center(
                       child: EmptyState(
                         title: filters.isEmpty
@@ -105,23 +94,10 @@ class TransactionsListScreen extends ConsumerWidget {
                     );
                   }
 
-                  final grouped = _groupTransactionsByDay(transactions);
-                  final sortedDates = grouped.keys.toList();
-                  final List<Object> flatList = [];
-                  for (final dateKey in sortedDates) {
-                    flatList.add(dateKey);
-                    flatList.addAll(grouped[dateKey]!);
-                  }
-
-                  int totalIncomes = 0;
-                  int totalExpenses = 0;
-                  for (final tx in transactions) {
-                    if (tx.type == TransactionType.income) {
-                      totalIncomes += tx.amount;
-                    } else if (tx.type == TransactionType.expense) {
-                      totalExpenses += tx.amount;
-                    }
-                  }
+                  final flatList = groupedData.flatList;
+                  final grouped = groupedData.grouped;
+                  final totalIncomes = groupedData.totalIncomes;
+                  final totalExpenses = groupedData.totalExpenses;
 
                   return CustomScrollView(
                     slivers: [

@@ -15,6 +15,7 @@ import 'package:bestfin/core/notifications/notification_service.dart';
 import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
+import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +27,7 @@ import 'package:bestfin/features/accounts/presentation/providers/accounts_provid
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
+import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 final _androidNotificationsEnabledProvider = FutureProvider.autoDispose<bool>((
   ref,
@@ -93,7 +95,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           title: const Text('Limpar todos os dados?'),
           content: const Text(
-            'Esta ação é irreversível. Todas as contas, transações, metas e demais dados serão apagados permanentemente.\n\nAs categorias padrão serão restauradas.',
+            'Esta ação é irreversível. Todas as contas, transações, metas e demais dados serão apagados permanentemente.\n\n'
+            'Este dispositivo também será desconectado da sincronização — sem isso os dados voltariam dos relays. Dados já sincronizados permanecem nos outros dispositivos.\n\n'
+            'As categorias padrão serão restauradas.',
           ),
           actions: [
             TextButton(
@@ -116,10 +120,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirmed != true || !mounted) return;
 
+    // Desconecta o sync ANTES do wipe: com a identidade Nostr ativa, o
+    // onboarding detectaria a identidade e re-sincronizaria tudo dos relays
+    // logo em seguida — na prática, "nada seria apagado".
+    try {
+      await ref.read(nostrSyncServiceProvider).signOut();
+    } catch (e) {
+      debugPrint('[ClearAll] signOut do sync falhou: $e');
+    }
+
     final db = ref.read(databaseProvider);
     await db.transaction(() async {
       await db.delete(db.attachments).go();
       await db.delete(db.entries).go();
+      await db.delete(db.transactionSplits).go();
+      await db.delete(db.scheduledReminders).go();
       await db.delete(db.transactions).go();
       await db.delete(db.invoices).go();
       await db.delete(db.creditCards).go();
@@ -128,17 +143,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await db.delete(db.financings).go();
       await db.delete(db.recurringRules).go();
       await db.delete(db.installmentPlans).go();
+      await db.delete(db.goalCategories).go();
       await db.delete(db.goals).go();
+      await db.delete(db.budgets).go();
       await db.delete(db.notificationPatterns).go();
       await db.delete(db.holidays).go();
       await db.delete(db.entities).go();
+      await db.delete(db.reconciliationCheckpoints).go();
       await db.delete(db.accounts).go();
+      await db.delete(db.categoryParents).go();
       await db.delete(db.categories).go();
       await db.delete(db.appSettings).go();
       await db.delete(db.badges).go();
       await db.delete(db.streaks).go();
       await db.delete(db.householdMembers).go();
       await db.delete(db.households).go();
+      await db.delete(db.chatMessages).go();
+      await db.delete(db.syncQueue).go();
+      await db.delete(db.nostrEventLog).go();
 
       // Re-seed default categories
       await db.batch((batch) {
@@ -173,6 +195,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     });
 
+    // Fecha a conexão antiga ANTES de invalidar — o onDispose do provider não
+    // é aguardado, e recriar o AppDatabase com a conexão anterior ainda aberta
+    // dispara o aviso de múltiplas instâncias do drift (e a corrida real).
+    await db.close();
     ref.invalidate(databaseProvider);
 
     // Clear PIN from secure storage
@@ -184,6 +210,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Reset global settings/onboarding variables
     initialOnboardingCompleted = false;
+    initialOnboardingStep = 0;
+    initialOnboardingAccountDraft = null;
     initialBiometricsEnabled = false;
     initialValuesHidden = false;
     initialAlwaysHideValues = false;
@@ -195,6 +223,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(isLockedProvider.notifier).unlock();
 
     // Invalidate providers to force them to reload from the cleared state
+    ref.invalidate(onboardingAccountDraftProvider);
     ref.invalidate(themeProvider);
     ref.invalidate(valuesHiddenProvider);
     ref.invalidate(alwaysHideValuesProvider);
@@ -211,6 +240,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+    // Navegação explícita: não depende do refresh do guard do router para
+    // levar o usuário ao início do setup (e limpa a pilha de rotas antiga).
+    context.go('/onboarding');
   }
 
   @override
@@ -231,24 +263,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               _SectionHeader(title: 'Aparência', tt: tt, cs: cs),
               _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'Tema',
-                subtitle: _themeLabel(themeState.mode),
-                cs: cs,
-                tt: tt,
-                onTap: () => _showThemePicker(context, ref, themeState),
-              ),
-              _SettingsTile(
                 icon: Icons.palette_outlined,
-                title: 'Cor dinâmica',
-                subtitle: 'Usar cor do sistema',
+                title: 'Tema',
+                subtitle: _themeSubtitle(themeState),
                 cs: cs,
                 tt: tt,
-                trailing: Switch(
-                  value: themeState.useDynamicColor,
-                  onChanged: (v) =>
-                      ref.read(themeProvider.notifier).setDynamicColor(v),
-                ),
+                onTap: () => showThemeSettingsSheet(context),
               ),
               const SizedBox(height: 8),
               _SectionHeader(title: 'Privacidade', tt: tt, cs: cs),
@@ -384,64 +404,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  String _themeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system:
-        return 'Sistema';
-      case ThemeMode.light:
-        return 'Claro';
-      case ThemeMode.dark:
-        return 'Escuro';
-    }
-  }
-
-  void _showThemePicker(BuildContext context, WidgetRef ref, ThemeState state) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        final cs = context.colorScheme;
-        final tt = context.textTheme;
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Tema',
-                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              for (final mode in ThemeMode.values)
-                ListTile(
-                  title: Text(_themeLabel(mode)),
-                  leading: Icon(_themeIcon(mode)),
-                  selected: state.mode == mode,
-                  selectedColor: cs.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onTap: () {
-                    ref.read(themeProvider.notifier).setMode(mode);
-                    Navigator.pop(context);
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  IconData _themeIcon(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system:
-        return Icons.settings_brightness_rounded;
-      case ThemeMode.light:
-        return Icons.light_mode_rounded;
-      case ThemeMode.dark:
-        return Icons.dark_mode_rounded;
-    }
+  String _themeSubtitle(ThemeState state) {
+    final source = state.useDynamicColor
+        ? 'Cores do papel de parede'
+        : 'Cor personalizada';
+    final mode = switch (state.mode) {
+      ThemeMode.system => 'brilho do sistema',
+      ThemeMode.light => 'claro',
+      ThemeMode.dark => 'escuro',
+    };
+    return '$source • $mode';
   }
 
   void _showLeadTimePicker(BuildContext context, WidgetRef ref) {
@@ -623,10 +595,7 @@ class _AndroidNotificationPermissionTile extends ConsumerWidget {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final enabledAsync = ref.watch(_androidNotificationsEnabledProvider);
-    final enabled = enabledAsync.maybeWhen(
-      data: (v) => v,
-      orElse: () => true,
-    );
+    final enabled = enabledAsync.maybeWhen(data: (v) => v, orElse: () => true);
 
     if (enabled) return const SizedBox.shrink();
 

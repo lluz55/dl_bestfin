@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/color_picker.dart';
-import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
+import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 
 class CreateAccountStep extends ConsumerStatefulWidget {
@@ -23,12 +23,24 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
   late String _selectedColorHex;
   bool _colorCustomized = false;
   int _balanceCents = 0;
-  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedColorHex = _selectedType.defaultColorHex;
+    // Restauração síncrona do rascunho — o usuário não perde nada ao voltar
+    // um step (o PageView descarta a página) nem ao sair do app no meio.
+    final draft = ref.read(onboardingAccountDraftProvider);
+    if (draft != null) {
+      _nameController.text = draft.name;
+      _selectedType = AccountType.fromString(draft.type);
+      _colorCustomized = draft.colorCustomized;
+      _selectedColorHex = draft.colorHex.isNotEmpty
+          ? draft.colorHex
+          : _selectedType.defaultColorHex;
+      _balanceCents = draft.balanceCents;
+    } else {
+      _selectedColorHex = _selectedType.defaultColorHex;
+    }
   }
 
   @override
@@ -37,28 +49,26 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  void _saveDraft() {
+    ref
+        .read(onboardingAccountDraftProvider.notifier)
+        .set(
+          OnboardingAccountDraft(
+            name: _nameController.text,
+            type: _selectedType.name,
+            colorHex: _selectedColorHex,
+            colorCustomized: _colorCustomized,
+            balanceCents: _balanceCents,
+          ),
+        );
+  }
+
+  /// Apenas valida e guarda o rascunho — a conta é criada de fato quando o
+  /// onboarding é finalizado (OnboardingScreen._finish).
+  void _save() {
     if (!_formKey.currentState!.validate()) return;
-    if (_saving) return;
-    setState(() => _saving = true);
-
-    try {
-      final createUseCase = ref.read(createAccountProvider);
-      await createUseCase(
-        name: _nameController.text.trim(),
-        type: _selectedType.name,
-        icon: _selectedType.defaultIcon.codePoint.toString(),
-        color: _selectedColorHex,
-        initialBalance: _balanceCents,
-      );
-
-      ref.invalidate(accountsProvider);
-      if (mounted) widget.onNext();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
+    _saveDraft();
+    widget.onNext();
   }
 
   @override
@@ -103,6 +113,7 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
                   textCapitalization: TextCapitalization.words,
+                  onChanged: (_) => _saveDraft(),
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -121,12 +132,15 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                     return FilterChip(
                       label: Text(type.label),
                       selected: selected,
-                      onSelected: (_) => setState(() {
-                        _selectedType = type;
-                        if (!_colorCustomized) {
-                          _selectedColorHex = type.defaultColorHex;
-                        }
-                      }),
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedType = type;
+                          if (!_colorCustomized) {
+                            _selectedColorHex = type.defaultColorHex;
+                          }
+                        });
+                        _saveDraft();
+                      },
                       avatar: Icon(type.defaultIcon, size: 16),
                     );
                   }).toList(),
@@ -136,7 +150,10 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                   amountInCents: _balanceCents,
                   label: 'Saldo atual',
                   color: cs.primary,
-                  onChanged: (val) => setState(() => _balanceCents = val),
+                  onChanged: (val) {
+                    setState(() => _balanceCents = val);
+                    _saveDraft();
+                  },
                 ),
                 const SizedBox(height: 20),
                 AppColorPicker(
@@ -146,18 +163,14 @@ class _CreateAccountStepState extends ConsumerState<CreateAccountStep> {
                       _colorCustomized = true;
                       _selectedColorHex = color;
                     });
+                    _saveDraft();
                   },
                 ),
               ],
             ),
           ),
           const SizedBox(height: 32),
-          AppButton(
-            label: 'Continuar',
-            expanded: true,
-            loading: _saving,
-            onPressed: _save,
-          ),
+          AppButton(label: 'Continuar', expanded: true, onPressed: _save),
           const SizedBox(height: 24),
         ],
       ),

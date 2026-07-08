@@ -239,6 +239,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
     if (isCompleted != null) {
       query.where(_database.transactions.isCompleted.equals(isCompleted));
     }
+    if (accountIds != null && accountIds.isNotEmpty) {
+      final txIdsWithAccount = _database.selectOnly(_database.entries)
+        ..addColumns([_database.entries.transactionId])
+        ..where(_database.entries.accountId.isIn(accountIds));
+      query.where(_database.transactions.id.isInQuery(txIdsWithAccount));
+    }
+    if (creditCardIds != null && creditCardIds.isNotEmpty) {
+      query.where(_database.transactions.creditCardId.isIn(creditCardIds));
+    }
 
     query.orderBy([
       OrderingTerm(
@@ -248,9 +257,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
     ]);
 
     return query.watch().map((rows) {
-      final hasAccountFilter = accountIds != null && accountIds.isNotEmpty;
-      final hasCardFilter = creditCardIds != null && creditCardIds.isNotEmpty;
-
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -259,22 +265,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       for (final row in rows) {
         final tx = row.readTable(_database.transactions);
-
-        if (hasAccountFilter || hasCardFilter) {
-          if (hasAccountFilter) {
-            final entry = row.readTableOrNull(_database.entries);
-            if (entry == null || !accountIds.contains(entry.accountId)) {
-              continue;
-            }
-          }
-          if (hasCardFilter) {
-            if (tx.creditCardId == null ||
-                !creditCardIds.contains(tx.creditCardId)) {
-              continue;
-            }
-          }
-        }
-
         final cat = row.readTableOrNull(_database.categories);
         final ent = row.readTableOrNull(_database.entities);
         final rule = row.readTableOrNull(_database.recurringRules);
@@ -385,32 +375,26 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<TransactionModel?> getTransactionById(String id) async {
-    final query =
-        _database.select(_database.transactions).join([
-            leftOuterJoin(
-              _database.categories,
-              _database.categories.id.equalsExp(
-                _database.transactions.categoryId,
-              ),
-            ),
-            leftOuterJoin(
-              _database.entities,
-              _database.entities.id.equalsExp(_database.transactions.entityId),
-            ),
-            leftOuterJoin(
-              _database.recurringRules,
-              _database.recurringRules.baseTransactionId.equalsExp(
-                _database.transactions.id,
-              ),
-            ),
-            leftOuterJoin(
-              _database.entries,
-              _database.entries.transactionId.equalsExp(
-                _database.transactions.id,
-              ),
-            ),
-          ])
-          ..where(_database.transactions.id.equals(id));
+    final query = _database.select(_database.transactions).join([
+      leftOuterJoin(
+        _database.categories,
+        _database.categories.id.equalsExp(_database.transactions.categoryId),
+      ),
+      leftOuterJoin(
+        _database.entities,
+        _database.entities.id.equalsExp(_database.transactions.entityId),
+      ),
+      leftOuterJoin(
+        _database.recurringRules,
+        _database.recurringRules.baseTransactionId.equalsExp(
+          _database.transactions.id,
+        ),
+      ),
+      leftOuterJoin(
+        _database.entries,
+        _database.entries.transactionId.equalsExp(_database.transactions.id),
+      ),
+    ])..where(_database.transactions.id.equals(id));
 
     final rows = await query.get();
     if (rows.isEmpty) return null;
@@ -501,7 +485,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
         isCompleted: Value(true),
       ),
     );
-    await _enqueueTransactionSync(id, 'update');
+    // Best-effort, como o lembrete — não faz sentido a UI esperar 3 SELECTs
+    // extras (tx + entries + splits) só para montar o payload da fila de sync.
+    unawaited(_enqueueTransactionSync(id, 'update').catchError((_) {}));
     _scheduleReminder(id);
   }
 
@@ -652,7 +638,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
         await _applyGoalAutoAbsorption(transactionId, categoryId, amount, type);
       }
     });
-    await _enqueueTransactionSync(transactionId, 'insert');
+    // Best-effort — a UI não deve esperar 3 SELECTs extras (tx + entries +
+    // splits) só para montar o payload da fila de sync após o commit.
+    unawaited(
+      _enqueueTransactionSync(transactionId, 'insert').catchError((_) {}),
+    );
     _scheduleReminder(transactionId);
     return transactionId;
   }
@@ -861,7 +851,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         await _applyGoalAutoAbsorption(id, categoryId, amount, type);
       }
     });
-    await _enqueueTransactionSync(id, 'update');
+    // Best-effort — mesma razão do createTransaction acima.
+    unawaited(_enqueueTransactionSync(id, 'update').catchError((_) {}));
     _scheduleReminder(id);
   }
 

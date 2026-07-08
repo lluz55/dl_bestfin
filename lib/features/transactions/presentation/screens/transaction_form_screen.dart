@@ -1038,7 +1038,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               onSelected: (selection) {
                 setState(() => _descriptionController.text = selection);
               },
-              onFieldSubmitted: (_) {},
+              onFieldSubmitted: (_) {
+                // Transferência não tem campo de entidade — pula direto para
+                // as observações, que existem para todos os tipos.
+                FocusScope.of(context).requestFocus(
+                  _type == TransactionType.transfer
+                      ? _notesFocusNode
+                      : _entityFocusNode,
+                );
+              },
               onChanged: _onDescriptionChanged,
             ),
           ),
@@ -1194,6 +1202,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             setState(() => _entityId = entity?.id);
           },
           focusNode: _entityFocusNode,
+          onFieldSubmitted: (_) {
+            FocusScope.of(context).requestFocus(_notesFocusNode);
+          },
         ),
         const SizedBox(height: 16),
         AccountSelector(

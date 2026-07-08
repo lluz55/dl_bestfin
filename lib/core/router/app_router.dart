@@ -97,8 +97,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           state.matchedLocation.startsWith('/sync/scan') ||
           state.matchedLocation.startsWith('/sync/recover') ||
           state.matchedLocation.startsWith('/sync/register');
+      // Rotas que os próprios steps do onboarding abrem por push — sem esta
+      // exceção o guard as rebate para /onboarding e o usuário volta ao
+      // início do wizard ao tentar configurar PIN ou criar categoria.
+      final isOnboardingSubflow =
+          state.matchedLocation.startsWith('/security/pin-setup') ||
+          state.matchedLocation.startsWith('/categories/new');
       if (!notifier.onboardingCompleted) {
-        return (isOnboarding || isSyncAuth) ? null : '/onboarding';
+        return (isOnboarding || isSyncAuth || isOnboardingSubflow)
+            ? null
+            : '/onboarding';
       }
       return isOnboarding ? '/home' : null;
     },

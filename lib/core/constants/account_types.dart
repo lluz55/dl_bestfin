@@ -5,7 +5,9 @@ enum AccountType {
   savings,
   wallet,
   investment,
-  reserve;
+  reserve,
+  foodVoucher,
+  mealVoucher;
 
   String get id => name;
 
@@ -21,6 +23,10 @@ enum AccountType {
         return 'Investimento';
       case AccountType.reserve:
         return 'Reserva';
+      case AccountType.foodVoucher:
+        return 'Alimentação';
+      case AccountType.mealVoucher:
+        return 'Refeição';
     }
   }
 
@@ -36,6 +42,10 @@ enum AccountType {
         return Icons.trending_up_rounded;
       case AccountType.reserve:
         return Icons.shield_rounded;
+      case AccountType.foodVoucher:
+        return Icons.local_grocery_store_rounded;
+      case AccountType.mealVoucher:
+        return Icons.restaurant_rounded;
     }
   }
 
@@ -51,6 +61,10 @@ enum AccountType {
         return '#009688'; // Teal
       case AccountType.reserve:
         return '#9C27B0'; // Purple
+      case AccountType.foodVoucher:
+        return '#8BC34A'; // Light Green
+      case AccountType.mealVoucher:
+        return '#FF5722'; // Deep Orange
     }
   }
 

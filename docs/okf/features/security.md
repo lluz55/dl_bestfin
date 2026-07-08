@@ -36,6 +36,13 @@ O `LockOverlay` deve **sobrepor** a tela de bloqueio ao conteúdo (Stack), nunca
 | `widgets/lock_overlay.dart` | Overlay global — wraps a árvore inteira |
 | `widgets/pin_input_widget.dart` | Input do PIN com feedback visual |
 
+**Armadilha do `PinInputWidget`:** após `onComplete` o buffer interno continua
+com 4 dígitos e o teclado deixa de aceitar entrada. Ao reutilizar o widget para
+uma nova digitação (etapa de confirmação, fim de lockout), chame
+`PinInputWidgetState.clear()` via GlobalKey — `shake()` também limpa, mas com
+animação de erro. O widget aceita teclado físico (dígitos + backspace) via
+`Focus` com autofocus, essencial no Linux desktop.
+
 ## Armazenamento Seguro
 
 PIN e credenciais de biometria → `flutter_secure_storage`. **Nunca** em `SharedPreferences` ou SQLite.

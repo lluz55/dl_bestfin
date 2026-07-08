@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
@@ -36,56 +35,23 @@ class DescriptionAutocomplete extends ConsumerStatefulWidget {
 class _DescriptionAutocompleteState
     extends ConsumerState<DescriptionAutocomplete> {
   late final FocusNode _focusNode;
-  List<String> _suggestions = [];
-  bool _showSuggestions = false;
-  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _focusNode = widget.focusNode ?? FocusNode();
-    _focusNode.addListener(_onFocusChange);
     widget.controller.addListener(_onTextChanged);
-    _loadSuggestions();
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
-    _focusNode.removeListener(_onFocusChange);
     widget.controller.removeListener(_onTextChanged);
     if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
   }
 
-  void _onFocusChange() {
-    setState(() {
-      _showSuggestions = _focusNode.hasFocus;
-    });
-    if (_focusNode.hasFocus) {
-      _loadSuggestions();
-    }
-  }
-
   void _onTextChanged() {
     widget.onChanged?.call();
-    _debounce?.cancel();
-    _debounce = Timer(_suggestionsDebounce, _loadSuggestions);
-  }
-
-  Future<void> _loadSuggestions() async {
-    final text = widget.controller.text;
-    final results = await ref.read(
-      recentDescriptionsProvider((
-        query: text,
-        type: widget.transactionType,
-      )).future,
-    );
-    if (mounted) {
-      setState(() {
-        _suggestions = results.toList();
-      });
-    }
   }
 
   @override
@@ -93,164 +59,190 @@ class _DescriptionAutocompleteState
     final cs = context.colorScheme;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (isMobile && _showSuggestions && _suggestions.isNotEmpty) ...[
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              itemCount: _suggestions.length,
-              itemBuilder: (BuildContext context, int index) {
-                final String option = _suggestions[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ActionChip(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    labelPadding: EdgeInsets.zero,
-                    avatar: Icon(
-                      Icons.history,
-                      color: cs.onSurfaceVariant,
-                      size: 16,
-                    ),
-                    label: Text(
-                      option,
-                      style: TextStyle(color: cs.onSurface, fontSize: 13),
-                    ),
-                    backgroundColor: cs.surfaceContainerLow,
-                    side: BorderSide(color: cs.outlineVariant, width: 0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    onPressed: () {
-                      widget.controller.text = option;
-                      widget.onSelected(option);
-                    },
-                  ),
-                );
-              },
-            ),
+    return RawAutocomplete<String>(
+      textEditingController: widget.controller,
+      focusNode: _focusNode,
+      // Sugestões flutuam acima do campo (overlay do próprio
+      // RawAutocomplete) em vez de empurrar o resto do formulário.
+      optionsViewOpenDirection: OptionsViewOpenDirection.up,
+      optionsBuilder: (TextEditingValue textEditingValue) async {
+        if (textEditingValue.text.isEmpty) {
+          final results = await ref.read(
+            recentDescriptionsProvider((
+              query: '',
+              type: widget.transactionType,
+            )).future,
+          );
+          return results;
+        }
+
+        // Espera o usuário parar de digitar antes de consultar — evita um
+        // SELECT por tecla enquanto o desktop reconstrói as opções.
+        await Future.delayed(_suggestionsDebounce);
+        if (widget.controller.text != textEditingValue.text) {
+          return const Iterable<String>.empty();
+        }
+
+        final results = await ref.read(
+          recentDescriptionsProvider((
+            query: textEditingValue.text,
+            type: widget.transactionType,
+          )).future,
+        );
+        return results;
+      },
+      onSelected: widget.onSelected,
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: widget.transactionType == 'transfer'
+                ? 'Descrição (opcional)'
+                : 'Descrição *',
+            hintText: 'Ex: Compras no mercado, Freelance...',
+            prefixIcon: const Icon(Icons.description_outlined),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
           ),
-          const SizedBox(height: 8),
-        ],
-        RawAutocomplete<String>(
-          textEditingController: widget.controller,
-          focusNode: _focusNode,
-          optionsBuilder: (TextEditingValue textEditingValue) async {
-            if (isMobile) {
-              return const Iterable<String>.empty();
-            }
-
-            if (textEditingValue.text.isEmpty) {
-              final results = await ref.read(
-                recentDescriptionsProvider((
-                  query: '',
-                  type: widget.transactionType,
-                )).future,
-              );
-              return results;
-            }
-
-            // Espera o usuário parar de digitar antes de consultar — evita um
-            // SELECT por tecla enquanto o desktop reconstrói as opções.
-            await Future.delayed(_suggestionsDebounce);
-            if (widget.controller.text != textEditingValue.text) {
-              return const Iterable<String>.empty();
-            }
-
-            final results = await ref.read(
-              recentDescriptionsProvider((
-                query: textEditingValue.text,
-                type: widget.transactionType,
-              )).future,
-            );
-            return results;
+          onFieldSubmitted: (value) {
+            onFieldSubmitted();
+            widget.onFieldSubmitted?.call(value);
           },
-          onSelected: widget.onSelected,
-          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-            return TextFormField(
-              controller: controller,
-              focusNode: focusNode,
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: widget.transactionType == 'transfer'
-                    ? 'Descrição (opcional)'
-                    : 'Descrição *',
-                hintText: 'Ex: Compras no mercado, Freelance...',
-                prefixIcon: const Icon(Icons.description_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onFieldSubmitted: (value) {
-                onFieldSubmitted();
-                widget.onFieldSubmitted?.call(value);
-              },
-            );
-          },
-          optionsViewBuilder: (context, onSelected, options) {
-            final isLinux = defaultTargetPlatform == TargetPlatform.linux;
-            return Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(16),
-                color: cs.surfaceContainerHigh,
-                child: Container(
-                  width:
-                      MediaQuery.of(context).size.width -
-                      40, // Padding do ListView
-                  constraints: const BoxConstraints(maxHeight: 250),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: cs.outlineVariant),
-                  ),
-                  child: ListView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    itemCount: options.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final String option = options.elementAt(index);
-                      return InkWell(
-                        onTap: isLinux ? null : () => onSelected(option),
-                        onTapDown: isLinux ? (_) => onSelected(option) : null,
-                        child: Padding(
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        // Mobile: faixa horizontal de chips (compacta, rolável).
+        if (isMobile) {
+          // bottomStart: com optionsViewOpenDirection.up, o framework
+          // reserva todo o espaço disponível ACIMA do campo (que pode ser
+          // quase a tela toda dentro de um bottom sheet) — alinhar pela
+          // base é o que cola este conteúdo rente ao campo, em vez de
+          // flutuar solto no topo desse espaço.
+          return Align(
+            alignment: AlignmentDirectional.bottomStart,
+            child: SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                itemCount: options.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final String option = options.elementAt(index);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Material(
+                      color: cs.surfaceContainerHigh,
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        // canRequestFocus:false + onTapDown (em vez de
+                        // onTap/ActionChip): tocar aqui não pode tirar o
+                        // foco do campo antes do tap terminar, senão o
+                        // RawAutocomplete esconde este overlay no meio do
+                        // gesto e a seleção nunca dispara.
+                        canRequestFocus: false,
+                        onTapDown: (_) => onSelected(option),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: cs.outlineVariant,
+                              width: 0.5,
+                            ),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.history,
                                 color: cs.onSurfaceVariant,
-                                size: 20,
+                                size: 16,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  option,
-                                  style: TextStyle(color: cs.onSurface),
+                              const SizedBox(width: 4),
+                              Text(
+                                option,
+                                style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 13,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ],
+            ),
+          );
+        }
+
+        // Desktop/tablet: lista vertical.
+        // bottomStart (ver comentário acima): cola a lista rente ao campo
+        // em vez de alinhá-la ao topo do espaço reservado.
+        return Align(
+          alignment: AlignmentDirectional.bottomStart,
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(16),
+            color: cs.surfaceContainerHigh,
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 250),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final String option = options.elementAt(index);
+                  return InkWell(
+                    // onTapDown (não onTap) evita a corrida com a perda de
+                    // foco do campo ao tocar na opção: o foco tirado do
+                    // TextField dispara um rebuild que pode remover esta
+                    // lista antes do tap (pointer-up) terminar de ser
+                    // reconhecido.
+                    canRequestFocus: false,
+                    onTapDown: (_) => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.history,
+                            color: cs.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              option,
+                              style: TextStyle(color: cs.onSurface),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

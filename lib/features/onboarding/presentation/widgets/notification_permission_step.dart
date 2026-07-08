@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/notifications/notification_service.dart';
 import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
 
 class NotificationPermissionStep extends ConsumerStatefulWidget {
@@ -24,6 +25,11 @@ class _NotificationPermissionStepState
     setState(() => _requesting = true);
     try {
       if (Platform.isAndroid) {
+        // Permissão de EXIBIR notificações (POST_NOTIFICATIONS, Android 13+)
+        // — diálogo do sistema, necessário para lembretes e alertas.
+        await requestAndroidNotificationPermission();
+        // Acesso de LEITURA de notificações (captura de transações) — abre
+        // a tela de configurações do sistema.
         await ref.read(androidNotificationServiceProvider).requestPermission();
       }
     } finally {

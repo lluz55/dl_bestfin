@@ -317,7 +317,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         _showLoading('Restaurando banco de dados a partir do JSON...');
         await importUseCase.restoreJson(jsonString);
 
-        // Invalidate database provider to force recreate a fresh connection
+        // Fecha a conexão antiga antes de invalidar — evita duas instâncias
+        // do AppDatabase abertas ao mesmo tempo sobre o mesmo arquivo.
+        await ref.read(databaseProvider).close();
         ref.invalidate(databaseProvider);
 
         _hideLoading();

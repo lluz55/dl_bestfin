@@ -57,6 +57,9 @@ void main() {
       accountId: accountId,
     );
 
+    // Wait for the unawaited _enqueueTransactionSync to execute
+    await Future.delayed(Duration.zero);
+
     final pending = await db.syncQueueDao.getPendingItems();
     expect(pending, hasLength(1));
     expect(pending.single.operation, 'insert');

@@ -7,6 +7,7 @@ import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/color_picker.dart';
 import 'package:bestfin/core/widgets/icon_picker.dart';
+import 'package:bestfin/features/accounts/data/repositories/account_repository.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/presentation/widgets/account_card.dart';
@@ -129,6 +130,13 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
 
       if (mounted) {
         Navigator.pop(context);
+      }
+    } on DuplicateAccountNameException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } catch (e) {
       if (mounted) {

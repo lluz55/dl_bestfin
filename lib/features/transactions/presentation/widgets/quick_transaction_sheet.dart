@@ -47,6 +47,8 @@ const _predictCategoryDebounce = Duration(milliseconds: 300);
 class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   late TransactionType _type;
   final _descriptionController = TextEditingController();
+  final _descriptionFocusNode = FocusNode();
+  final _entityFocusNode = FocusNode();
   Timer? _predictDebounce;
 
   int _amountInCents = 0;
@@ -54,6 +56,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   String? _toAccountId;
   String? _categoryId;
   String? _entityId;
+  DateTime _date = DateTime.now();
   bool _saving = false;
 
   /// Usuário escolheu a categoria manualmente (ou via sugestão) — trava o palpite.
@@ -78,7 +81,9 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
     } else {
       // Despesa/receita exigem descrição, categoria e entidade (pago a/recebido de).
       if (_descriptionController.text.trim().isEmpty) return false;
-      if (_categoryId == null) return false;
+      // _categoryTouched: uma categoria apenas sugerida por predictCategory()
+      // não conta como selecionada — o usuário precisa confirmar tocando nela.
+      if (_categoryId == null || !_categoryTouched) return false;
       if (_entityId == null) return false;
     }
     return true;
@@ -113,7 +118,29 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
     _predictDebounce?.cancel();
     _descriptionController.removeListener(_onDescriptionChanged);
     _descriptionController.dispose();
+    _descriptionFocusNode.dispose();
+    _entityFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _date = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        _date.hour,
+        _date.minute,
+        _date.second,
+      );
+    });
   }
 
   void _onDescriptionChanged() {
@@ -198,7 +225,9 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
       description: _descriptionController.text.trim(),
       accountId: _accountId,
       toAccountId: _isTransfer ? _toAccountId : null,
-      categoryId: _isTransfer ? null : _categoryId,
+      // Categoria apenas sugerida (não confirmada pelo usuário) não deve ser
+      // herdada como se já estivesse selecionada no formulário completo.
+      categoryId: _isTransfer ? null : (_categoryTouched ? _categoryId : null),
       entityId: _isTransfer ? null : _entityId,
       isPending: _isPending,
     );
@@ -294,7 +323,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
 
     try {
       await ref.read(createTransactionProvider)(
-        date: DateTime.now(),
+        date: _date,
         description: description,
         type: _type.name,
         amount: _amountInCents,
@@ -381,7 +410,15 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                     DescriptionAutocomplete(
                       controller: _descriptionController,
                       transactionType: _type.name,
+                      focusNode: _descriptionFocusNode,
                       onSelected: (_) {},
+                      onFieldSubmitted: (_) {
+                        if (_isTransfer) {
+                          FocusScope.of(context).unfocus();
+                        } else {
+                          FocusScope.of(context).requestFocus(_entityFocusNode);
+                        }
+                      },
                     ),
                     if (!_isTransfer) ...[
                       const SizedBox(height: 16),
@@ -393,6 +430,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                         label: _type == TransactionType.income
                             ? 'Recebido de *'
                             : 'Pago a *',
+                        focusNode: _entityFocusNode,
                         onEntitySelected: (entity) {
                           setState(() => _entityId = entity?.id);
                           // Entidade é sinal forte para o palpite de categoria.
@@ -425,7 +463,13 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                       _categorySelector(color: color),
                     ],
                     const SizedBox(height: 16),
-                    _pendingToggle(color),
+                    Row(
+                      children: [
+                        _pendingToggle(color),
+                        const SizedBox(width: 8),
+                        _dateChip(color),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -507,6 +551,58 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Chip discreto para ajustar a data (sem hora) do lançamento — por padrão
+  /// mostra "Hoje", já que o lançamento rápido assume a data atual.
+  Widget _dateChip(Color color) {
+    final cs = context.colorScheme;
+    final now = DateTime.now();
+    final isToday =
+        _date.year == now.year &&
+        _date.month == now.month &&
+        _date.day == now.day;
+    final label = isToday
+        ? 'Hoje'
+        : _date.year == now.year
+        ? '${_date.day.toString().padLeft(2, '0')}/${_date.month.toString().padLeft(2, '0')}'
+        : '${_date.day.toString().padLeft(2, '0')}/${_date.month.toString().padLeft(2, '0')}/${_date.year}';
+
+    return InkWell(
+      onTap: _pickDate,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isToday
+              ? cs.surfaceContainerHigh
+              : color.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isToday ? cs.outlineVariant.withValues(alpha: 0.4) : color,
+            width: isToday ? 1 : 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 14,
+              color: isToday ? cs.onSurfaceVariant : color,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: isToday ? cs.onSurface : color,
+                fontWeight: isToday ? FontWeight.w500 : FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );

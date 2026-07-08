@@ -36,9 +36,10 @@ class RemindersEnabledNotifier extends Notifier<bool> {
   }
 }
 
-final remindersEnabledProvider = NotifierProvider<RemindersEnabledNotifier, bool>(
-  RemindersEnabledNotifier.new,
-);
+final remindersEnabledProvider =
+    NotifierProvider<RemindersEnabledNotifier, bool>(
+      RemindersEnabledNotifier.new,
+    );
 
 class ReminderLeadTimeNotifier extends Notifier<ReminderLeadTime> {
   @override

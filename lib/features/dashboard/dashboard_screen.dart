@@ -99,7 +99,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   hidden: hidden,
                   syncIndicator: syncIndicator,
                   customizeKey: _customizeKey,
-                  showHeaderIcon: !Breakpoints.isExpanded(context) ||
+                  showHeaderIcon:
+                      !Breakpoints.isExpanded(context) ||
                       ref.watch(sidebarCollapsedProvider),
                   onToggleHidden: () =>
                       ref.read(valuesHiddenProvider.notifier).toggle(),

@@ -5,17 +5,30 @@ import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+/// Lançada ao tentar criar/renomear uma conta com um nome já usado por outra.
+class DuplicateAccountNameException implements Exception {
+  const DuplicateAccountNameException(this.name);
+
+  final String name;
+
+  @override
+  String toString() => 'Já existe uma conta com o nome "$name".';
+}
+
 abstract class AccountRepository {
   Stream<List<Account>> watchAllAccounts();
   Stream<Account> watchAccountById(String id);
   Future<int> getAccountBalance(String id);
-  Future<void> createWithInitialBalance({
+
+  /// Retorna o id da conta criada.
+  Future<String> createWithInitialBalance({
     required String name,
     required String type,
     required String? icon,
     required String? color,
     required int initialBalance,
   });
+
   Future<void> updateAccount({
     required String id,
     required String name,
@@ -35,35 +48,25 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Stream<List<Account>> watchAllAccounts() {
+    final balanceExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END), 0)",
+    );
+
     final query = _database.select(_database.accounts).join([
       leftOuterJoin(
         _database.entries,
         _database.entries.accountId.equalsExp(_database.accounts.id),
       ),
-    ])..where(_database.accounts.type.equals('credit_card_bill').not());
+    ])
+      ..where(_database.accounts.type.equals('credit_card_bill').not())
+      ..addColumns([balanceExpr]);
+
+    query.groupBy([_database.accounts.id]);
 
     return query.watch().map((rows) {
-      final Map<String, db.Account> accountsMap = {};
-      final Map<String, int> balancesMap = {};
-
-      for (final row in rows) {
-        final account = row.readTable(_database.accounts);
-        final entry = row.readTableOrNull(_database.entries);
-
-        accountsMap[account.id] = account;
-
-        if (entry != null) {
-          final currentBalance = balancesMap[account.id] ?? 0;
-          final amount = entry.amount;
-          final change = entry.type == 'debit' ? amount : -amount;
-          balancesMap[account.id] = currentBalance + change;
-        } else {
-          balancesMap[account.id] ??= 0;
-        }
-      }
-
-      return accountsMap.values.map((dbAcc) {
-        final balance = balancesMap[dbAcc.id] ?? 0;
+      return rows.map((row) {
+        final dbAcc = row.readTable(_database.accounts);
+        final balance = row.read(balanceExpr) ?? 0;
         return Account.fromDb(dbAcc, balance);
       }).toList();
     });
@@ -71,55 +74,55 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Stream<Account> watchAccountById(String id) {
+    final balanceExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END), 0)",
+    );
+
     final query = _database.select(_database.accounts).join([
       leftOuterJoin(
         _database.entries,
         _database.entries.accountId.equalsExp(_database.accounts.id),
       ),
-    ])..where(_database.accounts.id.equals(id));
+    ])
+      ..where(_database.accounts.id.equals(id))
+      ..addColumns([balanceExpr]);
+
+    query.groupBy([_database.accounts.id]);
 
     return query.watch().map((rows) {
       if (rows.isEmpty) {
         throw Exception('Account not found');
       }
-
-      final dbAcc = rows.first.readTable(_database.accounts);
-      int balance = 0;
-
-      for (final row in rows) {
-        final entry = row.readTableOrNull(_database.entries);
-        if (entry != null) {
-          final change = entry.type == 'debit' ? entry.amount : -entry.amount;
-          balance += change;
-        }
-      }
-
+      final row = rows.first;
+      final dbAcc = row.readTable(_database.accounts);
+      final balance = row.read(balanceExpr) ?? 0;
       return Account.fromDb(dbAcc, balance);
     });
   }
 
   @override
   Future<int> getAccountBalance(String id) async {
-    final entriesList = await (_database.select(
-      _database.entries,
-    )..where((t) => t.accountId.equals(id))).get();
+    final balanceExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN type = 'debit' THEN amount ELSE -amount END), 0)",
+    );
 
-    int balance = 0;
-    for (final entry in entriesList) {
-      final change = entry.type == 'debit' ? entry.amount : -entry.amount;
-      balance += change;
-    }
-    return balance;
+    final query = _database.selectOnly(_database.entries)
+      ..addColumns([balanceExpr])
+      ..where(_database.entries.accountId.equals(id));
+
+    final row = await query.getSingleOrNull();
+    return row?.read(balanceExpr) ?? 0;
   }
 
   @override
-  Future<void> createWithInitialBalance({
+  Future<String> createWithInitialBalance({
     required String name,
     required String type,
     required String? icon,
     required String? color,
     required int initialBalance,
   }) async {
+    await _ensureUniqueName(name);
     final accountId = const Uuid().v4();
 
     await _database.transaction(() async {
@@ -154,6 +157,7 @@ class AccountRepositoryImpl implements AccountRepository {
       }
     });
     await _enqueueAccountSync(accountId, 'insert');
+    return accountId;
   }
 
   @override
@@ -165,6 +169,7 @@ class AccountRepositoryImpl implements AccountRepository {
     required String? color,
     bool? isActive,
   }) async {
+    await _ensureUniqueName(name, excludeId: id);
     await (_database.update(
       _database.accounts,
     )..where((t) => t.id.equals(id))).write(
@@ -188,6 +193,23 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Future<bool> canDelete(String id) async => true;
+
+  /// Nomes são comparados sem distinção de maiúsculas e espaços nas bordas;
+  /// contas internas de fatura (`credit_card_bill`) ficam fora da checagem.
+  Future<void> _ensureUniqueName(String name, {String? excludeId}) async {
+    final normalized = name.trim().toLowerCase();
+    final query = _database.select(_database.accounts)
+      ..where((t) => t.name.trim().lower().equals(normalized))
+      ..where((t) => t.type.equals('credit_card_bill').not());
+    if (excludeId != null) {
+      query.where((t) => t.id.equals(excludeId).not());
+    }
+    query.limit(1);
+    final existing = await query.getSingleOrNull();
+    if (existing != null) {
+      throw DuplicateAccountNameException(name.trim());
+    }
+  }
 
   Future<void> _enqueueAccountSync(String id, String operation) async {
     final account = await (_database.select(

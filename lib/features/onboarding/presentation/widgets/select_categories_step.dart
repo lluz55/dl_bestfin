@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -32,7 +33,7 @@ class SelectCategoriesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Já configuramos categorias para você. Você poderá personalizar depois.',
+            'Já configuramos categorias para você. Adicione as suas ou personalize depois.',
             style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 24),
@@ -110,6 +111,18 @@ class SelectCategoriesStep extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
+          AppButton(
+            label: 'Nova categoria',
+            icon: Icons.add_rounded,
+            variant: AppButtonVariant.outlined,
+            expanded: true,
+            onPressed: () async {
+              // Rota liberada pelo guard do router durante o onboarding.
+              final created = await context.push<bool>('/categories/new');
+              if (created == true) ref.invalidate(categoriesTreeProvider);
+            },
+          ),
+          const SizedBox(height: 12),
           AppButton(label: 'Continuar', expanded: true, onPressed: onNext),
           const SizedBox(height: 24),
         ],

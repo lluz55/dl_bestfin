@@ -85,6 +85,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
       _lockedUntil = until;
       _pinError = _lockoutMessage(until.difference(DateTime.now()));
     });
+    _pinKey.currentState?.clear();
     _lockoutTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       final remaining = until.difference(DateTime.now());
       if (!mounted) return;
@@ -94,6 +95,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
           _lockedUntil = null;
           _pinError = null;
         });
+        _pinKey.currentState?.clear();
       } else {
         setState(() => _pinError = _lockoutMessage(remaining));
       }

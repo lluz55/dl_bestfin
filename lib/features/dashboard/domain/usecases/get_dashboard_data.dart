@@ -131,6 +131,8 @@ class GetDashboardData {
       AccountType.savings,
       AccountType.wallet,
       AccountType.reserve,
+      AccountType.foodVoucher,
+      AccountType.mealVoucher,
     };
     final liquidBalance = accounts
         .where((a) => a.isActive && liquidTypes.contains(a.type))
@@ -468,6 +470,8 @@ class GetDashboardData {
       AccountType.savings,
       AccountType.wallet,
       AccountType.reserve,
+      AccountType.foodVoucher,
+      AccountType.mealVoucher,
     };
 
     // Calculate current liquid balance

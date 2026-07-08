@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,7 +39,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   final TextEditingController _controller = TextEditingController();
   late final FocusNode _focusNode;
   db.Entity? _currentEntity;
-  bool _showSuggestions = false;
+  List<db.Entity> _filteredEntities = const [];
 
   @override
   void initState() {
@@ -62,13 +61,54 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   }
 
   void _onFocusChange() {
-    setState(() {
-      _showSuggestions = _focusNode.hasFocus;
-    });
+    if (!_focusNode.hasFocus) {
+      _commitTypedText();
+    }
   }
 
   void _onTextChanged() {
     setState(() {});
+  }
+
+  /// Resolve o texto digitado ao perder o foco ou ao confirmar no teclado:
+  /// seleciona a entidade existente com nome igual (ignorando maiúsculas) ou
+  /// cria uma nova automaticamente, em vez de simplesmente descartar o texto
+  /// quando o usuário não toca explicitamente no chip/opção "Criar".
+  Future<void> _commitTypedText() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      if (_currentEntity != null) {
+        widget.onEntitySelected(null);
+        setState(() => _currentEntity = null);
+      }
+      return;
+    }
+    if (_currentEntity != null &&
+        _currentEntity!.name.toLowerCase() == text.toLowerCase()) {
+      return;
+    }
+    final match = _filteredEntities.firstWhere(
+      (e) => e.name.toLowerCase() == text.toLowerCase(),
+      orElse: () => db.Entity(
+        id: '',
+        name: '',
+        type: '',
+        useCount: 0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    if (match.id.isNotEmpty) {
+      widget.onEntitySelected(match);
+      setState(() {
+        _currentEntity = match;
+        _controller.text = match.name;
+      });
+    } else {
+      // Nome novo confirmado (Enter/Próximo/perda de foco): abre o seletor de
+      // categoria — categoria do recebedor/pagador é obrigatória ao criar.
+      await _createNewEntity(text);
+    }
   }
 
   Future<EntityCategory?> _showCreateCategorySheet() async {
@@ -399,329 +439,286 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
           }
         } else if (widget.selectedEntityId == null) {
           _currentEntity = null;
-          // Não limpa o texto agressivamente se o usuário estiver digitando
-          if (!_focusNode.hasFocus && _controller.text.isNotEmpty) {
-            _controller.clear();
-          }
         }
 
         final filteredEntities = entities
             .where((e) => e.type == widget.entityType)
             .toList();
-
-        final search = _controller.text.trim();
-        final List<String> suggestions = [];
-        if (search.isEmpty) {
-          suggestions.addAll(filteredEntities.map((e) => e.name));
-        } else {
-          final matched = filteredEntities
-              .where((e) => e.name.toLowerCase().contains(search.toLowerCase()))
-              .map((e) => e.name)
-              .toList();
-          suggestions.addAll(matched);
-
-          final hasExactMatch = filteredEntities.any(
-            (e) => e.name.toLowerCase() == search.toLowerCase(),
-          );
-
-          if (!hasExactMatch && search.isNotEmpty) {
-            suggestions.add('Criar "$search"');
-          }
-        }
+        _filteredEntities = filteredEntities;
 
         final isMobile = MediaQuery.of(context).size.width < 600;
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (isMobile && _showSuggestions && suggestions.isNotEmpty) ...[
-              SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  itemCount: suggestions.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final String option = suggestions[index];
-                    final isCreateOption = option.startsWith('Criar "');
+        IconData iconForOption(String option, bool isCreateOption) {
+          if (isCreateOption) return Icons.add_circle_outline;
+          final entity = filteredEntities.firstWhere(
+            (e) => e.name == option,
+            orElse: () => filteredEntities.first,
+          );
+          if (entity.category == null) return Icons.person_rounded;
+          final cat = categories.firstWhere(
+            (c) => c.id == entity.category,
+            orElse: () => const EntityCategory(
+              id: '',
+              label: '',
+              icon: Icons.person_rounded,
+              iconKey: '',
+            ),
+          );
+          return cat.icon;
+        }
 
-                    IconData iconData = isCreateOption
-                        ? Icons.add_circle_outline
-                        : Icons.person_rounded;
+        return RawAutocomplete<String>(
+          textEditingController: _controller,
+          focusNode: _focusNode,
+          // Sugestões flutuam acima do campo (overlay do próprio
+          // RawAutocomplete) em vez de empurrar o resto do formulário.
+          optionsViewOpenDirection: OptionsViewOpenDirection.up,
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            final searchVal = textEditingValue.text.trim();
+            if (searchVal.isEmpty) {
+              return filteredEntities.map((e) => e.name);
+            }
 
-                    if (!isCreateOption) {
-                      final entity = filteredEntities.firstWhere(
-                        (e) => e.name == option,
-                        orElse: () => filteredEntities.first,
-                      );
-                      if (entity.category != null) {
-                        final cat = categories.firstWhere(
-                          (c) => c.id == entity.category,
-                          orElse: () => const EntityCategory(
-                            id: '',
-                            label: '',
-                            icon: Icons.person_rounded,
-                            iconKey: '',
-                          ),
-                        );
-                        iconData = cat.icon;
-                      }
-                    }
+            final matched = filteredEntities
+                .where(
+                  (e) => e.name.toLowerCase().contains(searchVal.toLowerCase()),
+                )
+                .map((e) => e.name)
+                .toList();
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ActionChip(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        labelPadding: EdgeInsets.zero,
-                        avatar: Icon(
-                          iconData,
-                          color: isCreateOption
-                              ? cs.primary
-                              : cs.onSurfaceVariant,
-                          size: 16,
-                        ),
-                        label: Text(
-                          option,
-                          style: TextStyle(
-                            color: isCreateOption ? cs.primary : cs.onSurface,
-                            fontWeight: isCreateOption
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            fontSize: 13,
-                          ),
-                        ),
-                        backgroundColor: cs.surfaceContainerLow,
-                        side: BorderSide(
-                          color: isCreateOption
-                              ? cs.primary.withValues(alpha: 0.5)
-                              : cs.outlineVariant,
-                          width: 0.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        onPressed: () async {
-                          if (isCreateOption) {
-                            final name = option.substring(7, option.length - 1);
-                            await _createNewEntity(name);
-                          } else {
-                            final entity = filteredEntities.firstWhere(
-                              (e) => e.name == option,
-                            );
-                            widget.onEntitySelected(entity);
-                            setState(() {
-                              _currentEntity = entity;
-                              _controller.text = entity.name;
-                            });
-                          }
-                        },
-                      ),
-                    );
+            final hasExactMatch = filteredEntities.any(
+              (e) => e.name.toLowerCase() == searchVal.toLowerCase(),
+            );
+
+            if (!hasExactMatch && searchVal.isNotEmpty) {
+              return [...matched, 'Criar "$searchVal"'];
+            }
+            return matched;
+          },
+          onSelected: (String selection) async {
+            if (selection.startsWith('Criar "')) {
+              final name = selection.substring(7, selection.length - 1);
+              await _createNewEntity(name);
+            } else {
+              final entity = filteredEntities.firstWhere(
+                (e) => e.name == selection,
+              );
+              widget.onEntitySelected(entity);
+              setState(() {
+                _currentEntity = entity;
+                _controller.text = entity.name;
+              });
+            }
+          },
+          fieldViewBuilder:
+              (context, textController, focusNode, onFieldSubmitted) {
+                IconData prefixIcon = Icons.person_outline;
+                if (_currentEntity != null &&
+                    _currentEntity!.category != null) {
+                  final cat = categories.firstWhere(
+                    (c) => c.id == _currentEntity!.category,
+                    orElse: () => const EntityCategory(
+                      id: '',
+                      label: '',
+                      icon: Icons.person_outline,
+                      iconKey: '',
+                    ),
+                  );
+                  prefixIcon = cat.icon;
+                }
+
+                return TextField(
+                  controller: textController,
+                  focusNode: focusNode,
+                  textInputAction: widget.onFieldSubmitted != null
+                      ? TextInputAction.next
+                      : TextInputAction.done,
+                  onSubmitted: (value) async {
+                    await _commitTypedText();
+                    onFieldSubmitted();
+                    widget.onFieldSubmitted?.call(value);
                   },
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return RawAutocomplete<String>(
-                  textEditingController: _controller,
-                  focusNode: _focusNode,
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (isMobile) {
-                      return const Iterable<String>.empty();
-                    }
-
-                    final searchVal = textEditingValue.text.trim();
-                    if (searchVal.isEmpty) {
-                      return filteredEntities.map((e) => e.name);
-                    }
-
-                    final matched = filteredEntities
-                        .where(
-                          (e) => e.name.toLowerCase().contains(
-                            searchVal.toLowerCase(),
-                          ),
-                        )
-                        .map((e) => e.name)
-                        .toList();
-
-                    final hasExactMatch = filteredEntities.any(
-                      (e) => e.name.toLowerCase() == searchVal.toLowerCase(),
-                    );
-
-                    if (!hasExactMatch && searchVal.isNotEmpty) {
-                      return [...matched, 'Criar "$searchVal"'];
-                    }
-                    return matched;
-                  },
-                  onSelected: (String selection) async {
-                    if (selection.startsWith('Criar "')) {
-                      final name = selection.substring(7, selection.length - 1);
-                      await _createNewEntity(name);
-                    } else {
-                      final entity = filteredEntities.firstWhere(
-                        (e) => e.name == selection,
-                      );
-                      widget.onEntitySelected(entity);
-                      setState(() {
-                        _currentEntity = entity;
-                        _controller.text = entity.name;
-                      });
-                    }
-                  },
-                  fieldViewBuilder:
-                      (context, textController, focusNode, onFieldSubmitted) {
-                        IconData prefixIcon = Icons.person_outline;
-                        if (_currentEntity != null &&
-                            _currentEntity!.category != null) {
-                          final cat = categories.firstWhere(
-                            (c) => c.id == _currentEntity!.category,
-                            orElse: () => const EntityCategory(
-                              id: '',
-                              label: '',
-                              icon: Icons.person_outline,
-                              iconKey: '',
-                            ),
-                          );
-                          prefixIcon = cat.icon;
-                        }
-
-                        return TextField(
-                          controller: textController,
-                          focusNode: focusNode,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (value) {
-                            onFieldSubmitted();
-                            widget.onFieldSubmitted?.call(value);
-                          },
-                          decoration: InputDecoration(
-                            labelText: widget.label,
-                            hintText: 'Digite o nome do favorecido...',
-                            prefixIcon: Icon(prefixIcon),
-                            suffixIcon: textController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      textController.clear();
-                                      widget.onEntitySelected(null);
-                                      setState(() {
-                                        _currentEntity = null;
-                                      });
-                                    },
-                                  )
-                                : null,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        );
-                      },
-                  optionsViewBuilder: (context, onSelected, options) {
-                    final isLinux =
-                        defaultTargetPlatform == TargetPlatform.linux;
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 8,
-                        borderRadius: BorderRadius.circular(16),
-                        color: cs.surfaceContainerHigh,
-                        child: Container(
-                          width: constraints.maxWidth,
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: cs.outlineVariant),
-                          ),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              final String option = options.elementAt(index);
-                              final isCreateOption = option.startsWith(
-                                'Criar "',
-                              );
-
-                              IconData iconData = isCreateOption
-                                  ? Icons.add_circle_outline
-                                  : Icons.person_rounded;
-
-                              if (!isCreateOption) {
-                                final entity = filteredEntities.firstWhere(
-                                  (e) => e.name == option,
-                                  orElse: () => filteredEntities.first,
-                                );
-                                if (entity.category != null) {
-                                  final cat = categories.firstWhere(
-                                    (c) => c.id == entity.category,
-                                    orElse: () => const EntityCategory(
-                                      id: '',
-                                      label: '',
-                                      icon: Icons.person_rounded,
-                                      iconKey: '',
-                                    ),
-                                  );
-                                  iconData = cat.icon;
-                                }
-                              }
-
-                              return InkWell(
-                                onTap: isLinux
-                                    ? null
-                                    : () => onSelected(option),
-                                onTapDown: isLinux
-                                    ? (_) => onSelected(option)
-                                    : null,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        iconData,
-                                        color: isCreateOption
-                                            ? cs.primary
-                                            : cs.onSurfaceVariant,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          option,
-                                          style: TextStyle(
-                                            color: isCreateOption
-                                                ? cs.primary
-                                                : cs.onSurface,
-                                            fontWeight: isCreateOption
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
+                  decoration: InputDecoration(
+                    labelText: widget.label,
+                    hintText: 'Digite o nome do favorecido...',
+                    prefixIcon: Icon(prefixIcon),
+                    suffixIcon: textController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              textController.clear();
+                              widget.onEntitySelected(null);
+                              setState(() {
+                                _currentEntity = null;
+                              });
                             },
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 );
               },
-            ),
-          ],
+          optionsViewBuilder: (context, onSelected, options) {
+            // Mobile: faixa horizontal de chips (compacta, rolável).
+            if (isMobile) {
+              // bottomStart: com optionsViewOpenDirection.up, o framework
+              // reserva todo o espaço disponível ACIMA do campo (que pode
+              // ser quase a tela toda dentro de um bottom sheet) — alinhar
+              // pela base é o que cola este conteúdo rente ao campo, em vez
+              // de flutuar solto no topo desse espaço.
+              return Align(
+                alignment: AlignmentDirectional.bottomStart,
+                child: SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    itemCount: options.length,
+                    itemBuilder: (context, index) {
+                      final option = options.elementAt(index);
+                      final isCreateOption = option.startsWith('Criar "');
+                      final iconData = iconForOption(option, isCreateOption);
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Material(
+                          color: cs.surfaceContainerHigh,
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            // canRequestFocus:false + onTapDown (em vez de
+                            // onTap/ActionChip): tocar aqui não pode tirar o
+                            // foco do campo antes do tap terminar, senão o
+                            // RawAutocomplete esconde este overlay no meio
+                            // do gesto e a seleção nunca dispara.
+                            canRequestFocus: false,
+                            onTapDown: (_) => onSelected(option),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isCreateOption
+                                      ? cs.primary.withValues(alpha: 0.5)
+                                      : cs.outlineVariant,
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    iconData,
+                                    color: isCreateOption
+                                        ? cs.primary
+                                        : cs.onSurfaceVariant,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    option,
+                                    style: TextStyle(
+                                      color: isCreateOption
+                                          ? cs.primary
+                                          : cs.onSurface,
+                                      fontWeight: isCreateOption
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            }
+
+            // Desktop/tablet: lista vertical.
+            // bottomStart (ver comentário acima): cola a lista rente ao
+            // campo em vez de alinhá-la ao topo do espaço reservado.
+            return Align(
+              alignment: AlignmentDirectional.bottomStart,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(16),
+                color: cs.surfaceContainerHigh,
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxHeight: 250),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.outlineVariant),
+                  ),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final String option = options.elementAt(index);
+                      final isCreateOption = option.startsWith('Criar "');
+                      final iconData = iconForOption(option, isCreateOption);
+
+                      return InkWell(
+                        // onTapDown (não onTap) evita a corrida com a
+                        // perda de foco do campo ao tocar na opção: o
+                        // foco tirado do TextField dispara um rebuild
+                        // que pode remover esta lista antes do tap
+                        // (pointer-up) terminar de ser reconhecido.
+                        canRequestFocus: false,
+                        onTapDown: (_) => onSelected(option),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                iconData,
+                                color: isCreateOption
+                                    ? cs.primary
+                                    : cs.onSurfaceVariant,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option,
+                                  style: TextStyle(
+                                    color: isCreateOption
+                                        ? cs.primary
+                                        : cs.onSurface,
+                                    fontWeight: isCreateOption
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
       loading: () => TextField(

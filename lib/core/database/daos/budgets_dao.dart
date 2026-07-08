@@ -128,48 +128,94 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     int year,
     int month,
   ) async {
-    final periodBudgets = await getByPeriod(year, month);
-    final result = <BudgetWithSpending>[];
+    final start = DateTime(year, month);
+    final end = DateTime(year, month + 1);
 
-    for (final budget in periodBudgets) {
-      final breakdown = await getSpendingBreakdownForCategory(
-        budget.categoryId,
-        year,
-        month,
-      );
-      result.add(
-        BudgetWithSpending(
-          budget: budget,
-          spent: breakdown.confirmed,
-          pending: breakdown.pending,
-        ),
-      );
-    }
+    final confirmedExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END), 0)",
+    );
+    final pendingExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
+    );
 
-    return result;
+    final query = select(budgets).join([
+      leftOuterJoin(
+        transactions,
+        transactions.categoryId.equalsExp(budgets.categoryId) &
+            transactions.type.equals('expense') &
+            transactions.isConfirmed.equals(true) &
+            transactions.date.isBiggerOrEqualValue(start) &
+            transactions.date.isSmallerThanValue(end),
+      ),
+      leftOuterJoin(
+        entries,
+        entries.transactionId.equalsExp(transactions.id) &
+            entries.type.equals('credit'),
+      ),
+    ])
+      ..where(budgets.year.equals(year) & budgets.month.equals(month))
+      ..addColumns([confirmedExpr, pendingExpr]);
+
+    query.groupBy([budgets.id]);
+
+    final rows = await query.get();
+    return rows.map((row) {
+      final budget = row.readTable(budgets);
+      final spent = row.read(confirmedExpr) ?? 0;
+      final pending = row.read(pendingExpr) ?? 0;
+      return BudgetWithSpending(
+        budget: budget,
+        spent: spent,
+        pending: pending,
+      );
+    }).toList();
   }
 
   Stream<List<BudgetWithSpending>> watchBudgetsWithSpending(
     int year,
     int month,
   ) {
-    return watchByPeriod(year, month).asyncMap((budgetList) async {
-      final result = <BudgetWithSpending>[];
-      for (final budget in budgetList) {
-        final breakdown = await getSpendingBreakdownForCategory(
-          budget.categoryId,
-          year,
-          month,
+    final start = DateTime(year, month);
+    final end = DateTime(year, month + 1);
+
+    final confirmedExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END), 0)",
+    );
+    final pendingExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
+    );
+
+    final query = select(budgets).join([
+      leftOuterJoin(
+        transactions,
+        transactions.categoryId.equalsExp(budgets.categoryId) &
+            transactions.type.equals('expense') &
+            transactions.isConfirmed.equals(true) &
+            transactions.date.isBiggerOrEqualValue(start) &
+            transactions.date.isSmallerThanValue(end),
+      ),
+      leftOuterJoin(
+        entries,
+        entries.transactionId.equalsExp(transactions.id) &
+            entries.type.equals('credit'),
+      ),
+    ])
+      ..where(budgets.year.equals(year) & budgets.month.equals(month))
+      ..addColumns([confirmedExpr, pendingExpr]);
+
+    query.groupBy([budgets.id]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        final budget = row.readTable(budgets);
+        final spent = row.read(confirmedExpr) ?? 0;
+        final pending = row.read(pendingExpr) ?? 0;
+        return BudgetWithSpending(
+          budget: budget,
+          spent: spent,
+          pending: pending,
         );
-        result.add(
-          BudgetWithSpending(
-            budget: budget,
-            spent: breakdown.confirmed,
-            pending: breakdown.pending,
-          ),
-        );
-      }
-      return result;
+      }).toList();
     });
   }
 

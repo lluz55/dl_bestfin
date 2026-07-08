@@ -102,20 +102,32 @@ class ReportsHubScreen extends ConsumerWidget {
         title: 'Relatórios',
         showVisibilityToggle: true,
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 350,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.95,
-        ),
-        itemCount: _entries.length,
-        itemBuilder: (context, i) => _ReportHubCard(
-          entry: _entries[i],
-          delay: Duration(milliseconds: 60 * i.clamp(0, 5)),
-          onTap: () => _openReport(context, _entries[i]),
-        ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Mesmo em telas estreitas, mantém pelo menos 2 colunas.
+          const maxCrossAxisExtent = 350.0;
+          const horizontalPadding = 32.0;
+          final availableWidth = constraints.maxWidth - horizontalPadding;
+          final crossAxisCount = (availableWidth / maxCrossAxisExtent)
+              .floor()
+              .clamp(2, _entries.length);
+
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.95,
+            ),
+            itemCount: _entries.length,
+            itemBuilder: (context, i) => _ReportHubCard(
+              entry: _entries[i],
+              delay: Duration(milliseconds: 60 * i.clamp(0, 5)),
+              onTap: () => _openReport(context, _entries[i]),
+            ),
+          );
+        },
       ),
     );
   }

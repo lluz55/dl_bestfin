@@ -21,7 +21,13 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
 
   void _onPinComplete(String pin) {
     if (_firstPin == null) {
-      setState(() => _firstPin = pin);
+      setState(() {
+        _firstPin = pin;
+        _errorMessage = null;
+      });
+      // Sem limpar, o widget segue com 4 dígitos preenchidos e o teclado
+      // não aceita a digitação do PIN de confirmação.
+      _pinKey.currentState?.clear();
     } else {
       if (pin == _firstPin) {
         _savePin(pin);

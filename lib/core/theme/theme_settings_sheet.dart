@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../extensions/context_extensions.dart';
 import '../utils/adaptive_modal.dart';
 import 'custom_seed_provider.dart';
-import 'theme_presets.dart';
 import 'theme_provider.dart';
 
 void showThemeSettingsSheet(BuildContext context) {
@@ -67,31 +66,13 @@ class _ThemeSettingsSheet extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 20),
-                        _SectionLabel('Tipo de paleta', cs: cs, tt: tt),
-                        const SizedBox(height: 8),
-                        _PaletteTypeSelector(
-                          useCustom: customSeed.useCustomSeed,
-                          onToggle: (v) => customNotifier.setUseCustomSeed(v),
+                        _SectionLabel('Cor personalizada', cs: cs, tt: tt),
+                        const SizedBox(height: 12),
+                        _CustomColorPicker(
+                          currentColor: customSeed.seedColor,
+                          onColorSelected: customNotifier.setSeedColor,
                           cs: cs,
-                          tt: tt,
                         ),
-                        const SizedBox(height: 16),
-                        if (!customSeed.useCustomSeed) ...[
-                          _SectionLabel('Predefinidas', cs: cs, tt: tt),
-                          const SizedBox(height: 12),
-                          _PresetGrid(
-                            selected: state.preset,
-                            onSelected: notifier.setPreset,
-                          ),
-                        ] else ...[
-                          _SectionLabel('Cor personalizada', cs: cs, tt: tt),
-                          const SizedBox(height: 12),
-                          _CustomColorPicker(
-                            currentColor: customSeed.seedColor,
-                            onColorSelected: customNotifier.setSeedColor,
-                            cs: cs,
-                          ),
-                        ],
                       ],
                     ),
             ),
@@ -127,108 +108,6 @@ class _SectionLabel extends StatelessWidget {
         color: cs.onSurfaceVariant,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.2,
-      ),
-    );
-  }
-}
-
-// ─── Palette type selector (Presets vs Custom) ───────────────────────────────
-
-class _PaletteTypeSelector extends StatelessWidget {
-  const _PaletteTypeSelector({
-    required this.useCustom,
-    required this.onToggle,
-    required this.cs,
-    required this.tt,
-  });
-
-  final bool useCustom;
-  final ValueChanged<bool> onToggle;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _TypeChip(
-            icon: Icons.palette_outlined,
-            label: 'Predefinidas',
-            selected: !useCustom,
-            onTap: () => onToggle(false),
-            cs: cs,
-            tt: tt,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _TypeChip(
-            icon: Icons.colorize_rounded,
-            label: 'Personalizada',
-            selected: useCustom,
-            onTap: () => onToggle(true),
-            cs: cs,
-            tt: tt,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TypeChip extends StatelessWidget {
-  const _TypeChip({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.cs,
-    required this.tt,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = selected ? cs.primaryContainer : cs.surfaceContainerHigh;
-    final fg = selected ? cs.onPrimaryContainer : cs.onSurfaceVariant;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16),
-        border: selected
-            ? Border.all(color: cs.primary, width: 2)
-            : Border.all(color: Colors.transparent, width: 2),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            children: [
-              Icon(icon, color: fg, size: 22),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -444,126 +323,6 @@ class _DynamicColorToggle extends StatelessWidget {
               Switch(value: enabled, onChanged: onChanged),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Preset color grid ────────────────────────────────────────────────────────
-
-class _PresetGrid extends StatelessWidget {
-  const _PresetGrid({required this.selected, required this.onSelected});
-
-  final ThemePreset selected;
-  final Future<void> Function(ThemePreset) onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final preset in ThemePreset.values)
-          _PresetSwatch(
-            preset: preset,
-            isSelected: selected == preset,
-            onTap: () => onSelected(preset),
-          ),
-      ],
-    );
-  }
-}
-
-class _PresetSwatch extends StatelessWidget {
-  const _PresetSwatch({
-    required this.preset,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final ThemePreset preset;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ring = isSelected;
-
-    return Tooltip(
-      message: preset.label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutBack,
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: ring
-                  ? preset.seed
-                  : Theme.of(context).colorScheme.outlineVariant,
-              width: ring ? 3 : 1,
-            ),
-          ),
-          padding: EdgeInsets.all(ring ? 4 : 2),
-          child: _ColorCircle(
-            seedColor: preset.seed,
-            secondaryColor: preset.light().secondary,
-            isSelected: isSelected,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ColorCircle extends StatelessWidget {
-  const _ColorCircle({
-    required this.seedColor,
-    required this.secondaryColor,
-    required this.isSelected,
-  });
-
-  final Color seedColor;
-  final Color secondaryColor;
-  final bool isSelected;
-
-  Color get _onSeed =>
-      ThemeData.estimateBrightnessForColor(seedColor) == Brightness.dark
-      ? Colors.white
-      : Colors.black87;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: SizedBox.expand(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Row(
-                children: [
-                  Expanded(child: ColoredBox(color: seedColor)),
-                  Expanded(child: ColoredBox(color: secondaryColor)),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Center(
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: seedColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _onSeed, width: 2),
-                  ),
-                  child: Icon(Icons.check_rounded, size: 12, color: _onSeed),
-                ),
-              ),
-          ],
         ),
       ),
     );
