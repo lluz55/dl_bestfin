@@ -182,6 +182,59 @@ class NostrSyncService implements SyncTransport {
     _identityController.add(null);
   }
 
+  /// Encerra a sessão de forma NÃO-BLOQUEANTE. Invalida a identidade em memória
+  /// imediatamente (a UI para de ver uma sessão ativa e o onboarding não
+  /// re-sincroniza) e agenda o trabalho pesado — fechar os WebSockets dos relays
+  /// e apagar o armazenamento seguro — em segundo plano. Fechar sockets de
+  /// relays lentos pode levar segundos ou travar; isso nunca deve bloquear a
+  /// limpeza de dados do usuário nem o retorno ao onboarding.
+  void signOutInBackground() {
+    _masterKey = null;
+    _keyPair = null;
+    _identity = null;
+    _seenDeviceIds.clear();
+    if (!_identityController.isClosed) _identityController.add(null);
+
+    // Captura e zera o estado de conexão de forma síncrona: se o onboarding
+    // ativar uma nova identidade logo em seguida, a limpeza em segundo plano
+    // não pode fechar a conexão nova nem apagar as chaves recém-gravadas.
+    final stale = _nostr;
+    final staleSub = _liveSubscription;
+    _nostr = null;
+    _liveSubscription = null;
+    _relaysInitialized = false;
+    _relayFailureCounts.clear();
+    _relayCooldownUntil.clear();
+
+    unawaited(_cleanupAfterSignOut(stale, staleSub));
+  }
+
+  Future<void> _cleanupAfterSignOut(
+    Nostr? stale,
+    NostrEventsStream? staleSub,
+  ) async {
+    try {
+      staleSub?.close();
+    } catch (_) {}
+    if (stale != null) {
+      try {
+        await stale.relays.freeAllResources();
+      } catch (e) {
+        debugPrint('[Sync] freeAllResources em segundo plano falhou: $e');
+      }
+    }
+    // Só apaga as chaves se nenhuma nova identidade foi ativada nesse meio-tempo
+    // (evita corrida com createIdentity/importIdentity do onboarding).
+    if (_masterKey == null) {
+      try {
+        await _storage.delete(key: _encMasterKeyKey);
+        await _storage.delete(key: _kdfSaltKey);
+      } catch (e) {
+        debugPrint('[Sync] delete storage em segundo plano falhou: $e');
+      }
+    }
+  }
+
   @override
   Future<void> pushRecords(
     List<SyncRecord> records, {

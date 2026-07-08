@@ -45,6 +45,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _auth = LocalAuthentication();
   bool _biometricsAvailable = false;
+  bool _clearing = false;
 
   @override
   void initState() {
@@ -85,6 +86,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _clearAllData() async {
+    if (_clearing) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -119,94 +122,110 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (confirmed != true || !mounted) return;
+    _clearing = true;
 
-    // Desconecta o sync ANTES do wipe: com a identidade Nostr ativa, o
-    // onboarding detectaria a identidade e re-sincronizaria tudo dos relays
-    // logo em seguida — na prática, "nada seria apagado".
+    // Referências capturadas ANTES do await: a navegação para o onboarding
+    // dispara o guard do router, que desmonta esta tela. Depender de
+    // `context`/`mounted` depois do await era frágil — usamos o
+    // GoRouter/messenger capturados para não esbarrar em contexto defunto.
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Encerra o sync SEM bloquear: invalida a identidade em memória agora
+    // (impede o onboarding de re-sincronizar) e fecha os WebSockets dos relays
+    // em segundo plano. Fechar sockets de relays lentos podia travar por tempo
+    // indeterminado — era o que deixava o spinner girando "para sempre".
+    ref.read(nostrSyncServiceProvider).signOutInBackground();
+
+    // Único passo bloqueante: o wipe do banco local (rápido). Precisa concluir
+    // antes do onboarding para que o app comece limpo e com as categorias padrão.
     try {
-      await ref.read(nostrSyncServiceProvider).signOut();
-    } catch (e) {
-      debugPrint('[ClearAll] signOut do sync falhou: $e');
+      final db = ref.read(databaseProvider);
+      await db.transaction(() async {
+        await db.delete(db.attachments).go();
+        await db.delete(db.entries).go();
+        await db.delete(db.transactionSplits).go();
+        await db.delete(db.scheduledReminders).go();
+        await db.delete(db.transactions).go();
+        await db.delete(db.invoices).go();
+        await db.delete(db.creditCards).go();
+        await db.delete(db.investments).go();
+        await db.delete(db.financingInstallments).go();
+        await db.delete(db.financings).go();
+        await db.delete(db.recurringRules).go();
+        await db.delete(db.installmentPlans).go();
+        await db.delete(db.goalCategories).go();
+        await db.delete(db.goals).go();
+        await db.delete(db.budgets).go();
+        await db.delete(db.notificationPatterns).go();
+        await db.delete(db.holidays).go();
+        await db.delete(db.entities).go();
+        await db.delete(db.reconciliationCheckpoints).go();
+        await db.delete(db.accounts).go();
+        await db.delete(db.categoryParents).go();
+        await db.delete(db.categories).go();
+        await db.delete(db.appSettings).go();
+        await db.delete(db.badges).go();
+        await db.delete(db.streaks).go();
+        await db.delete(db.householdMembers).go();
+        await db.delete(db.households).go();
+        await db.delete(db.chatMessages).go();
+        await db.delete(db.syncQueue).go();
+        await db.delete(db.nostrEventLog).go();
+
+        // Re-seed dentro da mesma transação para manter atomicidade.
+        await db.batch((batch) {
+          batch.insertAll(
+            db.categories,
+            SeedDataConstants.defaultCategories.map((c) {
+              return CategoriesCompanion.insert(
+                id: c.id,
+                name: c.name,
+                icon: c.icon,
+                color: c.color,
+                type: c.type.name,
+                isSystem: const Value(true),
+                description: Value(c.description),
+              );
+            }).toList(),
+          );
+        });
+
+        await db.batch((batch) {
+          batch.insertAll(
+            db.categoryParents,
+            SeedDataConstants.defaultCategoryRelationships
+                .map(
+                  (r) => CategoryParentsCompanion.insert(
+                    parentCategoryId: r.$1,
+                    childCategoryId: r.$2,
+                  ),
+                )
+                .toList(),
+          );
+        });
+      });
+    } catch (e, st) {
+      debugPrint('[ClearAll] Erro ao apagar dados: $e\n$st');
+      _clearing = false;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Erro ao apagar dados: $e'),
+          backgroundColor: messenger.context.colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      return;
     }
 
-    final db = ref.read(databaseProvider);
-    await db.transaction(() async {
-      await db.delete(db.attachments).go();
-      await db.delete(db.entries).go();
-      await db.delete(db.transactionSplits).go();
-      await db.delete(db.scheduledReminders).go();
-      await db.delete(db.transactions).go();
-      await db.delete(db.invoices).go();
-      await db.delete(db.creditCards).go();
-      await db.delete(db.investments).go();
-      await db.delete(db.financingInstallments).go();
-      await db.delete(db.financings).go();
-      await db.delete(db.recurringRules).go();
-      await db.delete(db.installmentPlans).go();
-      await db.delete(db.goalCategories).go();
-      await db.delete(db.goals).go();
-      await db.delete(db.budgets).go();
-      await db.delete(db.notificationPatterns).go();
-      await db.delete(db.holidays).go();
-      await db.delete(db.entities).go();
-      await db.delete(db.reconciliationCheckpoints).go();
-      await db.delete(db.accounts).go();
-      await db.delete(db.categoryParents).go();
-      await db.delete(db.categories).go();
-      await db.delete(db.appSettings).go();
-      await db.delete(db.badges).go();
-      await db.delete(db.streaks).go();
-      await db.delete(db.householdMembers).go();
-      await db.delete(db.households).go();
-      await db.delete(db.chatMessages).go();
-      await db.delete(db.syncQueue).go();
-      await db.delete(db.nostrEventLog).go();
-
-      // Re-seed default categories
-      await db.batch((batch) {
-        batch.insertAll(
-          db.categories,
-          SeedDataConstants.defaultCategories.map((c) {
-            return CategoriesCompanion.insert(
-              id: c.id,
-              name: c.name,
-              icon: c.icon,
-              color: c.color,
-              type: c.type.name,
-              isSystem: const Value(true),
-            );
-          }).toList(),
-        );
-      });
-
-      // Re-seed default category relationships
-      await db.batch((batch) {
-        batch.insertAll(
-          db.categoryParents,
-          SeedDataConstants.defaultCategoryRelationships
-              .map(
-                (r) => CategoryParentsCompanion.insert(
-                  parentCategoryId: r.$1,
-                  childCategoryId: r.$2,
-                ),
-              )
-              .toList(),
-        );
-      });
-    });
-
-    // Fecha a conexão antiga ANTES de invalidar — o onDispose do provider não
-    // é aguardado, e recriar o AppDatabase com a conexão anterior ainda aberta
-    // dispara o aviso de múltiplas instâncias do drift (e a corrida real).
-    await db.close();
+    // Descarta a instância antiga do banco: o onDispose do provider fecha a
+    // conexão em segundo plano (não aguardamos o close(), que pode travar se
+    // houver watchers pendentes — isso interrompia o retorno ao onboarding).
+    // Uma nova instância é criada sob demanda. O drift pode logar um aviso de
+    // "múltiplas instâncias" nessa transição; é benigno (só em debug) e não
+    // afeta o fluxo.
     ref.invalidate(databaseProvider);
-
-    // Clear PIN from secure storage
-    await SecurityActions.clearPin();
-
-    // Clear all SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
 
     // Reset global settings/onboarding variables
     initialOnboardingCompleted = false;
@@ -230,19 +249,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(homeWidgetsProvider);
     ref.invalidate(shortcutsProvider);
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Todos os dados foram apagados. O app foi reiniciado.',
-        ),
-        backgroundColor: context.colorScheme.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    // Navegação explícita: não depende do refresh do guard do router para
-    // levar o usuário ao início do setup (e limpa a pilha de rotas antiga).
-    context.go('/onboarding');
+    // Navega imediatamente. `set(false)` acima já reabilita a rota /onboarding
+    // no guard, então o go() não é rebatido para /home. Usa o router capturado
+    // (não `context`) porque a própria navegação desmonta esta tela.
+    router.go('/onboarding');
+
+    // Limpeza secundária em segundo plano — roda enquanto o usuário já usa o
+    // onboarding. Nada aqui bloqueia o retorno ao início do setup.
+    unawaited(() async {
+      try {
+        await SecurityActions.clearPin();
+      } catch (e) {
+        debugPrint('[ClearAll] clearPin falhou: $e');
+      }
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+      } catch (e) {
+        debugPrint('[ClearAll] prefs.clear falhou: $e');
+      }
+    }());
   }
 
   @override
