@@ -20,14 +20,30 @@ import 'package:bestfin/features/backup/presentation/widgets/export_button.dart'
 import 'package:bestfin/features/backup/presentation/widgets/import_progress_widget.dart';
 import 'package:intl/intl.dart';
 
-class BackupScreen extends ConsumerStatefulWidget {
+class BackupScreen extends StatelessWidget {
   const BackupScreen({super.key});
 
   @override
-  ConsumerState<BackupScreen> createState() => _BackupScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.colorScheme.surface,
+      appBar: const AppPageAppBar(title: 'Export & Backup'),
+      body: const BackupView(),
+    );
+  }
 }
 
-class _BackupScreenState extends ConsumerState<BackupScreen> {
+/// Conteúdo de exportação/importação sem `Scaffold`/`AppBar`, para poder ser
+/// usado tanto na rota `/backup` quanto no painel de detalhe das Configurações
+/// em telas grandes (master-detail).
+class BackupView extends ConsumerStatefulWidget {
+  const BackupView({super.key});
+
+  @override
+  ConsumerState<BackupView> createState() => _BackupViewState();
+}
+
+class _BackupViewState extends ConsumerState<BackupView> {
   DateTime? _startDate;
   DateTime? _endDate;
   String _csvSeparator = ';';
@@ -525,13 +541,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         ? '${df.format(_startDate!)} - ${df.format(_endDate!)}'
         : 'Todo o Período';
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Export & Backup'),
-      body: Stack(
-        children: [
-          ListView(
-            padding: const EdgeInsets.all(16),
+    return Stack(
+      children: [
+        ListView(
+          padding: const EdgeInsets.all(16),
             children: [
               // Filters Section
               Card(
@@ -789,14 +802,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             ],
           ),
 
-          // Loader Overlay
-          if (_isLoading)
-            Container(
-              color: Colors.black54,
-              child: ImportProgressWidget(message: _loadingMessage),
-            ),
-        ],
-      ),
+        // Loader Overlay
+        if (_isLoading)
+          Container(
+            color: Colors.black54,
+            child: ImportProgressWidget(message: _loadingMessage),
+          ),
+      ],
     );
   }
 }

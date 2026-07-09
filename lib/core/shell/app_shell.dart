@@ -65,6 +65,7 @@ class AppShell extends ConsumerWidget {
         onExpense: () => openQuickSheet(TransactionType.expense),
         onIncome: () => openQuickSheet(TransactionType.income),
         onTransfer: () => openQuickSheet(TransactionType.transfer),
+        onBulk: () => context.push('/transaction/bulk-new'),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Stack(

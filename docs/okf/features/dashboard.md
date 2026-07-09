@@ -14,6 +14,14 @@ Tela inicial do app. Exibe resumo financeiro do período selecionado com widgets
 
 `lib/features/dashboard/dashboard_screen.dart`
 
+## Perfil do Usuário no Header
+
+O header saúda o usuário pelo primeiro nome ("Bom dia, Lucas") e mostra sua
+foto no lugar do ícone do app quando o perfil está preenchido — dados do
+`userProfileProvider` (`lib/core/providers/user_profile_provider.dart`),
+editáveis no onboarding e em Configurações → Perfil. Avatar renderizado por
+`ProfileAvatar` (`lib/core/widgets/profile_avatar.dart`).
+
 ## Widgets Configuráveis
 
 O usuário pode reordenar/ocultar widgets via `HomeWidgetsEditSheet`. Gerenciados por `homeWidgetsProvider`.

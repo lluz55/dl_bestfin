@@ -4,7 +4,7 @@ title: "Onboarding & Tutorial"
 description: "Fluxo inicial de 6 steps para configuração do app + sistema de coach marks pós-onboarding para descoberta de features."
 tags: [onboarding, tutorial, ux, setup]
 related: [security, dashboard, notifications]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-07-09T00:00:00Z
 ---
 
 ## O Que É
@@ -23,10 +23,10 @@ lib/features/onboarding/presentation/
     onboarding_screen.dart          # PageView com 6 steps
   widgets/
     welcome_step.dart               # Step 0 — boas-vindas (animações flutter_animate)
-    create_account_step.dart        # Step 1 — criação da primeira conta
-    select_categories_step.dart     # Step 2 — confirmação de categorias padrão
-    notification_permission_step.dart  # Step 3 — permissão de notificações (real no Android)
-    ai_step.dart                    # Step 4 — download do modelo LLM
+    profile_step.dart               # Step 1 — nome e foto do usuário (opcional)
+    create_account_step.dart        # Step 2 — criação da primeira conta
+    select_categories_step.dart     # Step 3 — confirmação de categorias padrão
+    notification_permission_step.dart  # Step 4 — permissão de notificações (real no Android)
     security_step.dart              # Step 5 — biometria + PIN
     tutorial_runner.dart            # Coach marks pós-onboarding
   providers/
@@ -39,13 +39,16 @@ lib/features/onboarding/presentation/
 | Index | Widget | Dados coletados | Skip? |
 |---|---|---|---|
 | 0 | `WelcomeStep` | nenhum | não |
-| 1 | `CreateAccountStep` | nome, tipo, cor, ícone, saldo inicial | não |
-| 2 | `SelectCategoriesStep` | nenhum (informativo) | sim |
-| 3 | `NotificationPermissionStep` | permissão SO (Android only) | sim |
-| 4 | `AiStep` | modelo selecionado + download opcional | sim |
+| 1 | `ProfileStep` | nome + foto (opcionais; gravam direto no `userProfileProvider`) | não* |
+| 2 | `CreateAccountStep` | nome, tipo, cor, ícone, saldo inicial | não |
+| 3 | `SelectCategoriesStep` | nenhum (informativo) | sim |
+| 4 | `NotificationPermissionStep` | permissão SO (Android only) | sim |
 | 5 | `SecurityStep` | biometria_enabled (bool) | sim |
 
-**"Pular" do step 2 em diante chama `OnboardingActions.complete(ref)` imediatamente** — router guard redireciona para `/home`.
+\* O `ProfileStep` não tem o "Pular" do header (que encerraria o onboarding
+inteiro) — os campos são opcionais e "Continuar" segue sempre adiante.
+
+**"Pular" do step 3 em diante chama `OnboardingActions.complete(ref)` imediatamente** — router guard redireciona para `/home`.
 
 ## Persistência
 
@@ -56,7 +59,8 @@ Chaves:
 - `biometrics_enabled` → `biometricsEnabledProvider`
 - `tutorial_seen` → `tutorialSeenProvider`
 - `onboarding_step` → `initialOnboardingStep` (só SharedPreferences)
-- `onboarding_account_draft` → `onboardingAccountDraftProvider` (JSON com o formulário do step 1; espelhado em memória para restauração síncrona ao navegar entre steps)
+- `onboarding_account_draft` → `onboardingAccountDraftProvider` (JSON com o formulário do step de conta; espelhado em memória para restauração síncrona ao navegar entre steps)
+- `user_name` / `user_photo_path` → `userProfileProvider` (`lib/core/providers/user_profile_provider.dart`; só SharedPreferences — a foto é copiada para o diretório de documentos do app)
 
 Todos lidos antes de `runApp()` em `main.dart` para bootstrap síncrono.
 
@@ -64,7 +68,7 @@ Todos lidos antes de `runApp()` em `main.dart` para bootstrap síncrono.
 `onboarding_step` a cada `onPageChanged` e removido em
 `OnboardingActions.complete()`. Se o SO matar o processo no meio do setup, o
 `PageController` retoma do step salvo — sem isso o usuário refaria tudo
-(inclusive a conta do step 1, que já foi criada no banco).
+(inclusive a conta do step 2, cujo rascunho já foi preenchido).
 
 ## Tutorial Coach Marks
 
@@ -102,5 +106,5 @@ Targets com `GlobalKey.currentContext == null` são filtrados antes de exibir.
 - **Pular step em `OnboardingScreen`**: "Pular" chama `_finish()` (completa onboarding), não `_nextPage()`. Comportamento intencional.
 - **Resetar o wizard sem limpar `onboarding_step`** → o usuário volta no meio de um onboarding "novo". Ao zerar o onboarding (ex.: limpar todos os dados), zere também a chave, `initialOnboardingStep` e `initialOnboardingAccountDraft` (+ invalidar `onboardingAccountDraftProvider`).
 - **Push de rota durante o onboarding** → o guard do router rebate para `/onboarding` qualquer rota fora da allowlist (`/security/pin-setup`, `/categories/new`, rotas `/sync/*` de auth). Se um step precisar abrir outra tela por push, adicione a rota à allowlist `isOnboardingSubflow` em `app_router.dart`, senão o usuário é jogado de volta ao wizard.
-- **A conta do step 1 NÃO é criada no step** — o formulário só grava o rascunho (`onboardingAccountDraftProvider`); a criação acontece uma única vez em `OnboardingScreen._finish()` (inclusive quando o usuário "Pula"). Se o onboarding for abandonado, nada é gravado no banco. `DuplicateAccountNameException` no finish é engolida de propósito (conta homônima pode ter vindo do sync).
+- **A conta do step 2 NÃO é criada no step** — o formulário só grava o rascunho (`onboardingAccountDraftProvider`); a criação acontece uma única vez em `OnboardingScreen._finish()` (inclusive quando o usuário "Pula"). Se o onboarding for abandonado, nada é gravado no banco. `DuplicateAccountNameException` no finish é engolida de propósito (conta homônima pode ter vindo do sync).
 - **Permissões de notificação no Android são DUAS**: `requestAndroidNotificationPermission()` (POST_NOTIFICATIONS — exibir lembretes, diálogo do sistema) e `AndroidNotificationService.requestPermission()` (listener de captura — abre as configurações do SO). O `NotificationPermissionStep` pede as duas, nessa ordem.

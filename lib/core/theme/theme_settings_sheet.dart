@@ -14,17 +14,12 @@ void showThemeSettingsSheet(BuildContext context) {
   );
 }
 
-class _ThemeSettingsSheet extends ConsumerWidget {
+class _ThemeSettingsSheet extends StatelessWidget {
   const _ThemeSettingsSheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(themeProvider);
-    final customSeed = ref.watch(customSeedProvider);
-    final notifier = ref.read(themeProvider.notifier);
-    final customNotifier = ref.read(customSeedProvider.notifier);
+  Widget build(BuildContext context) {
     final cs = context.colorScheme;
-    final tt = context.textTheme;
 
     return SingleChildScrollView(
       child: Padding(
@@ -44,49 +39,78 @@ class _ThemeSettingsSheet extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Aparência',
-              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 20),
-            _SectionLabel('Modo de cor', cs: cs, tt: tt),
-            const SizedBox(height: 8),
-            _DynamicColorToggle(
-              enabled: state.useDynamicColor,
-              onChanged: notifier.setDynamicColor,
-              cs: cs,
-              tt: tt,
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOutCubic,
-              child: state.useDynamicColor
-                  ? const SizedBox.shrink()
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
-                        _SectionLabel('Cor personalizada', cs: cs, tt: tt),
-                        const SizedBox(height: 12),
-                        _CustomColorPicker(
-                          currentColor: customSeed.seedColor,
-                          onColorSelected: customNotifier.setSeedColor,
-                          cs: cs,
-                        ),
-                      ],
-                    ),
-            ),
-            const SizedBox(height: 20),
-            _SectionLabel('Brilho', cs: cs, tt: tt),
-            const SizedBox(height: 8),
-            _ThemeModeSelector(
-              current: state.mode,
-              onSelected: notifier.setMode,
-              cs: cs,
-            ),
+            const ThemeSettingsView(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Conteúdo reutilizável do editor de aparência. Usado tanto no modal
+/// (telas compactas) quanto no painel de detalhe da coluna direita em
+/// telas grandes (master-detail), por isso não inclui o handle do modal.
+class ThemeSettingsView extends ConsumerWidget {
+  const ThemeSettingsView({super.key, this.showTitle = true});
+
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(themeProvider);
+    final customSeed = ref.watch(customSeedProvider);
+    final notifier = ref.read(themeProvider.notifier);
+    final customNotifier = ref.read(customSeedProvider.notifier);
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showTitle) ...[
+          Text(
+            'Aparência',
+            style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 20),
+        ],
+        _SectionLabel('Modo de cor', cs: cs, tt: tt),
+        const SizedBox(height: 8),
+        _DynamicColorToggle(
+          enabled: state.useDynamicColor,
+          onChanged: notifier.setDynamicColor,
+          cs: cs,
+          tt: tt,
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOutCubic,
+          child: state.useDynamicColor
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    _SectionLabel('Cor personalizada', cs: cs, tt: tt),
+                    const SizedBox(height: 12),
+                    _CustomColorPicker(
+                      currentColor: customSeed.seedColor,
+                      onColorSelected: customNotifier.setSeedColor,
+                      cs: cs,
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 20),
+        _SectionLabel('Brilho', cs: cs, tt: tt),
+        const SizedBox(height: 8),
+        _ThemeModeSelector(
+          current: state.mode,
+          onSelected: notifier.setMode,
+          cs: cs,
+        ),
+      ],
     );
   }
 }

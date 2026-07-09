@@ -29,6 +29,7 @@ import 'package:bestfin/features/recurring/presentation/providers/recurring_prov
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
+import 'package:bestfin/core/providers/user_profile_provider.dart';
 import 'package:bestfin/core/providers/sidebar_provider.dart';
 import 'package:bestfin/core/providers/reminders_settings_provider.dart';
 import 'package:bestfin/core/providers/pending_default_provider.dart';
@@ -82,6 +83,8 @@ void main() async {
       prefs.getInt(kReminderLeadTimeDaysKey) ?? ReminderLeadTime.oneDay.days;
   initialDefaultPendingForPast =
       prefs.getBool(kDefaultPendingForPastKey) ?? true;
+  initialUserName = prefs.getString(kUserNameKey);
+  initialUserPhotoPath = prefs.getString(kUserPhotoPathKey);
   runApp(const ProviderScope(child: BestFinApp()));
 }
 

@@ -12,6 +12,7 @@ import 'package:bestfin/features/accounts/presentation/providers/accounts_provid
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/create_account_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/notification_permission_step.dart';
+import 'package:bestfin/features/onboarding/presentation/widgets/profile_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/security_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/select_categories_step.dart';
 import 'package:bestfin/features/onboarding/presentation/widgets/welcome_step.dart';
@@ -29,7 +30,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const _totalPages = 5;
+  static const _totalPages = 6;
 
   // Retoma do último step persistido — sem isso, se o SO matar o processo
   // no meio do setup, o wizard volta ao início e o usuário refaz tudo
@@ -315,7 +316,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       inactiveColor: cs.surfaceContainerHighest,
                     ),
                   ),
-                  if (_currentPage > 1 && _currentPage < _totalPages - 1)
+                  // "Pular" encerra o onboarding inteiro — não aparece no
+                  // welcome, no perfil (que já é opcional e tem o próprio
+                  // "Continuar") nem na criação de conta (obrigatória).
+                  if (_currentPage > 2 && _currentPage < _totalPages - 1)
                     TextButton(
                       onPressed: _finish,
                       child: Text(
@@ -340,6 +344,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 },
                 children: [
                   WelcomeStep(onNext: _nextPage),
+                  ProfileStep(onNext: _nextPage),
                   CreateAccountStep(onNext: _nextPage),
                   SelectCategoriesStep(onNext: _nextPage),
                   NotificationPermissionStep(onNext: _nextPage),

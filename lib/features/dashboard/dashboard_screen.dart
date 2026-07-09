@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/providers/user_profile_provider.dart';
 import 'package:bestfin/core/providers/sidebar_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
+import 'package:bestfin/core/widgets/profile_avatar.dart';
 import 'package:bestfin/core/widgets/staggered_transaction_list.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
@@ -63,6 +65,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final visibleWidgets = ref.watch(homeWidgetsProvider);
     final hidden = ref.watch(valuesHiddenProvider);
     final tutorialKeys = ref.watch(tutorialKeysProvider);
+    final profile = ref.watch(userProfileProvider);
     final syncState = ref.watch(syncStateProvider);
     final isSyncingBg =
         syncState.status == SyncStatus.syncing && syncState.isBackground;
@@ -95,7 +98,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 delegate: _DashboardHeaderDelegate(
                   cs: cs,
                   tt: tt,
-                  greeting: _getGreeting(),
+                  greeting: profile.firstName != null
+                      ? '${_getGreeting()}, ${profile.firstName}'
+                      : _getGreeting(),
+                  profile: profile,
                   hidden: hidden,
                   syncIndicator: syncIndicator,
                   customizeKey: _customizeKey,
@@ -471,6 +477,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.cs,
     required this.tt,
     required this.greeting,
+    required this.profile,
     required this.hidden,
     required this.syncIndicator,
     required this.onToggleHidden,
@@ -484,6 +491,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   final ColorScheme cs;
   final TextTheme tt;
   final String greeting;
+  final UserProfile profile;
   final bool hidden;
   final _SyncIndicator syncIndicator;
   final VoidCallback onToggleHidden;
@@ -502,6 +510,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_DashboardHeaderDelegate old) =>
       old.greeting != greeting ||
+      old.profile.photoPath != profile.photoPath ||
       old.hidden != hidden ||
       old.syncIndicator != syncIndicator ||
       old.cs != cs ||
@@ -536,7 +545,14 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            if (showHeaderIcon) ...[
+                            // A foto do usuário substitui o ícone do app e
+                            // aparece mesmo quando a sidebar já mostra a
+                            // marca (showHeaderIcon false) — é identidade do
+                            // usuário, não branding.
+                            if (profile.hasPhoto) ...[
+                              ProfileAvatar(profile: profile, radius: 14),
+                              const SizedBox(width: 8),
+                            ] else if (showHeaderIcon) ...[
                               Container(
                                 width: 28,
                                 height: 28,

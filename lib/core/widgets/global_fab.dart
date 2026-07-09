@@ -8,11 +8,13 @@ class GlobalFAB extends StatefulWidget {
     required this.onExpense,
     required this.onIncome,
     required this.onTransfer,
+    required this.onBulk,
   });
 
   final VoidCallback onExpense;
   final VoidCallback onIncome;
   final VoidCallback onTransfer;
+  final VoidCallback onBulk;
 
   @override
   State<GlobalFAB> createState() => _GlobalFABState();
@@ -39,6 +41,14 @@ class _GlobalFABState extends State<GlobalFAB>
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         if (_isExpanded) ...[
+          _FABOption(
+            label: 'Inserir Vários',
+            icon: Icons.playlist_add_rounded,
+            color: cs.primary,
+            onTap: () => _select(widget.onBulk),
+            delay: const Duration(milliseconds: 120),
+          ),
+          const SizedBox(height: 8),
           _FABOption(
             label: 'Nova Receita',
             icon: Icons.arrow_circle_down_rounded,

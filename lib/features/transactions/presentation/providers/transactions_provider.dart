@@ -4,6 +4,7 @@ import 'package:bestfin/features/transactions/data/repositories/transaction_repo
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
 import 'package:bestfin/features/transactions/domain/usecases/create_transaction.dart';
+import 'package:bestfin/features/transactions/domain/usecases/create_transactions_bulk.dart';
 import 'package:bestfin/features/transactions/domain/usecases/update_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/delete_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/get_transactions.dart';
@@ -19,6 +20,10 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
 // Use cases
 final createTransactionProvider = Provider<CreateTransaction>((ref) {
   return CreateTransaction(ref.watch(transactionRepositoryProvider));
+});
+
+final createTransactionsBulkProvider = Provider<CreateTransactionsBulk>((ref) {
+  return CreateTransactionsBulk(ref.watch(transactionRepositoryProvider));
 });
 
 final updateTransactionProvider = Provider<UpdateTransaction>((ref) {
@@ -197,37 +202,38 @@ class GroupedTransactions {
   });
 }
 
-final groupedTransactionsProvider = Provider.autoDispose<AsyncValue<GroupedTransactions>>((ref) {
-  final transactionsAsync = ref.watch(filteredTransactionsProvider);
-  return transactionsAsync.whenData((transactions) {
-    final Map<String, List<TransactionModel>> grouped = {};
-    for (final tx in transactions) {
-      final dateKey = DateFormatter.formatDate(tx.date);
-      grouped.putIfAbsent(dateKey, () => []).add(tx);
-    }
-    final sortedDates = grouped.keys.toList();
-    final List<Object> flatList = [];
-    for (final dateKey in sortedDates) {
-      flatList.add(dateKey);
-      flatList.addAll(grouped[dateKey]!);
-    }
+final groupedTransactionsProvider =
+    Provider.autoDispose<AsyncValue<GroupedTransactions>>((ref) {
+      final transactionsAsync = ref.watch(filteredTransactionsProvider);
+      return transactionsAsync.whenData((transactions) {
+        final Map<String, List<TransactionModel>> grouped = {};
+        for (final tx in transactions) {
+          final dateKey = DateFormatter.formatDate(tx.date);
+          grouped.putIfAbsent(dateKey, () => []).add(tx);
+        }
+        final sortedDates = grouped.keys.toList();
+        final List<Object> flatList = [];
+        for (final dateKey in sortedDates) {
+          flatList.add(dateKey);
+          flatList.addAll(grouped[dateKey]!);
+        }
 
-    int totalIncomes = 0;
-    int totalExpenses = 0;
-    for (final tx in transactions) {
-      if (tx.type == TransactionType.income) {
-        totalIncomes += tx.amount;
-      } else if (tx.type == TransactionType.expense) {
-        totalExpenses += tx.amount;
-      }
-    }
+        int totalIncomes = 0;
+        int totalExpenses = 0;
+        for (final tx in transactions) {
+          if (tx.type == TransactionType.income) {
+            totalIncomes += tx.amount;
+          } else if (tx.type == TransactionType.expense) {
+            totalExpenses += tx.amount;
+          }
+        }
 
-    return GroupedTransactions(
-      grouped: grouped,
-      sortedDates: sortedDates,
-      flatList: flatList,
-      totalIncomes: totalIncomes,
-      totalExpenses: totalExpenses,
-    );
-  });
-});
+        return GroupedTransactions(
+          grouped: grouped,
+          sortedDates: sortedDates,
+          flatList: flatList,
+          totalIncomes: totalIncomes,
+          totalExpenses: totalExpenses,
+        );
+      });
+    });

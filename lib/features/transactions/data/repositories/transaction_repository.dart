@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/notifications/reminder_scheduler.dart';
+import 'package:bestfin/features/transactions/domain/models/bulk_transaction_item.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
 import 'package:bestfin/features/transactions/domain/models/entry.dart';
@@ -43,6 +44,10 @@ abstract class TransactionRepository {
     List<SplitEntry>? splits,
     bool isCompleted = true,
   });
+
+  /// Insere todas as transações em uma única transação de banco —
+  /// tudo-ou-nada: se qualquer linha falhar, nada é gravado.
+  Future<List<String>> createTransactionsBulk(List<BulkTransactionItem> items);
   Future<String> createSuggestion({
     required DateTime date,
     required String description,
@@ -509,135 +514,26 @@ class TransactionRepositoryImpl implements TransactionRepository {
     bool isCompleted = true,
   }) async {
     final transactionId = const Uuid().v4();
-    final hasSplits = splits != null && splits.isNotEmpty;
 
-    await _database.transaction(() async {
-      // 1. Incrementa o uso da entity
-      if (entityId != null) {
-        final currentEntity = await (_database.select(
-          _database.entities,
-        )..where((t) => t.id.equals(entityId))).getSingleOrNull();
-        if (currentEntity != null) {
-          await (_database.update(
-            _database.entities,
-          )..where((t) => t.id.equals(entityId))).write(
-            db.EntitiesCompanion(
-              useCount: Value(currentEntity.useCount + 1),
-              updatedAt: Value(DateTime.now()),
-            ),
-          );
-        }
-      }
-
-      // 2. Insere cabeçalho da transação
-      await _database
-          .into(_database.transactions)
-          .insert(
-            db.TransactionsCompanion.insert(
-              id: transactionId,
-              date: date,
-              description: description,
-              type: type,
-              sentiment: Value(sentiment),
-              notes: Value(notes),
-              categoryId: hasSplits ? const Value(null) : Value(categoryId),
-              entityId: Value(entityId),
-              goalId: Value(goalId),
-              creditCardId: Value(creditCardId),
-              rawAmount: creditCardId != null
-                  ? Value(amount)
-                  : const Value.absent(),
-              isSplit: Value(hasSplits),
-              // Pendente (isCompleted=false) continua confirmado (revisado pelo
-              // usuário) — só ainda não "aconteceu". Mesma modelagem de uma
-              // parcela futura de recorrência.
-              isCompleted: Value(isCompleted),
-            ),
-          );
-
-      // 3. Insere entries (Partida Dobrada)
-      // Transações de cartão de crédito não criam entries — o saldo da conta vinculada
-      // só é impactado no pagamento da fatura.
-      if (creditCardId == null) {
-        if (type == 'expense') {
-          // Crédito na conta de origem (saída)
-          await _database
-              .into(_database.entries)
-              .insert(
-                db.EntriesCompanion.insert(
-                  id: const Uuid().v4(),
-                  transactionId: transactionId,
-                  accountId: accountId,
-                  amount: amount,
-                  type: 'credit',
-                ),
-              );
-        } else if (type == 'income') {
-          // Débito na conta de destino (entrada)
-          await _database
-              .into(_database.entries)
-              .insert(
-                db.EntriesCompanion.insert(
-                  id: const Uuid().v4(),
-                  transactionId: transactionId,
-                  accountId: accountId,
-                  amount: amount,
-                  type: 'debit',
-                ),
-              );
-        } else if (type == 'transfer' && toAccountId != null) {
-          // Crédito na conta de origem (saída)
-          await _database
-              .into(_database.entries)
-              .insert(
-                db.EntriesCompanion.insert(
-                  id: const Uuid().v4(),
-                  transactionId: transactionId,
-                  accountId: accountId,
-                  amount: amount,
-                  type: 'credit',
-                ),
-              );
-          // Débito na conta de destino (entrada)
-          await _database
-              .into(_database.entries)
-              .insert(
-                db.EntriesCompanion.insert(
-                  id: const Uuid().v4(),
-                  transactionId: transactionId,
-                  accountId: toAccountId,
-                  amount: amount,
-                  type: 'debit',
-                ),
-              );
-        }
-      }
-
-      // 4. Insere splits se existirem
-      if (hasSplits) {
-        for (final split in splits) {
-          await _database
-              .into(_database.transactionSplits)
-              .insert(
-                db.TransactionSplitsCompanion.insert(
-                  id: const Uuid().v4(),
-                  transactionId: transactionId,
-                  categoryId: Value(split.categoryId),
-                  amount: split.amount,
-                  description: Value(split.description),
-                ),
-              );
-        }
-      }
-
-      // 5. Atualiza progresso da meta se vinculada
-      if (goalId != null) {
-        await _updateGoalProgress(goalId, amount, type);
-      } else if (categoryId != null && !hasSplits) {
-        // Auto-absorção: procura goals ativos que absorvem essa categoria
-        await _applyGoalAutoAbsorption(transactionId, categoryId, amount, type);
-      }
-    });
+    await _database.transaction(
+      () => _insertTransactionRecords(
+        transactionId: transactionId,
+        date: date,
+        description: description,
+        type: type,
+        amount: amount,
+        categoryId: categoryId,
+        entityId: entityId,
+        accountId: accountId,
+        toAccountId: toAccountId,
+        sentiment: sentiment,
+        notes: notes,
+        goalId: goalId,
+        creditCardId: creditCardId,
+        splits: splits,
+        isCompleted: isCompleted,
+      ),
+    );
     // Best-effort — a UI não deve esperar 3 SELECTs extras (tx + entries +
     // splits) só para montar o payload da fila de sync após o commit.
     unawaited(
@@ -645,6 +541,186 @@ class TransactionRepositoryImpl implements TransactionRepository {
     );
     _scheduleReminder(transactionId);
     return transactionId;
+  }
+
+  @override
+  Future<List<String>> createTransactionsBulk(
+    List<BulkTransactionItem> items,
+  ) async {
+    final ids = [for (final _ in items) const Uuid().v4()];
+
+    await _database.transaction(() async {
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        await _insertTransactionRecords(
+          transactionId: ids[i],
+          date: item.date,
+          description: item.description,
+          type: item.type,
+          amount: item.amount,
+          categoryId: item.categoryId,
+          entityId: item.entityId,
+          accountId: item.accountId,
+          toAccountId: item.toAccountId,
+          isCompleted: item.isCompleted,
+        );
+      }
+    });
+    // Efeitos colaterais só após o commit — o enqueue de sync relê as linhas
+    // do banco e elas não existem fora da transação antes do commit.
+    for (final id in ids) {
+      unawaited(_enqueueTransactionSync(id, 'insert').catchError((_) {}));
+      _scheduleReminder(id);
+    }
+    return ids;
+  }
+
+  /// Insere header, entries, splits e progresso de meta de uma transação.
+  /// Assume que o chamador já está dentro de um `_database.transaction`.
+  Future<void> _insertTransactionRecords({
+    required String transactionId,
+    required DateTime date,
+    required String description,
+    required String type,
+    required int amount,
+    String? categoryId,
+    String? entityId,
+    required String accountId,
+    String? toAccountId,
+    String? sentiment,
+    String? notes,
+    String? goalId,
+    String? creditCardId,
+    List<SplitEntry>? splits,
+    bool isCompleted = true,
+  }) async {
+    final hasSplits = splits != null && splits.isNotEmpty;
+
+    // 1. Incrementa o uso da entity
+    if (entityId != null) {
+      final currentEntity = await (_database.select(
+        _database.entities,
+      )..where((t) => t.id.equals(entityId))).getSingleOrNull();
+      if (currentEntity != null) {
+        await (_database.update(
+          _database.entities,
+        )..where((t) => t.id.equals(entityId))).write(
+          db.EntitiesCompanion(
+            useCount: Value(currentEntity.useCount + 1),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    }
+
+    // 2. Insere cabeçalho da transação
+    await _database
+        .into(_database.transactions)
+        .insert(
+          db.TransactionsCompanion.insert(
+            id: transactionId,
+            date: date,
+            description: description,
+            type: type,
+            sentiment: Value(sentiment),
+            notes: Value(notes),
+            categoryId: hasSplits ? const Value(null) : Value(categoryId),
+            entityId: Value(entityId),
+            goalId: Value(goalId),
+            creditCardId: Value(creditCardId),
+            rawAmount: creditCardId != null
+                ? Value(amount)
+                : const Value.absent(),
+            isSplit: Value(hasSplits),
+            // Pendente (isCompleted=false) continua confirmado (revisado pelo
+            // usuário) — só ainda não "aconteceu". Mesma modelagem de uma
+            // parcela futura de recorrência.
+            isCompleted: Value(isCompleted),
+          ),
+        );
+
+    // 3. Insere entries (Partida Dobrada)
+    // Transações de cartão de crédito não criam entries — o saldo da conta vinculada
+    // só é impactado no pagamento da fatura.
+    if (creditCardId == null) {
+      if (type == 'expense') {
+        // Crédito na conta de origem (saída)
+        await _database
+            .into(_database.entries)
+            .insert(
+              db.EntriesCompanion.insert(
+                id: const Uuid().v4(),
+                transactionId: transactionId,
+                accountId: accountId,
+                amount: amount,
+                type: 'credit',
+              ),
+            );
+      } else if (type == 'income') {
+        // Débito na conta de destino (entrada)
+        await _database
+            .into(_database.entries)
+            .insert(
+              db.EntriesCompanion.insert(
+                id: const Uuid().v4(),
+                transactionId: transactionId,
+                accountId: accountId,
+                amount: amount,
+                type: 'debit',
+              ),
+            );
+      } else if (type == 'transfer' && toAccountId != null) {
+        // Crédito na conta de origem (saída)
+        await _database
+            .into(_database.entries)
+            .insert(
+              db.EntriesCompanion.insert(
+                id: const Uuid().v4(),
+                transactionId: transactionId,
+                accountId: accountId,
+                amount: amount,
+                type: 'credit',
+              ),
+            );
+        // Débito na conta de destino (entrada)
+        await _database
+            .into(_database.entries)
+            .insert(
+              db.EntriesCompanion.insert(
+                id: const Uuid().v4(),
+                transactionId: transactionId,
+                accountId: toAccountId,
+                amount: amount,
+                type: 'debit',
+              ),
+            );
+      }
+    }
+
+    // 4. Insere splits se existirem
+    if (hasSplits) {
+      for (final split in splits) {
+        await _database
+            .into(_database.transactionSplits)
+            .insert(
+              db.TransactionSplitsCompanion.insert(
+                id: const Uuid().v4(),
+                transactionId: transactionId,
+                categoryId: Value(split.categoryId),
+                amount: split.amount,
+                description: Value(split.description),
+              ),
+            );
+      }
+    }
+
+    // 5. Atualiza progresso da meta se vinculada
+    if (goalId != null) {
+      await _updateGoalProgress(goalId, amount, type);
+    } else if (categoryId != null && !hasSplits) {
+      // Auto-absorção: procura goals ativos que absorvem essa categoria
+      await _applyGoalAutoAbsorption(transactionId, categoryId, amount, type);
+    }
   }
 
   /// Aplica auto-absorção: liga a transação ao primeiro goal ativo que

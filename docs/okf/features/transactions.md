@@ -3,7 +3,7 @@ type: Feature
 title: Transações
 description: CRUD completo de transações financeiras com double-entry, filtros e busca.
 tags: [transações, double-entry, crud, filtros]
-timestamp: 2026-06-29T00:00:00Z
+timestamp: 2026-07-08T00:00:00Z
 ---
 
 ## Responsabilidade
@@ -16,6 +16,7 @@ Permite ao usuário registrar, editar, excluir e visualizar transações finance
 |---|---|
 | `presentation/screens/transactions_list_screen.dart` | Lista paginada com filtros |
 | `presentation/screens/transaction_form_screen.dart` | Formulário multi-passo (wizard) |
+| `presentation/screens/bulk_transaction_screen.dart` | Inserção em massa: cabeçalho compartilhado + tabela de linhas, salvamento tudo-ou-nada |
 
 ## Widgets Notáveis
 
@@ -33,12 +34,14 @@ Permite ao usuário registrar, editar, excluir e visualizar transações finance
 |---|---|
 | `transactionsProvider` | `presentation/providers/transactions_provider.dart` |
 | `createTransactionProvider` | idem |
+| `createTransactionsBulkProvider` | idem |
 | `updateTransactionProvider` | idem |
 | `deleteTransactionProvider` | idem |
 
 ## Use Cases
 
 - `create_transaction.dart` — valida double-entry e persiste `Transaction` + `Entry`s
+- `create_transactions_bulk.dart` — valida o lote e insere N transações em uma única transação de banco (tudo-ou-nada)
 - `update_transaction.dart` — atualiza transaction e recria entries
 - `delete_transaction.dart` — remove com opções para recorrentes (só esta / futuras / todas)
 - `get_transactions.dart` — busca com filtros de período, tipo, categoria, conta

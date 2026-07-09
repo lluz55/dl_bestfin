@@ -13,6 +13,7 @@ import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/notifications/notification_service.dart';
 import 'package:bestfin/core/notifications/reminder_provider.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
@@ -20,9 +21,13 @@ import 'package:bestfin/features/onboarding/presentation/providers/onboarding_pr
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/providers/user_profile_provider.dart';
+import 'package:bestfin/core/widgets/profile_avatar.dart';
+import 'package:bestfin/core/widgets/profile_editor.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/core/providers/reminders_settings_provider.dart';
 import 'package:bestfin/core/providers/pending_default_provider.dart';
+import 'package:bestfin/features/backup/presentation/screens/backup_screen.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
@@ -42,10 +47,23 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+/// Itens de configuração que abrem um sub-conteúdo. Em telas grandes esse
+/// sub-conteúdo é exibido na segunda coluna (master-detail) em vez de um modal.
+enum _SettingsDetail {
+  profile,
+  theme,
+  defaultAccount,
+  reminderLeadTime,
+  backup,
+}
+
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _auth = LocalAuthentication();
   bool _biometricsAvailable = false;
   bool _clearing = false;
+
+  /// Detalhe selecionado exibido na segunda coluna em telas grandes.
+  _SettingsDetail _selectedDetail = _SettingsDetail.theme;
 
   @override
   void initState() {
@@ -130,6 +148,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // GoRouter/messenger capturados para não esbarrar em contexto defunto.
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    // Capturado antes do reset do provider — o arquivo em si é removido na
+    // limpeza em segundo plano no fim deste método.
+    final profilePhotoPath = ref.read(userProfileProvider).photoPath;
 
     // Encerra o sync SEM bloquear: invalida a identidade em memória agora
     // (impede o onboarding de re-sincronizar) e fecha os WebSockets dos relays
@@ -235,6 +256,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     initialValuesHidden = false;
     initialAlwaysHideValues = false;
     initialIsLocked = false;
+    initialUserName = null;
+    initialUserPhotoPath = null;
 
     // Reset provider states
     ref.read(onboardingCompletedProvider.notifier).set(false);
@@ -248,6 +271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(alwaysHideValuesProvider);
     ref.invalidate(homeWidgetsProvider);
     ref.invalidate(shortcutsProvider);
+    ref.invalidate(userProfileProvider);
 
     // Navega imediatamente. `set(false)` acima já reabilita a rota /onboarding
     // no guard, então o go() não é rebatido para /home. Usa o router capturado
@@ -268,6 +292,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       } catch (e) {
         debugPrint('[ClearAll] prefs.clear falhou: $e');
       }
+      if (profilePhotoPath != null) {
+        try {
+          final photo = File(profilePhotoPath);
+          if (await photo.exists()) await photo.delete();
+        } catch (e) {
+          debugPrint('[ClearAll] remoção da foto de perfil falhou: $e');
+        }
+      }
     }());
   }
 
@@ -281,152 +313,333 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: const AppPageAppBar(title: 'Configurações'),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: ListView(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Em telas largas (tablet/iPad, desktop) usamos um layout
+          // master-detail: a lista de configurações fica na coluna esquerda e
+          // o sub-conteúdo do item selecionado aparece na coluna direita, em
+          // vez de abrir modais.
+          final splitView = constraints.maxWidth >= Breakpoints.medium;
+          final sections = _buildSections(
+            cs,
+            tt,
+            themeState,
+            biometricsEnabled,
+            splitView: splitView,
+          );
+
+          final list = ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             children: [
-              _SectionHeader(title: 'Aparência', tt: tt, cs: cs),
-              _SettingsTile(
-                icon: Icons.palette_outlined,
-                title: 'Tema',
-                subtitle: _themeSubtitle(themeState),
-                cs: cs,
-                tt: tt,
-                onTap: () => showThemeSettingsSheet(context),
-              ),
-              const SizedBox(height: 8),
-              _SectionHeader(title: 'Privacidade', tt: tt, cs: cs),
-              _SettingsTile(
-                icon: Icons.visibility_off_outlined,
-                title: 'Ocultar valores',
-                subtitle: 'Ocultar saldos por padrão ao abrir',
-                cs: cs,
-                tt: tt,
-                trailing: Switch(
-                  value: ref.watch(alwaysHideValuesProvider),
-                  onChanged: (v) =>
-                      ref.read(alwaysHideValuesProvider.notifier).set(v),
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (_biometricsAvailable) ...[
-                _SectionHeader(title: 'Segurança', tt: tt, cs: cs),
-                _SettingsTile(
-                  icon: Icons.fingerprint_rounded,
-                  title: 'Biometria',
-                  subtitle: biometricsEnabled
-                      ? 'Ativada'
-                      : 'Exigir biometria ao abrir o app',
-                  cs: cs,
-                  tt: tt,
-                  trailing: Switch(
-                    value: biometricsEnabled,
-                    onChanged: _toggleBiometrics,
-                  ),
-                ),
-                if (biometricsEnabled)
-                  _SettingsTile(
-                    icon: Icons.pin_outlined,
-                    title: 'Alterar PIN',
-                    subtitle: 'Mudar o PIN de desbloqueio',
-                    cs: cs,
-                    tt: tt,
-                    onTap: _changePin,
-                  ),
+              for (final section in sections) ...[
+                section,
                 const SizedBox(height: 8),
               ],
-              _SectionHeader(title: 'Transações', tt: tt, cs: cs),
-              _DefaultAccountTile(cs: cs, tt: tt),
-              _SettingsTile(
-                icon: Icons.schedule_rounded,
-                title: 'Pendente por padrão',
-                subtitle:
-                    'Novos lançamentos de hoje ou datas passadas já nascem marcados como pendentes',
-                cs: cs,
-                tt: tt,
-                trailing: Switch(
-                  value: ref.watch(defaultPendingForPastProvider),
-                  onChanged: (v) =>
-                      ref.read(defaultPendingForPastProvider.notifier).set(v),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _SectionHeader(title: 'Notificações', tt: tt, cs: cs),
-              _SettingsTile(
-                icon: Icons.notifications_active_outlined,
-                title: 'Lembretes de transações agendadas',
-                subtitle: 'Avisar antes de transações e recorrências futuras',
-                cs: cs,
-                tt: tt,
-                trailing: Switch(
-                  value: ref.watch(remindersEnabledProvider),
-                  onChanged: (v) async {
-                    await ref.read(remindersEnabledProvider.notifier).set(v);
-                    unawaited(ref.read(reminderReconcileProvider.future));
-                  },
-                ),
-              ),
-              if (ref.watch(remindersEnabledProvider)) ...[
-                _SettingsTile(
-                  icon: Icons.schedule_outlined,
-                  title: 'Antecedência do lembrete',
-                  subtitle: ref.watch(reminderLeadTimeProvider).label,
-                  cs: cs,
-                  tt: tt,
-                  onTap: () => _showLeadTimePicker(context, ref),
-                ),
-                if (Platform.isAndroid)
-                  const _AndroidNotificationPermissionTile(),
-              ],
-              const SizedBox(height: 8),
-              _SectionHeader(title: 'Dados', tt: tt, cs: cs),
-              _SettingsTile(
-                icon: Icons.upload_rounded,
-                title: 'Exportar dados',
-                subtitle: 'Salvar backup em JSON, CSV ou PDF',
-                cs: cs,
-                tt: tt,
-                onTap: () => context.push('/backup'),
-              ),
-              _SettingsTile(
-                icon: Icons.download_rounded,
-                title: 'Importar dados',
-                subtitle: 'Restaurar CSV, JSON ou banco SQLite',
-                cs: cs,
-                tt: tt,
-                onTap: () => context.push('/backup'),
-              ),
-              _SettingsTile(
-                icon: Icons.delete_sweep_rounded,
-                title: 'Limpar todos os dados',
-                subtitle: 'Apaga tudo permanentemente',
-                cs: cs,
-                tt: tt,
-                iconColor: cs.error,
-                onTap: _clearAllData,
-              ),
-              const SizedBox(height: 8),
-              _SectionHeader(title: 'Sobre', tt: tt, cs: cs),
-              _SettingsTile(
-                icon: Icons.info_outline_rounded,
-                title: 'Versão',
-                subtitle: '1.0.0',
-                cs: cs,
-                tt: tt,
-              ),
-              _SettingsTile(
-                icon: Icons.privacy_tip_outlined,
-                title: 'Política de Privacidade',
-                subtitle: 'Seus dados ficam apenas no dispositivo',
-                cs: cs,
-                tt: tt,
-              ),
             ],
+          );
+
+          if (!splitView) {
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: list,
+              ),
+            );
+          }
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(width: 380, child: list),
+                  VerticalDivider(width: 1, color: cs.outlineVariant),
+                  Expanded(child: _buildDetailPane(cs, tt)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildSections(
+    ColorScheme cs,
+    TextTheme tt,
+    ThemeState themeState,
+    bool biometricsEnabled, {
+    required bool splitView,
+  }) {
+    return [
+      _SettingsSection(
+        title: 'Perfil',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _ProfileTile(
+            cs: cs,
+            tt: tt,
+            selected: splitView && _selectedDetail == _SettingsDetail.profile,
+            onTap: () => _openDetail(
+              splitView,
+              _SettingsDetail.profile,
+              () => _showProfileSheet(context),
+            ),
           ),
+        ],
+      ),
+      _SettingsSection(
+        title: 'Aparência',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _SettingsTile(
+            icon: Icons.palette_outlined,
+            title: 'Tema',
+            subtitle: _themeSubtitle(themeState),
+            cs: cs,
+            tt: tt,
+            selected: splitView && _selectedDetail == _SettingsDetail.theme,
+            onTap: () => _openDetail(
+              splitView,
+              _SettingsDetail.theme,
+              () => showThemeSettingsSheet(context),
+            ),
+          ),
+        ],
+      ),
+      _SettingsSection(
+        title: 'Privacidade',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _SettingsTile(
+            icon: Icons.visibility_off_outlined,
+            title: 'Ocultar valores',
+            subtitle: 'Ocultar saldos por padrão ao abrir',
+            cs: cs,
+            tt: tt,
+            trailing: Switch(
+              value: ref.watch(alwaysHideValuesProvider),
+              onChanged: (v) =>
+                  ref.read(alwaysHideValuesProvider.notifier).set(v),
+            ),
+          ),
+        ],
+      ),
+      if (_biometricsAvailable)
+        _SettingsSection(
+          title: 'Segurança',
+          cs: cs,
+          tt: tt,
+          tiles: [
+            _SettingsTile(
+              icon: Icons.fingerprint_rounded,
+              title: 'Biometria',
+              subtitle: biometricsEnabled
+                  ? 'Ativada'
+                  : 'Exigir biometria ao abrir o app',
+              cs: cs,
+              tt: tt,
+              trailing: Switch(
+                value: biometricsEnabled,
+                onChanged: _toggleBiometrics,
+              ),
+            ),
+            if (biometricsEnabled)
+              _SettingsTile(
+                icon: Icons.pin_outlined,
+                title: 'Alterar PIN',
+                subtitle: 'Mudar o PIN de desbloqueio',
+                cs: cs,
+                tt: tt,
+                onTap: _changePin,
+              ),
+          ],
+        ),
+      _SettingsSection(
+        title: 'Transações',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _DefaultAccountTile(
+            cs: cs,
+            tt: tt,
+            selected:
+                splitView && _selectedDetail == _SettingsDetail.defaultAccount,
+            onOpenDetail: splitView
+                ? () => setState(
+                    () => _selectedDetail = _SettingsDetail.defaultAccount,
+                  )
+                : null,
+          ),
+          _SettingsTile(
+            icon: Icons.schedule_rounded,
+            title: 'Pendente por padrão',
+            subtitle:
+                'Novos lançamentos de hoje ou datas passadas já nascem marcados como pendentes',
+            cs: cs,
+            tt: tt,
+            trailing: Switch(
+              value: ref.watch(defaultPendingForPastProvider),
+              onChanged: (v) =>
+                  ref.read(defaultPendingForPastProvider.notifier).set(v),
+            ),
+          ),
+        ],
+      ),
+      _SettingsSection(
+        title: 'Notificações',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _SettingsTile(
+            icon: Icons.notifications_active_outlined,
+            title: 'Lembretes de transações agendadas',
+            subtitle: 'Avisar antes de transações e recorrências futuras',
+            cs: cs,
+            tt: tt,
+            trailing: Switch(
+              value: ref.watch(remindersEnabledProvider),
+              onChanged: (v) async {
+                await ref.read(remindersEnabledProvider.notifier).set(v);
+                unawaited(ref.read(reminderReconcileProvider.future));
+              },
+            ),
+          ),
+          if (ref.watch(remindersEnabledProvider)) ...[
+            _SettingsTile(
+              icon: Icons.schedule_outlined,
+              title: 'Antecedência do lembrete',
+              subtitle: ref.watch(reminderLeadTimeProvider).label,
+              cs: cs,
+              tt: tt,
+              selected:
+                  splitView &&
+                  _selectedDetail == _SettingsDetail.reminderLeadTime,
+              onTap: () => _openDetail(
+                splitView,
+                _SettingsDetail.reminderLeadTime,
+                () => _showLeadTimePicker(context, ref),
+              ),
+            ),
+            if (Platform.isAndroid) const _AndroidNotificationPermissionTile(),
+          ],
+        ],
+      ),
+      _SettingsSection(
+        title: 'Dados',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _SettingsTile(
+            icon: Icons.import_export_rounded,
+            title: 'Exportar e importar dados',
+            subtitle: 'Backup e restauração em JSON, CSV, PDF ou SQLite',
+            cs: cs,
+            tt: tt,
+            selected: splitView && _selectedDetail == _SettingsDetail.backup,
+            onTap: () => _openDetail(
+              splitView,
+              _SettingsDetail.backup,
+              () => context.push('/backup'),
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.delete_sweep_rounded,
+            title: 'Limpar todos os dados',
+            subtitle: 'Apaga tudo permanentemente',
+            cs: cs,
+            tt: tt,
+            iconColor: cs.error,
+            onTap: _clearAllData,
+          ),
+        ],
+      ),
+      _SettingsSection(
+        title: 'Sobre',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _SettingsTile(
+            icon: Icons.info_outline_rounded,
+            title: 'Versão',
+            subtitle: '1.0.0',
+            cs: cs,
+            tt: tt,
+          ),
+          _SettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Política de Privacidade',
+            subtitle: 'Seus dados ficam apenas no dispositivo',
+            cs: cs,
+            tt: tt,
+          ),
+        ],
+      ),
+    ];
+  }
+
+  /// Em telas grandes, seleciona o detalhe para exibir na coluna direita; em
+  /// telas compactas, mantém o comportamento de abrir um modal.
+  void _openDetail(
+    bool splitView,
+    _SettingsDetail detail,
+    VoidCallback showModal,
+  ) {
+    if (splitView) {
+      setState(() => _selectedDetail = detail);
+    } else {
+      showModal();
+    }
+  }
+
+  Widget _buildDetailPane(ColorScheme cs, TextTheme tt) {
+    final content = switch (_selectedDetail) {
+      _SettingsDetail.profile => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Seu perfil',
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Nome e foto exibidos na tela inicial',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: const ProfileEditor(),
+              ),
+            ),
+          ],
         ),
       ),
+      _SettingsDetail.theme => const SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(24, 24, 24, 32),
+        child: ThemeSettingsView(),
+      ),
+      _SettingsDetail.defaultAccount => const _DefaultAccountDetailPane(),
+      _SettingsDetail.reminderLeadTime => const _ReminderLeadTimeDetailPane(),
+      _SettingsDetail.backup => const BackupView(),
+    };
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      // Alinha o sub-conteúdo ao topo (o padrão do AnimatedSwitcher é centralizar,
+      // o que deixava a página de tema verticalmente centrada).
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previousChildren, ?currentChild],
+      ),
+      child: KeyedSubtree(key: ValueKey(_selectedDetail), child: content),
     );
   }
 
@@ -440,6 +653,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ThemeMode.dark => 'escuro',
     };
     return '$source • $mode';
+  }
+
+  void _showProfileSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        final tt = ctx.textTheme;
+        return Padding(
+          // Mantém o formulário acima do teclado quando o campo de nome
+          // está em foco.
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Seu perfil',
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Nome e foto exibidos na tela inicial',
+                  style: tt.bodySmall?.copyWith(
+                    color: ctx.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const ProfileEditor(),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showLeadTimePicker(BuildContext context, WidgetRef ref) {
@@ -484,11 +736,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-class _DefaultAccountTile extends ConsumerWidget {
-  const _DefaultAccountTile({required this.cs, required this.tt});
+/// Tile da seção Perfil: mostra o avatar e o nome atuais e abre o editor
+/// (modal em telas compactas, coluna de detalhe em telas largas).
+class _ProfileTile extends ConsumerWidget {
+  const _ProfileTile({
+    required this.cs,
+    required this.tt,
+    required this.onTap,
+    this.selected = false,
+  });
 
   final ColorScheme cs;
   final TextTheme tt;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(userProfileProvider);
+
+    return ListTile(
+      selected: selected,
+      selectedTileColor: cs.primaryContainer.withValues(alpha: 0.4),
+      leading: ProfileAvatar(profile: profile, radius: 20),
+      title: Text(
+        profile.hasName ? profile.name! : 'Seu perfil',
+        style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        'Nome e foto exibidos na tela inicial',
+        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: onTap,
+    );
+  }
+}
+
+class _DefaultAccountTile extends ConsumerWidget {
+  const _DefaultAccountTile({
+    required this.cs,
+    required this.tt,
+    this.selected = false,
+    this.onOpenDetail,
+  });
+
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  /// Destaca o tile quando seu detalhe está aberto na coluna direita.
+  final bool selected;
+
+  /// Quando não nulo (telas grandes), abre o detalhe na segunda coluna em vez
+  /// do modal.
+  final VoidCallback? onOpenDetail;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -497,6 +799,8 @@ class _DefaultAccountTile extends ConsumerWidget {
     final defaultAccount = accounts.where((a) => a.id == defaultId).firstOrNull;
 
     return ListTile(
+      selected: selected,
+      selectedTileColor: cs.primaryContainer.withValues(alpha: 0.4),
       leading: Container(
         width: 40,
         height: 40,
@@ -520,7 +824,9 @@ class _DefaultAccountTile extends ConsumerWidget {
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onTap: () => _showAccountPicker(context, ref, accounts, defaultId),
+      onTap:
+          onOpenDetail ??
+          () => _showAccountPicker(context, ref, accounts, defaultId),
     );
   }
 
@@ -598,6 +904,103 @@ class _DefaultAccountTile extends ConsumerWidget {
   }
 }
 
+/// Painel de detalhe (coluna direita, telas grandes) para escolher a conta
+/// padrão. Espelha o conteúdo do `_showAccountPicker`, mas sem fechar nada — a
+/// seleção apenas atualiza o provider e o próprio painel reflete o estado.
+class _DefaultAccountDetailPane extends ConsumerWidget {
+  const _DefaultAccountDetailPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final accounts = ref.watch(activeAccountsProvider);
+    final currentDefaultId = ref.watch(defaultAccountIdProvider);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      children: [
+        Text(
+          'Conta padrão',
+          style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Selecionada automaticamente em novas transações',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        ListTile(
+          leading: Icon(
+            Icons.auto_awesome_outlined,
+            color: cs.onSurfaceVariant,
+          ),
+          title: const Text('Nenhuma (seleção automática)'),
+          selected: currentDefaultId == null,
+          selectedColor: cs.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          onTap: () => ref.read(defaultAccountIdProvider.notifier).set(null),
+        ),
+        for (final account in accounts)
+          ListTile(
+            leading: Icon(
+              Icons.account_balance_wallet_outlined,
+              color: cs.onSurfaceVariant,
+            ),
+            title: Text(account.name),
+            subtitle: Text(account.type.label),
+            selected: account.id == currentDefaultId,
+            selectedColor: cs.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onTap: () =>
+                ref.read(defaultAccountIdProvider.notifier).set(account.id),
+          ),
+      ],
+    );
+  }
+}
+
+/// Painel de detalhe (coluna direita, telas grandes) para a antecedência do
+/// lembrete. Espelha o `_showLeadTimePicker` sem fechar nada.
+class _ReminderLeadTimeDetailPane extends ConsumerWidget {
+  const _ReminderLeadTimeDetailPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final current = ref.watch(reminderLeadTimeProvider);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      children: [
+        Text(
+          'Antecedência do lembrete',
+          style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 16),
+        for (final preset in ReminderLeadTime.values)
+          ListTile(
+            title: Text(preset.label),
+            selected: current == preset,
+            selectedColor: cs.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onTap: () async {
+              await ref.read(reminderLeadTimeProvider.notifier).set(preset);
+              unawaited(ref.read(reminderReconcileProvider.future));
+            },
+          ),
+      ],
+    );
+  }
+}
+
 class _AndroidNotificationPermissionTile extends ConsumerWidget {
   const _AndroidNotificationPermissionTile();
 
@@ -633,6 +1036,32 @@ class _AndroidNotificationPermissionTile extends ConsumerWidget {
       tt: tt,
       iconColor: cs.error,
       onTap: () => _requestPermission(context, ref),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.title,
+    required this.tiles,
+    required this.cs,
+    required this.tt,
+  });
+
+  final String title;
+  final List<Widget> tiles;
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionHeader(title: title, tt: tt, cs: cs),
+        ...tiles,
+      ],
     );
   }
 }
@@ -674,6 +1103,7 @@ class _SettingsTile extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.iconColor,
+    this.selected = false,
   });
 
   final IconData icon;
@@ -685,10 +1115,16 @@ class _SettingsTile extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? iconColor;
 
+  /// Destaca o tile quando seu detalhe está aberto na coluna direita (telas
+  /// grandes com layout master-detail).
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
     final effectiveIconColor = iconColor ?? cs.onSurface;
     return ListTile(
+      selected: selected,
+      selectedTileColor: cs.primaryContainer.withValues(alpha: 0.4),
       leading: Container(
         width: 40,
         height: 40,

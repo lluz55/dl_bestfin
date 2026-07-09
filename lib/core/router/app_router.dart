@@ -15,6 +15,7 @@ import 'package:bestfin/features/onboarding/presentation/providers/onboarding_pr
 import 'package:bestfin/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:bestfin/features/installments/presentation/screens/installments_list_screen.dart';
 import 'package:bestfin/features/settings/presentation/screens/settings_screen.dart';
+import 'package:bestfin/features/transactions/presentation/screens/bulk_transaction_screen.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transaction_form_screen.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transactions_list_screen.dart';
@@ -166,6 +167,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             initialType: type,
             transaction: prefilled,
             isCloning: isCloning,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/transaction/bulk-new',
+        builder: (context, state) {
+          final typeStr = state.uri.queryParameters['type'];
+          return BulkTransactionScreen(
+            initialType: typeStr != null
+                ? TransactionType.fromString(typeStr)
+                : TransactionType.expense,
           );
         },
       ),
