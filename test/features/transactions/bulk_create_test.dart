@@ -162,6 +162,146 @@ void main() {
     expect(tx.isConfirmed, isTrue);
   });
 
+  test('createTransactionsBulk persists a shared groupId', () async {
+    final accountId = await insertAccount('Checking');
+    const groupId = 'group-abc';
+
+    await repository.createTransactionsBulk([
+      for (var i = 0; i < 3; i++)
+        BulkTransactionItem(
+          date: DateTime.now(),
+          description: 'Item $i',
+          type: 'expense',
+          amount: 1000 * (i + 1),
+          accountId: accountId,
+          groupId: groupId,
+        ),
+    ]);
+
+    final txs = await db.select(db.transactions).get();
+    expect(txs.length, 3);
+    expect(txs.every((t) => t.groupId == groupId), isTrue);
+
+    // groupId sobrevive à edição (update não deve limpá-lo).
+    final target = txs.first;
+    await repository.updateTransaction(
+      id: target.id,
+      date: target.date,
+      description: 'Editado',
+      type: 'expense',
+      amount: 9999,
+      accountId: accountId,
+    );
+    final reloaded = await (db.select(
+      db.transactions,
+    )..where((t) => t.id.equals(target.id))).getSingle();
+    expect(reloaded.groupId, groupId);
+    expect(reloaded.description, 'Editado');
+  });
+
+  test(
+    'updateGroupedTransactions replaces members and recalculates balance',
+    () async {
+      final accountId = await insertAccount('Checking');
+      const groupId = 'group-edit';
+
+      await repository.createTransactionsBulk([
+        for (var i = 0; i < 3; i++)
+          BulkTransactionItem(
+            date: DateTime.now(),
+            description: 'Item $i',
+            type: 'expense',
+            amount: 1000,
+            accountId: accountId,
+            groupId: groupId,
+          ),
+      ]);
+      // 3 despesas de 1000 = -3000
+      expect(await db.accountsDao.watchAccountBalance(accountId).first, -3000);
+
+      // Edita o bloco: agora 2 linhas com valores diferentes.
+      await repository.updateGroupedTransactions(groupId, [
+        BulkTransactionItem(
+          date: DateTime.now(),
+          description: 'Novo A',
+          type: 'expense',
+          amount: 2500,
+          accountId: accountId,
+          groupId: groupId,
+        ),
+        BulkTransactionItem(
+          date: DateTime.now(),
+          description: 'Novo B',
+          type: 'expense',
+          amount: 500,
+          accountId: accountId,
+          groupId: groupId,
+        ),
+      ]);
+
+      final txs = await repository.watchAllTransactions().first;
+      expect(txs.length, 2);
+      expect(txs.every((t) => t.groupId == groupId), isTrue);
+      expect(
+        txs.map((t) => t.description).toSet(),
+        {'Novo A', 'Novo B'},
+      );
+      // Saldo recalculado: -(2500 + 500) = -3000 (mesma soma, membros novos).
+      expect(await db.accountsDao.watchAccountBalance(accountId).first, -3000);
+
+      // Nenhuma entry órfã dos membros antigos.
+      final entries = await db.select(db.entries).get();
+      expect(entries.length, 2);
+    },
+  );
+
+  test('updateGroupedTransactions can ungroup (groupId null)', () async {
+    final accountId = await insertAccount('Checking');
+    const groupId = 'group-ungroup';
+    await repository.createTransactionsBulk([
+      for (var i = 0; i < 2; i++)
+        BulkTransactionItem(
+          date: DateTime.now(),
+          description: 'Item $i',
+          type: 'expense',
+          amount: 1000,
+          accountId: accountId,
+          groupId: groupId,
+        ),
+    ]);
+
+    // Salva as linhas sem groupId — desagrupando o bloco.
+    await repository.updateGroupedTransactions(groupId, [
+      for (var i = 0; i < 2; i++)
+        BulkTransactionItem(
+          date: DateTime.now(),
+          description: 'Avulso $i',
+          type: 'expense',
+          amount: 1000,
+          accountId: accountId,
+        ),
+    ]);
+
+    final txs = await repository.watchAllTransactions().first;
+    expect(txs.length, 2);
+    expect(txs.every((t) => t.groupId == null), isTrue);
+  });
+
+  test('ungrouped bulk items keep groupId null', () async {
+    final accountId = await insertAccount('Checking');
+    await repository.createTransactionsBulk([
+      BulkTransactionItem(
+        date: DateTime.now(),
+        description: 'Avulso',
+        type: 'expense',
+        amount: 1000,
+        accountId: accountId,
+      ),
+    ]);
+    final tx = await db.select(db.transactions).getSingle();
+    expect(tx.groupId, isNull);
+  });
+
   group('CreateTransactionsBulk usecase validation', () {
     test('rejects empty batch', () {
       final usecase = CreateTransactionsBulk(repository);

@@ -17,6 +17,13 @@ class DescriptionAutocomplete extends ConsumerStatefulWidget {
   final FocusNode? focusNode;
   final ValueChanged<String>? onFieldSubmitted;
 
+  /// Sobrescreve a decoração padrão do campo. Usado pela inserção em massa
+  /// para encaixar o mesmo autocomplete do formulário em uma linha da tabela
+  /// (sem borda e denso), mantendo as sugestões por histórico.
+  final InputDecoration? decoration;
+  final TextStyle? style;
+  final TextCapitalization textCapitalization;
+
   const DescriptionAutocomplete({
     super.key,
     required this.controller,
@@ -25,6 +32,9 @@ class DescriptionAutocomplete extends ConsumerStatefulWidget {
     this.onChanged,
     this.focusNode,
     this.onFieldSubmitted,
+    this.decoration,
+    this.style,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -97,14 +107,20 @@ class _DescriptionAutocompleteState
           controller: controller,
           focusNode: focusNode,
           textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
-            labelText: widget.transactionType == 'transfer'
-                ? 'Descrição (opcional)'
-                : 'Descrição *',
-            hintText: 'Ex: Compras no mercado, Freelance...',
-            prefixIcon: const Icon(Icons.description_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-          ),
+          textCapitalization: widget.textCapitalization,
+          style: widget.style,
+          decoration:
+              widget.decoration ??
+              InputDecoration(
+                labelText: widget.transactionType == 'transfer'
+                    ? 'Descrição (opcional)'
+                    : 'Descrição *',
+                hintText: 'Ex: Compras no mercado, Freelance...',
+                prefixIcon: const Icon(Icons.description_outlined),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
           onFieldSubmitted: (value) {
             onFieldSubmitted();
             widget.onFieldSubmitted?.call(value);

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 import 'package:bestfin/core/providers/entity_categories_provider.dart';
@@ -41,6 +43,12 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   db.Entity? _currentEntity;
   List<db.Entity> _filteredEntities = const [];
 
+  /// Evita abrir o seletor de categoria duas vezes ao criar uma entidade nova:
+  /// tocar em `Criar "..."` chama [_createNewEntity] e, ao abrir o modal, o
+  /// campo perde o foco disparando [_commitTypedText], que tentaria criar de
+  /// novo. Este flag serializa a criação em um único fluxo.
+  bool _isCreatingEntity = false;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +83,9 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   /// cria uma nova automaticamente, em vez de simplesmente descartar o texto
   /// quando o usuário não toca explicitamente no chip/opção "Criar".
   Future<void> _commitTypedText() async {
+    // Criação já em andamento (disparada pela opção "Criar"): não abrir um
+    // segundo seletor de categoria.
+    if (_isCreatingEntity) return;
     final text = _controller.text.trim();
     if (text.isEmpty) {
       if (_currentEntity != null) {
@@ -263,40 +274,67 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   }
 
   Future<String?> _showCategoryPicker() async {
-    return showModalBottomSheet<String>(
+    // Usa o mesmo apresentador adaptativo do modal de nova/editar transação:
+    // bottom sheet no mobile e painel flutuante (canto inferior direito) em
+    // telas largas — garantindo tamanho e posicionamento idênticos.
+    return showAdaptiveModal<String>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) {
+        final cs = context.colorScheme;
+        final tt = context.textTheme;
+        final isCompact = Breakpoints.isCompact(context);
         return Consumer(
           builder: (context, ref, child) {
             final categories = ref.watch(entityCategoriesProvider);
-            return SizedBox(
-              height: MediaQuery.of(context).size.height * 0.65,
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  Text(
-                    'Selecione a Categoria',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 1,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                // Mesma altura máxima do modal de nova transação.
+                maxHeight: MediaQuery.of(context).size.height * 0.65,
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isCompact)
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 4),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                      itemCount: categories.length + 1,
-                      itemBuilder: (context, index) {
+                        ),
+                      ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        isCompact ? 8 : 20,
+                        16,
+                        12,
+                      ),
+                      child: Text(
+                        'Selecione a Categoria',
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 1,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                            ),
+                        itemCount: categories.length + 1,
+                        itemBuilder: (context, index) {
                         if (index == categories.length) {
                           return InkWell(
                             onTap: () async {
@@ -363,10 +401,11 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                             ],
                           ),
                         );
-                      },
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -376,6 +415,16 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
   }
 
   Future<void> _createNewEntity(String name) async {
+    if (_isCreatingEntity) return;
+    _isCreatingEntity = true;
+    try {
+      await _createNewEntityInner(name);
+    } finally {
+      _isCreatingEntity = false;
+    }
+  }
+
+  Future<void> _createNewEntityInner(String name) async {
     final categoryId = await _showCategoryPicker();
     if (categoryId == null) return;
 

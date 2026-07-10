@@ -187,6 +187,86 @@ void main() {
     expect(txs.isEmpty, true);
   });
 
+  test(
+    'deleteTransactions removes several at once and recalculates balances',
+    () async {
+      final acc = const Uuid().v4();
+      await db.accountsDao.insertAccount(
+        AccountsCompanion.insert(id: acc, name: 'Wallet', type: 'wallet'),
+      );
+
+      await repository.createTransaction(
+        date: DateTime.now(),
+        description: 'Lunch',
+        type: 'expense',
+        amount: 3000,
+        accountId: acc,
+      );
+      await repository.createTransaction(
+        date: DateTime.now(),
+        description: 'Coffee',
+        type: 'expense',
+        amount: 1000,
+        accountId: acc,
+      );
+      await repository.createTransaction(
+        date: DateTime.now(),
+        description: 'Salary',
+        type: 'income',
+        amount: 500000,
+        accountId: acc,
+      );
+
+      final all = await repository.watchAllTransactions().first;
+      // Balance before: -3000 - 1000 + 500000 = 496000
+      expect(await db.accountsDao.watchAccountBalance(acc).first, 496000);
+
+      // Delete the two expenses in one shot, keep the income.
+      final toDelete = all
+          .where((tx) => tx.type == TransactionType.expense)
+          .map((tx) => tx.id)
+          .toList();
+      expect(toDelete.length, 2);
+
+      await repository.deleteTransactions(toDelete);
+
+      final remaining = await repository.watchAllTransactions().first;
+      expect(remaining.length, 1);
+      expect(remaining.first.type, TransactionType.income);
+
+      // Balance recalculated: only the salary remains.
+      expect(await db.accountsDao.watchAccountBalance(acc).first, 500000);
+
+      // Entries of the deleted transactions are gone too.
+      for (final id in toDelete) {
+        final entries = await (db.select(
+          db.entries,
+        )..where((e) => e.transactionId.equals(id))).get();
+        expect(entries, isEmpty);
+      }
+    },
+  );
+
+  test('deleteTransactions is a no-op for an empty list', () async {
+    final acc = const Uuid().v4();
+    await db.accountsDao.insertAccount(
+      AccountsCompanion.insert(id: acc, name: 'Wallet', type: 'wallet'),
+    );
+    await repository.createTransaction(
+      date: DateTime.now(),
+      description: 'Book',
+      type: 'expense',
+      amount: 5000,
+      accountId: acc,
+    );
+
+    await repository.deleteTransactions([]);
+
+    final txs = await repository.watchAllTransactions().first;
+    expect(txs.length, 1);
+    expect(await db.accountsDao.watchAccountBalance(acc).first, -5000);
+  });
+
   test('getRecentDescriptions filters by type and matches query', () async {
     final acc = const Uuid().v4();
     await db.accountsDao.insertAccount(
@@ -257,9 +337,7 @@ void main() {
     );
 
     // Simulate a recurring-generated instance not yet due (isCompleted=false).
-    await (db.update(
-      db.transactions,
-    )..where((t) => t.id.equals(txId))).write(
+    await (db.update(db.transactions)..where((t) => t.id.equals(txId))).write(
       const TransactionsCompanion(isCompleted: Value(false)),
     );
 

@@ -11,6 +11,7 @@ import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
 import 'package:bestfin/core/widgets/category_picker.dart';
 import 'package:bestfin/core/widgets/entity_autocomplete.dart';
+import 'package:bestfin/core/widgets/pending_status_icon.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -20,7 +21,6 @@ import 'package:bestfin/features/transactions/domain/usecases/predict_category.d
 import 'package:bestfin/features/transactions/presentation/providers/quick_suggestions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
-import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/description_autocomplete.dart';
@@ -66,9 +66,9 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   bool _categoryPredicted = false;
 
   /// Marca a transação como pendente (ainda não aconteceu) — `isCompleted=false`.
-  /// Lançamento rápido sempre usa a data de hoje, então o padrão vem direto
-  /// da configuração "Pendente por padrão".
-  bool _isPending = true;
+  /// Lançamento rápido sempre usa a data de hoje, então nasce confirmada: só
+  /// datas futuras são pendentes automaticamente. O usuário pode alternar.
+  bool _isPending = false;
 
   bool get _isTransfer => _type == TransactionType.transfer;
 
@@ -93,7 +93,6 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
   void initState() {
     super.initState();
     _type = widget.initialType;
-    _isPending = ref.read(defaultPendingForPastProvider);
     _descriptionController.addListener(_onDescriptionChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -534,14 +533,15 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _isPending
-                    ? Icons.schedule_rounded
-                    : Icons.check_circle_outline_rounded,
-                size: 16,
-                color: _isPending ? color : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
+              // Ícone só aparece quando pendente; confirmada é o estado neutro.
+              if (_isPending) ...[
+                PendingStatusIcon(
+                  isPending: _isPending,
+                  size: 16,
+                  color: color,
+                ),
+                const SizedBox(width: 6),
+              ],
               Text(
                 _isPending ? 'Pendente' : 'Confirmada',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(

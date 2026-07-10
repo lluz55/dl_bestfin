@@ -123,7 +123,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration {
@@ -331,6 +331,11 @@ class AppDatabase extends _$AppDatabase {
         if (from < 22) {
           await m.createTable(scheduledReminders);
           await m.createIndex(scheduledRemindersTransactionIdx);
+        }
+        if (from < 23) {
+          // Agrupamento de lançamentos em massa em um único bloco.
+          await m.addColumn(transactions, transactions.groupId);
+          await m.createIndex(transactionsGroupIdx);
         }
       },
       beforeOpen: (details) async {

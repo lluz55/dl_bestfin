@@ -19,6 +19,9 @@ class TransactionTile extends ConsumerWidget {
     this.onDelete,
     this.onClone,
     this.onMarkAsPaid,
+    this.onLongPress,
+    this.selectionMode = false,
+    this.selected = false,
   });
 
   final TransactionModel transaction;
@@ -26,6 +29,13 @@ class TransactionTile extends ConsumerWidget {
   final Future<void> Function()? onDelete;
   final VoidCallback? onClone;
   final Future<void> Function()? onMarkAsPaid;
+
+  /// Long-press para entrar no modo de seleção em massa.
+  final VoidCallback? onLongPress;
+
+  /// Quando true, o tile exibe um indicador de seleção e desabilita o swipe.
+  final bool selectionMode;
+  final bool selected;
 
   Future<void> _markAsPaid(BuildContext context) async {
     await onMarkAsPaid?.call();
@@ -125,6 +135,8 @@ class TransactionTile extends ConsumerWidget {
         child: Stack(
           children: [
             baseIcon,
+            // Atrasada (pendente com data de hoje/passada): precisa de ação —
+            // ícone de alerta, nunca o relógio.
             if (isOverdue)
               Positioned(
                 right: 0,
@@ -138,13 +150,15 @@ class TransactionTile extends ConsumerWidget {
                   ),
                   child: Center(
                     child: Icon(
-                      Icons.schedule_rounded,
+                      Icons.error_outline_rounded,
                       size: 11,
                       color: cs.tertiary,
                     ),
                   ),
                 ),
               ),
+            // Agendada (data futura): o relógio é reservado exclusivamente para
+            // transações que ainda vão acontecer.
             if (isScheduled)
               Positioned(
                 right: 0,
@@ -158,7 +172,7 @@ class TransactionTile extends ConsumerWidget {
                   ),
                   child: Center(
                     child: Icon(
-                      Icons.event_available_rounded,
+                      Icons.schedule_rounded,
                       size: 11,
                       color: cs.secondary,
                     ),
@@ -263,15 +277,25 @@ class TransactionTile extends ConsumerWidget {
     Widget tile = Card(
       elevation: 0,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-      color: cs.surfaceContainer,
+      color: selected ? cs.secondaryContainer : cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: shapes.transactionTile),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: shapes.transactionTile,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
+              if (selectionMode) ...[
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+              ],
               iconWidget,
               const SizedBox(width: 12),
               Expanded(
@@ -305,6 +329,17 @@ class TransactionTile extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (transaction.isGrouped) ...[
+                          const SizedBox(width: 6),
+                          Tooltip(
+                            message: 'Parte de um lançamento agrupado',
+                            child: Icon(
+                              Icons.layers_rounded,
+                              size: 14,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                         if (transaction.sentiment != null) ...[
                           const SizedBox(width: 6),
                           Text(
@@ -327,16 +362,79 @@ class TransactionTile extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (isPending && onMarkAsPaid != null)
-                IconButton(
-                  onPressed: () => _markAsPaid(context),
-                  icon: const Icon(Icons.check_circle_outline_rounded),
+              // Alternativa ao swipe: menu de ações (duplicar/excluir) acessível
+              // por toque, para quem não descobre ou não consegue usar o gesto.
+              if (!selectionMode &&
+                  (onClone != null ||
+                      onDelete != null ||
+                      (isPending && onMarkAsPaid != null)))
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert_rounded,
+                    color: cs.onSurfaceVariant,
+                  ),
                   iconSize: 20,
-                  color: cs.tertiary,
-                  tooltip: 'Marcar como pago',
-                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Mais ações',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  position: PopupMenuPosition.under,
+                  onSelected: (value) {
+                    if (value == 'markAsPaid') {
+                      _markAsPaid(context);
+                    } else if (value == 'duplicate') {
+                      onClone?.call();
+                    } else if (value == 'delete') {
+                      onDelete?.call();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    // Confirmar fica no menu: um check fixo na linha lia-se
+                    // como "já confirmada" — o ícone da lista é só do pendente.
+                    if (isPending && onMarkAsPaid != null)
+                      PopupMenuItem<String>(
+                        value: 'markAsPaid',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 20,
+                              color: cs.tertiary,
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Marcar como pago'),
+                          ],
+                        ),
+                      ),
+                    if (onClone != null)
+                      PopupMenuItem<String>(
+                        value: 'duplicate',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.copy_rounded,
+                              size: 20,
+                              color: cs.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Duplicar'),
+                          ],
+                        ),
+                      ),
+                    if (onDelete != null)
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              size: 20,
+                              color: cs.error,
+                            ),
+                            const SizedBox(width: 12),
+                            Text('Excluir', style: TextStyle(color: cs.error)),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
             ],
           ),
@@ -345,7 +443,9 @@ class TransactionTile extends ConsumerWidget {
     );
 
     // ── Swipe actions ────────────────────────────────────────────────────────
-    final hasSwipe = onClone != null || onDelete != null;
+    // No modo de seleção o swipe é desabilitado — o gesto conflitaria com a
+    // rolagem/marcação e a exclusão passa a ser feita pela barra de seleção.
+    final hasSwipe = !selectionMode && (onClone != null || onDelete != null);
     if (!hasSwipe) return tile;
 
     final swipeDirection = (onClone != null && onDelete != null)

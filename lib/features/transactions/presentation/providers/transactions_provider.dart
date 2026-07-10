@@ -3,10 +3,13 @@ import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/transactions/data/repositories/transaction_repository.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
+import 'package:bestfin/features/transactions/domain/usecases/collapse_transaction_groups.dart';
 import 'package:bestfin/features/transactions/domain/usecases/create_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/create_transactions_bulk.dart';
+import 'package:bestfin/features/transactions/domain/usecases/update_grouped_transactions.dart';
 import 'package:bestfin/features/transactions/domain/usecases/update_transaction.dart';
 import 'package:bestfin/features/transactions/domain/usecases/delete_transaction.dart';
+import 'package:bestfin/features/transactions/domain/usecases/delete_transactions.dart';
 import 'package:bestfin/features/transactions/domain/usecases/get_transactions.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
@@ -26,12 +29,22 @@ final createTransactionsBulkProvider = Provider<CreateTransactionsBulk>((ref) {
   return CreateTransactionsBulk(ref.watch(transactionRepositoryProvider));
 });
 
+final updateGroupedTransactionsProvider = Provider<UpdateGroupedTransactions>((
+  ref,
+) {
+  return UpdateGroupedTransactions(ref.watch(transactionRepositoryProvider));
+});
+
 final updateTransactionProvider = Provider<UpdateTransaction>((ref) {
   return UpdateTransaction(ref.watch(transactionRepositoryProvider));
 });
 
 final deleteTransactionProvider = Provider<DeleteTransaction>((ref) {
   return DeleteTransaction(ref.watch(transactionRepositoryProvider));
+});
+
+final deleteTransactionsProvider = Provider<DeleteTransactions>((ref) {
+  return DeleteTransactions(ref.watch(transactionRepositoryProvider));
 });
 
 final markTransactionAsPaidProvider = Provider<Future<void> Function(String)>((
@@ -134,6 +147,16 @@ final filteredTransactionsProvider = StreamProvider<List<TransactionModel>>((
   );
 });
 
+/// Membros vivos de um bloco agrupado, independente dos filtros aplicados na
+/// lista — usado pela tela de detalhe do grupo (edição de cada lançamento).
+final transactionGroupMembersProvider = StreamProvider.autoDispose
+    .family<List<TransactionModel>, String>((ref, groupId) {
+      final repository = ref.watch(transactionRepositoryProvider);
+      return repository.watchAllTransactions().map(
+        (list) => list.where((tx) => tx.groupId == groupId).toList(),
+      );
+    });
+
 final transactionDeleteContextProvider =
     FutureProvider.family<TransactionDeleteContext, String>((ref, txId) {
       return ref.watch(transactionRepositoryProvider).getDeleteContext(txId);
@@ -215,7 +238,7 @@ final groupedTransactionsProvider =
         final List<Object> flatList = [];
         for (final dateKey in sortedDates) {
           flatList.add(dateKey);
-          flatList.addAll(grouped[dateKey]!);
+          flatList.addAll(collapseTransactionGroups(grouped[dateKey]!));
         }
 
         int totalIncomes = 0;

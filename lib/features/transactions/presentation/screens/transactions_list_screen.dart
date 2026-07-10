@@ -13,14 +13,27 @@ import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction_group.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
+import 'package:bestfin/features/transactions/presentation/screens/transaction_group_screen.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_tile.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/grouped_transaction_tile.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_filters.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
 
-class TransactionsListScreen extends ConsumerWidget {
+class TransactionsListScreen extends ConsumerStatefulWidget {
   const TransactionsListScreen({super.key});
+
+  @override
+  ConsumerState<TransactionsListScreen> createState() =>
+      _TransactionsListScreenState();
+}
+
+class _TransactionsListScreenState
+    extends ConsumerState<TransactionsListScreen> {
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
 
   int _calculateDayNet(List<TransactionModel> list) {
     int net = 0;
@@ -34,8 +47,90 @@ class TransactionsListScreen extends ConsumerWidget {
     return net;
   }
 
+  void _enterSelection(List<String> ids) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.addAll(ids);
+    });
+  }
+
+  /// Alterna a seleção de um lançamento (ou de todos os membros de um grupo).
+  /// Sai do modo de seleção automaticamente quando nada fica selecionado.
+  void _toggleSelection(List<String> ids) {
+    setState(() {
+      final allSelected = ids.every(_selectedIds.contains);
+      if (allSelected) {
+        _selectedIds.removeAll(ids);
+      } else {
+        _selectedIds.addAll(ids);
+      }
+      if (_selectedIds.isEmpty) _selectionMode = false;
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAll(List<String> allIds) {
+    setState(() {
+      if (allIds.every(_selectedIds.contains)) {
+        _selectedIds.clear();
+        _selectionMode = false;
+      } else {
+        _selectedIds
+          ..clear()
+          ..addAll(allIds);
+      }
+    });
+  }
+
+  Future<void> _confirmDeleteSelected() async {
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty) return;
+    final count = ids.length;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          count == 1 ? 'Excluir transação?' : 'Excluir $count transações?',
+        ),
+        content: const Text(
+          'Esta ação não pode ser desfeita. Os saldos serão recalculados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(deleteTransactionsProvider).call(ids);
+    if (!mounted) return;
+    _exitSelection();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          count == 1 ? 'Transação excluída.' : '$count transações excluídas.',
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final shapes = context.shapes;
@@ -44,290 +139,391 @@ class TransactionsListScreen extends ConsumerWidget {
     final groupedDataAsync = ref.watch(groupedTransactionsProvider);
     final filters = ref.watch(transactionFiltersProvider);
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(
-        title: 'Transações',
-        showVisibilityToggle: true,
-      ),
-      body: Column(
-        children: [
-          const TransactionFiltersWidget(),
-          const Divider(height: 1, thickness: 0.5),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(filteredTransactionsProvider);
-              },
-              child: groupedDataAsync.when(
-                data: (groupedData) {
-                  if (groupedData.flatList.isEmpty) {
-                    return Center(
-                      child: EmptyState(
-                        title: filters.isEmpty
-                            ? 'Nenhuma Transação'
-                            : 'Nenhum Resultado',
-                        description: filters.isEmpty
-                            ? 'Você ainda não registrou nenhuma despesa ou receita.'
-                            : 'Nenhuma transação atende aos filtros selecionados.',
-                        icon: Icons.swap_horiz_rounded,
-                        actionLabel: filters.isEmpty
-                            ? 'Nova Transação'
-                            : 'Limpar Filtros',
-                        onAction: () {
-                          if (filters.isEmpty) {
-                            if (Breakpoints.isCompact(context)) {
-                              context.push('/transaction/new');
+    // Ids de todas as transações visíveis (membros de grupos incluídos) —
+    // usados pelo "selecionar tudo" da barra de seleção.
+    final allVisibleIds = <String>[
+      for (final txs
+          in groupedDataAsync.asData?.value.grouped.values ??
+              const <List<TransactionModel>>[])
+        for (final tx in txs) tx.id,
+    ];
+
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitSelection();
+      },
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        appBar: _selectionMode
+            ? _buildSelectionAppBar(context, cs, tt, allVisibleIds)
+            : const AppPageAppBar(
+                title: 'Transações',
+                showVisibilityToggle: true,
+              ),
+        body: Column(
+          children: [
+            const TransactionFiltersWidget(),
+            const Divider(height: 1, thickness: 0.5),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(filteredTransactionsProvider);
+                },
+                child: groupedDataAsync.when(
+                  data: (groupedData) {
+                    if (groupedData.flatList.isEmpty) {
+                      return Center(
+                        child: EmptyState(
+                          title: filters.isEmpty
+                              ? 'Nenhuma Transação'
+                              : 'Nenhum Resultado',
+                          description: filters.isEmpty
+                              ? 'Você ainda não registrou nenhuma despesa ou receita.'
+                              : 'Nenhuma transação atende aos filtros selecionados.',
+                          icon: Icons.swap_horiz_rounded,
+                          actionLabel: filters.isEmpty
+                              ? 'Nova Transação'
+                              : 'Limpar Filtros',
+                          onAction: () {
+                            if (filters.isEmpty) {
+                              if (Breakpoints.isCompact(context)) {
+                                context.push('/transaction/new');
+                              } else {
+                                ref
+                                    .read(transactionFormModalProvider.notifier)
+                                    .open();
+                              }
                             } else {
                               ref
-                                  .read(transactionFormModalProvider.notifier)
-                                  .open();
+                                      .read(transactionFiltersProvider.notifier)
+                                      .state =
+                                  const TransactionFilters();
                             }
-                          } else {
-                            ref
-                                    .read(transactionFiltersProvider.notifier)
-                                    .state =
-                                const TransactionFilters();
-                          }
-                        },
-                      ),
-                    );
-                  }
+                          },
+                        ),
+                      );
+                    }
 
-                  final flatList = groupedData.flatList;
-                  final grouped = groupedData.grouped;
-                  final totalIncomes = groupedData.totalIncomes;
-                  final totalExpenses = groupedData.totalExpenses;
+                    final flatList = groupedData.flatList;
+                    final grouped = groupedData.grouped;
+                    final totalIncomes = groupedData.totalIncomes;
+                    final totalExpenses = groupedData.totalExpenses;
 
-                  return CustomScrollView(
-                    slivers: [
-                      // Resumo consolidado do período
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Card(
-                            elevation: 0,
-                            color: cs.surfaceContainerHigh,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: shapes.card,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.arrow_downward_rounded,
-                                                size: 12,
-                                                color: colors.income,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Receitas',
-                                                style: tt.labelMedium?.copyWith(
-                                                  color: cs.onSurfaceVariant,
-                                                  fontWeight: FontWeight.bold,
+                    return CustomScrollView(
+                      slivers: [
+                        // Resumo consolidado do período
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Card(
+                              elevation: 0,
+                              color: cs.surfaceContainerHigh,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: shapes.card,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.arrow_downward_rounded,
+                                                  size: 12,
+                                                  color: colors.income,
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          AmountDisplay(
-                                            amountInCents: totalIncomes,
-                                            color: colors.income,
-                                            style: tt.titleMedium?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            showSign: false,
-                                          ),
-                                        ],
-                                      ),
-                                      Container(
-                                        height: 32,
-                                        width: 1,
-                                        color: cs.outlineVariant,
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.arrow_upward_rounded,
-                                                size: 12,
-                                                color: colors.expense,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Despesas',
-                                                style: tt.labelMedium?.copyWith(
-                                                  color: cs.onSurfaceVariant,
-                                                  fontWeight: FontWeight.bold,
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Receitas',
+                                                  style: tt.labelMedium
+                                                      ?.copyWith(
+                                                        color:
+                                                            cs.onSurfaceVariant,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          AmountDisplay(
-                                            amountInCents: totalExpenses,
-                                            color: colors.expense,
-                                            style: tt.titleMedium?.copyWith(
-                                              fontWeight: FontWeight.bold,
+                                              ],
                                             ),
-                                            showSign: false,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
+                                            const SizedBox(height: 4),
+                                            AmountDisplay(
+                                              amountInCents: totalIncomes,
+                                              color: colors.income,
+                                              style: tt.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              showSign: false,
+                                            ),
+                                          ],
+                                        ),
+                                        Container(
+                                          height: 32,
+                                          width: 1,
+                                          color: cs.outlineVariant,
+                                        ),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.arrow_upward_rounded,
+                                                  size: 12,
+                                                  color: colors.expense,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Despesas',
+                                                  style: tt.labelMedium
+                                                      ?.copyWith(
+                                                        color:
+                                                            cs.onSurfaceVariant,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            AmountDisplay(
+                                              amountInCents: totalExpenses,
+                                              color: colors.expense,
+                                              style: tt.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              showSign: false,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                    child: Divider(
-                                      height: 24,
-                                      thickness: 1,
-                                      color: cs.outlineVariant.withValues(
-                                        alpha: 0.4,
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
                                       ),
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Saldo do Período',
-                                        style: tt.labelSmall?.copyWith(
-                                          color: cs.onSurfaceVariant,
-                                          fontWeight: FontWeight.w600,
+                                      child: Divider(
+                                        height: 24,
+                                        thickness: 1,
+                                        color: cs.outlineVariant.withValues(
+                                          alpha: 0.4,
                                         ),
                                       ),
-                                      AmountDisplay(
-                                        amountInCents:
-                                            totalIncomes - totalExpenses,
-                                        style: tt.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.w900,
+                                    ),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Saldo do Período',
+                                          style: tt.labelSmall?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                        AmountDisplay(
+                                          amountInCents:
+                                              totalIncomes - totalExpenses,
+                                          style: tt.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // Listagem agrupada
-                      SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final item = flatList[index];
-                          if (item is String) {
-                            final dateKey = item;
-                            final txs = grouped[dateKey]!;
-                            return _DayGroupHeader(
-                              dateKey: dateKey,
-                              transactions: txs,
-                              dayNet: _calculateDayNet(txs),
-                              cs: cs,
-                              colors: colors,
-                            );
-                          } else {
-                            final tx = item as TransactionModel;
-                            return TransactionTile(
-                              transaction: tx,
-                              onTap: () {
-                                if (Breakpoints.isCompact(context)) {
-                                  context.push('/transaction/edit', extra: tx);
-                                } else {
-                                  ref
-                                      .read(
-                                        transactionFormModalProvider.notifier,
-                                      )
-                                      .open(transaction: tx);
-                                }
-                              },
-                              onClone: () {
-                                if (Breakpoints.isCompact(context)) {
-                                  context.push(
-                                    '/transaction/new?isCloning=true',
-                                    extra: tx,
-                                  );
-                                } else {
-                                  ref
-                                      .read(
-                                        transactionFormModalProvider.notifier,
-                                      )
-                                      .open(transaction: tx, isCloning: true);
-                                }
-                              },
-                              onDelete: () =>
-                                  showDeleteTransactionSheet(context, ref, tx),
-                              onMarkAsPaid: tx.isPending
-                                  ? () => ref.read(
-                                      markTransactionAsPaidProvider,
-                                    )(tx.id)
-                                  : null,
-                            );
-                          }
-                        }, childCount: flatList.length),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                    ],
-                  );
-                },
-                loading: () => const Center(child: AppLoadingIndicator()),
-                error: (err, stack) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: 48,
-                          color: cs.error,
+                        // Listagem agrupada
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final item = flatList[index];
+                            if (item is String) {
+                              final dateKey = item;
+                              final txs = grouped[dateKey]!;
+                              return _DayGroupHeader(
+                                dateKey: dateKey,
+                                transactions: txs,
+                                dayNet: _calculateDayNet(txs),
+                                cs: cs,
+                                colors: colors,
+                              );
+                            } else if (item is TransactionGroup) {
+                              final memberIds = [
+                                for (final m in item.members) m.id,
+                              ];
+                              return GroupedTransactionTile(
+                                group: item,
+                                selectionMode: _selectionMode,
+                                selected: memberIds.every(
+                                  _selectedIds.contains,
+                                ),
+                                onLongPress: () => _enterSelection(memberIds),
+                                onTap: () {
+                                  if (_selectionMode) {
+                                    _toggleSelection(memberIds);
+                                  } else {
+                                    showTransactionGroupModal(
+                                      context,
+                                      item.groupId,
+                                    );
+                                  }
+                                },
+                              );
+                            } else {
+                              final tx = item as TransactionModel;
+                              return TransactionTile(
+                                transaction: tx,
+                                selectionMode: _selectionMode,
+                                selected: _selectedIds.contains(tx.id),
+                                onLongPress: () => _enterSelection([tx.id]),
+                                onTap: () {
+                                  if (_selectionMode) {
+                                    _toggleSelection([tx.id]);
+                                    return;
+                                  }
+                                  if (Breakpoints.isCompact(context)) {
+                                    context.push(
+                                      '/transaction/edit',
+                                      extra: tx,
+                                    );
+                                  } else {
+                                    ref
+                                        .read(
+                                          transactionFormModalProvider.notifier,
+                                        )
+                                        .open(transaction: tx);
+                                  }
+                                },
+                                onClone: () {
+                                  if (Breakpoints.isCompact(context)) {
+                                    context.push(
+                                      '/transaction/new?isCloning=true',
+                                      extra: tx,
+                                    );
+                                  } else {
+                                    ref
+                                        .read(
+                                          transactionFormModalProvider.notifier,
+                                        )
+                                        .open(transaction: tx, isCloning: true);
+                                  }
+                                },
+                                onDelete: () => showDeleteTransactionSheet(
+                                  context,
+                                  ref,
+                                  tx,
+                                ),
+                                onMarkAsPaid: tx.isPending
+                                    ? () => ref.read(
+                                        markTransactionAsPaidProvider,
+                                      )(tx.id)
+                                    : null,
+                              );
+                            }
+                          }, childCount: flatList.length),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Erro ao carregar transações.',
-                          textAlign: TextAlign.center,
-                          style: tt.titleMedium?.copyWith(color: cs.error),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          err.toString(),
-                          textAlign: TextAlign.center,
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () =>
-                              ref.invalidate(filteredTransactionsProvider),
-                          child: const Text('Tentar Novamente'),
-                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 100)),
                       ],
+                    );
+                  },
+                  loading: () => const Center(child: AppLoadingIndicator()),
+                  error: (err, stack) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 48,
+                            color: cs.error,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Erro ao carregar transações.',
+                            textAlign: TextAlign.center,
+                            style: tt.titleMedium?.copyWith(color: cs.error),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            err.toString(),
+                            textAlign: TextAlign.center,
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () =>
+                                ref.invalidate(filteredTransactionsProvider),
+                            child: const Text('Tentar Novamente'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    ColorScheme cs,
+    TextTheme tt,
+    List<String> allVisibleIds,
+  ) {
+    final allSelected =
+        allVisibleIds.isNotEmpty && allVisibleIds.every(_selectedIds.contains);
+    return AppBar(
+      backgroundColor: cs.surface,
+      leading: IconButton(
+        icon: const Icon(Icons.close_rounded),
+        tooltip: 'Cancelar seleção',
+        onPressed: _exitSelection,
+      ),
+      title: Text(
+        '${_selectedIds.length} selecionada(s)',
+        style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(
+            allSelected ? Icons.deselect_rounded : Icons.select_all_rounded,
+          ),
+          tooltip: allSelected ? 'Limpar seleção' : 'Selecionar tudo',
+          onPressed: allVisibleIds.isEmpty
+              ? null
+              : () => _selectAll(allVisibleIds),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline_rounded),
+          tooltip: 'Excluir selecionadas',
+          color: cs.error,
+          onPressed: _selectedIds.isEmpty ? null : _confirmDeleteSelected,
+        ),
+        const SizedBox(width: 4),
+      ],
     );
   }
 }

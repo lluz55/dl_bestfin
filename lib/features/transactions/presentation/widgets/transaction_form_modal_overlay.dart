@@ -5,6 +5,30 @@ import 'package:bestfin/core/widgets/adaptive_modal_panel.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transaction_form_screen.dart';
 
+/// Chrome compartilhado do bottom sheet de transação no mobile: fundo
+/// transparente, cantos arredondados e altura limitada a 65% da tela. Usado
+/// pelo formulário individual, pela inserção em massa e pela edição de
+/// membros de um grupo, para manter o mesmo padrão de apresentação.
+Future<T?> showLimitedTransactionSheet<T>({
+  required BuildContext context,
+  required Widget Function(BuildContext sheetContext) builder,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
+        child: builder(sheetContext),
+      ),
+    ),
+  );
+}
+
 class TransactionFormModalOverlay extends ConsumerStatefulWidget {
   const TransactionFormModalOverlay({super.key});
 
@@ -34,27 +58,15 @@ class _TransactionFormModalOverlayState
           final current = ref.read(transactionFormModalProvider);
           if (!current.isOpen) return;
           ref.read(transactionFormModalProvider.notifier).close();
-          showModalBottomSheet(
+          showLimitedTransactionSheet<void>(
             context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.65,
-                ),
-                child: TransactionFormScreen(
-                  initialType: current.initialType,
-                  transaction: current.transaction,
-                  isCloning: current.isCloning,
-                  draft: current.draft,
-                  openRecurringWizardOnStart: current.openRecurringWizard,
-                  onClose: () => Navigator.of(context).pop(),
-                ),
-              ),
+            builder: (sheetContext) => TransactionFormScreen(
+              initialType: current.initialType,
+              transaction: current.transaction,
+              isCloning: current.isCloning,
+              draft: current.draft,
+              openRecurringWizardOnStart: current.openRecurringWizard,
+              onClose: () => Navigator.of(sheetContext).pop(),
             ),
           );
         });

@@ -48,6 +48,16 @@ abstract class TransactionRepository {
   /// Insere todas as transações em uma única transação de banco —
   /// tudo-ou-nada: se qualquer linha falhar, nada é gravado.
   Future<List<String>> createTransactionsBulk(List<BulkTransactionItem> items);
+
+  /// Substitui os membros de um bloco agrupado ([groupId]) pelos [items]
+  /// informados, em uma única transação de banco. Os membros antigos são
+  /// removidos (desfazendo impacto em metas e recalculando saldos) e os novos
+  /// inseridos — cada item carrega o `groupId` de destino (o mesmo, para manter
+  /// agrupado, ou null para desagrupar). Usado pela edição de bloco.
+  Future<void> updateGroupedTransactions(
+    String groupId,
+    List<BulkTransactionItem> items,
+  );
   Future<String> createSuggestion({
     required DateTime date,
     required String description,
@@ -82,6 +92,11 @@ abstract class TransactionRepository {
     bool? isCompleted,
   });
   Future<void> deleteTransaction(String id);
+
+  /// Exclui várias transações de uma vez, em uma única transação de banco.
+  /// Cada membro desfaz seu impacto em metas, remove suas entries e enfileira
+  /// o sync — os saldos (derivados das entries) recalculam sozinhos via stream.
+  Future<void> deleteTransactions(List<String> ids);
   Future<TransactionDeleteContext> getDeleteContext(String id);
   Future<void> deleteInstallmentSingle(String id);
   Future<void> deleteInstallmentFromHere(String id, String planId);
@@ -563,6 +578,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
           accountId: item.accountId,
           toAccountId: item.toAccountId,
           isCompleted: item.isCompleted,
+          groupId: item.groupId,
         );
       }
     });
@@ -573,6 +589,48 @@ class TransactionRepositoryImpl implements TransactionRepository {
       _scheduleReminder(id);
     }
     return ids;
+  }
+
+  @override
+  Future<void> updateGroupedTransactions(
+    String groupId,
+    List<BulkTransactionItem> items,
+  ) async {
+    final newIds = [for (final _ in items) const Uuid().v4()];
+
+    await _database.transaction(() async {
+      // 1. Remove os membros atuais do bloco (desfaz metas + entries).
+      final existing = await (_database.select(
+        _database.transactions,
+      )..where((t) => t.groupId.equals(groupId))).get();
+      for (final tx in existing) {
+        await _deleteSingleTx(tx.id);
+      }
+
+      // 2. Insere as linhas atualizadas com o groupId de destino de cada item.
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        await _insertTransactionRecords(
+          transactionId: newIds[i],
+          date: item.date,
+          description: item.description,
+          type: item.type,
+          amount: item.amount,
+          categoryId: item.categoryId,
+          entityId: item.entityId,
+          accountId: item.accountId,
+          toAccountId: item.toAccountId,
+          isCompleted: item.isCompleted,
+          groupId: item.groupId,
+        );
+      }
+    });
+
+    // Efeitos colaterais só após o commit — mesma razão do createTransactionsBulk.
+    for (final id in newIds) {
+      unawaited(_enqueueTransactionSync(id, 'insert').catchError((_) {}));
+      _scheduleReminder(id);
+    }
   }
 
   /// Insere header, entries, splits e progresso de meta de uma transação.
@@ -593,6 +651,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? creditCardId,
     List<SplitEntry>? splits,
     bool isCompleted = true,
+    String? groupId,
   }) async {
     final hasSplits = splits != null && splits.isNotEmpty;
 
@@ -628,6 +687,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             entityId: Value(entityId),
             goalId: Value(goalId),
             creditCardId: Value(creditCardId),
+            groupId: Value(groupId),
             rawAmount: creditCardId != null
                 ? Value(amount)
                 : const Value.absent(),
@@ -961,6 +1021,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
     });
   }
 
+  @override
+  Future<void> deleteTransactions(List<String> ids) async {
+    if (ids.isEmpty) return;
+    // Tudo-ou-nada: se qualquer exclusão falhar, nenhuma é aplicada, evitando
+    // saldos parcialmente recalculados.
+    await _database.transaction(() async {
+      for (final id in ids) {
+        await _deleteSingleTx(id);
+      }
+    });
+  }
+
   Future<void> _deleteSingleTx(String id) async {
     await _enqueueTransactionSync(id, 'delete');
     _cancelReminder(id);
@@ -1017,6 +1089,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
             'installment_plan_id': tx.installmentPlanId,
             'installment_number': tx.installmentNumber,
             'recurring_rule_id': tx.recurringRuleId,
+            'group_id': tx.groupId,
             'credit_card_id': tx.creditCardId,
             'raw_amount': tx.rawAmount,
             'invoice_id': tx.invoiceId,

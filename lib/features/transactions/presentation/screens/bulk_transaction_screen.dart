@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import 'package:bestfin/core/constants/transaction_status.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
-import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
@@ -14,22 +15,66 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/core/widgets/category_picker.dart';
 import 'package:bestfin/core/widgets/entity_autocomplete.dart';
-import 'package:bestfin/core/widgets/numeric_keypad.dart';
+import 'package:bestfin/core/widgets/pending_status_icon.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:bestfin/features/transactions/domain/models/bulk_transaction_item.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/date_time_button.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/description_autocomplete.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/transaction_form_modal_overlay.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_type_tabs.dart';
+
+/// Abre a inserção em massa no mesmo padrão de apresentação do formulário de
+/// criar/editar transação ([TransactionFormModalOverlay]): bottom sheet com
+/// altura limitada (65% da tela) no mobile e painel adaptativo em telas
+/// largas.
+Future<void> showBulkTransactionModal(
+  BuildContext context, {
+  TransactionType initialType = TransactionType.expense,
+}) {
+  if (Breakpoints.isCompact(context)) {
+    return showLimitedTransactionSheet<void>(
+      context: context,
+      builder: (sheetContext) => BulkTransactionScreen(
+        initialType: initialType,
+        onClose: () => Navigator.of(sheetContext).pop(),
+      ),
+    );
+  }
+  return showAdaptiveModal<void>(
+    context: context,
+    builder: (modalContext) => BulkTransactionScreen(
+      initialType: initialType,
+      onClose: () => Navigator.of(modalContext).pop(),
+    ),
+  );
+}
 
 /// Inserção de vários lançamentos de uma vez: todos compartilham tipo,
 /// entidade, conta(s), data e status (cabeçalho do lote); descrição, valor e
 /// categoria variam por linha. O lote é salvo tudo-ou-nada.
+///
+/// Quando [initialGroup] é informado, a tela abre em **modo de edição** de um
+/// bloco agrupado já existente: os campos compartilhados e as linhas são
+/// pré-preenchidos com os membros, e salvar substitui o bloco no lugar.
 class BulkTransactionScreen extends ConsumerStatefulWidget {
   final TransactionType initialType;
+
+  /// Fecha o modal quando a tela está hospedada em bottom sheet/painel
+  /// (mesmo contrato do formulário individual). Nulo quando aberta como rota.
+  final VoidCallback? onClose;
+
+  /// Membros de um bloco agrupado a editar. Nulo = criação de um novo lote.
+  final List<TransactionModel>? initialGroup;
 
   const BulkTransactionScreen({
     super.key,
     this.initialType = TransactionType.expense,
+    this.onClose,
+    this.initialGroup,
   });
 
   @override
@@ -63,7 +108,13 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
   String? _toAccountId;
   late DateTime _date;
   bool _isPending = false;
+  bool _groupTogether = true;
   bool _saving = false;
+
+  /// groupId do bloco em edição — null quando criando um novo lote.
+  String? _editGroupId;
+
+  bool get _isEditing => _editGroupId != null;
 
   final List<_RowDraft> _rows = [];
 
@@ -91,16 +142,51 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
   @override
   void initState() {
     super.initState();
-    _type = widget.initialType;
-    _date = DateTime.now();
-    _isPending = ref.read(defaultPendingForPastProvider);
-    _rows.addAll([_RowDraft(), _RowDraft(), _RowDraft()]);
-    for (final row in _rows) {
-      row.description.addListener(_onRowChanged);
+    final group = widget.initialGroup;
+    if (group != null && group.isNotEmpty) {
+      _initFromGroup(group);
+    } else {
+      _type = widget.initialType;
+      _date = DateTime.now();
+      _rows.addAll([_RowDraft(), _RowDraft()]);
+      for (final row in _rows) {
+        row.description.addListener(_onRowChanged);
+      }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _tryAutoSelectAccount();
     });
+  }
+
+  /// Pré-preenche o cabeçalho compartilhado e uma linha por membro a partir de
+  /// um bloco agrupado existente. Todos os membros compartilham tipo, entidade,
+  /// conta, data e status (definidos no lote), então basta ler o primeiro.
+  void _initFromGroup(List<TransactionModel> group) {
+    final first = group.first;
+    _editGroupId = first.groupId;
+    _type = first.type;
+    _entityId = first.entityId;
+    _accountId = _type == TransactionType.transfer
+        ? first.fromAccountId
+        : first.accountId;
+    _toAccountId = first.toAccountId;
+    _date = first.date;
+    _isPending = first.isPending;
+    _groupTogether = true;
+
+    for (final tx in group) {
+      final row = _RowDraft();
+      row.description.text = tx.description;
+      row.amountInCents = tx.amount;
+      row.categoryId = tx.categoryId;
+      if (tx.category != null) {
+        row.categoryName = tx.category!.name;
+        row.categoryColor = tx.category!.color;
+        row.categoryIcon = tx.category!.icon;
+      }
+      row.description.addListener(_onRowChanged);
+      _rows.add(row);
+    }
   }
 
   @override
@@ -184,27 +270,33 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
     });
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+  /// Mesmo fluxo de data+hora do formulário individual.
+  Future<void> _pickDateTime() async {
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if (picked == null || !mounted) return;
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_date),
+    );
     final wasFuture = _isFutureDate;
     setState(() {
       _date = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        _date.hour,
-        _date.minute,
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime?.hour ?? _date.hour,
+        pickedTime?.minute ?? _date.minute,
       );
-      // Deixou de ser futura: aplica o padrão de "Pendente" (não havia toggle
-      // visível antes, então não existe escolha do usuário a preservar).
+      // Deixou de ser futura: nasce confirmada (só datas futuras são agendadas
+      // automaticamente; não havia toggle visível antes, então não existe
+      // escolha do usuário a preservar).
       if (wasFuture && !_isFutureDate) {
-        _isPending = ref.read(defaultPendingForPastProvider);
+        _isPending = false;
       }
     });
   }
@@ -228,7 +320,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
   Future<void> _editRowAmount(_RowDraft row) async {
     await showAdaptiveModal<int>(
       context: context,
-      builder: (_) => _AmountKeypadSheet(
+      builder: (_) => AmountKeypadSheet(
         initialAmountInCents: row.amountInCents,
         onChanged: (v) => setState(() => row.amountInCents = v),
       ),
@@ -293,7 +385,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
     // cancelado não pode sobrescrever as linhas selecionadas.
     final cents = await showAdaptiveModal<int>(
       context: context,
-      builder: (_) => const _AmountKeypadSheet(initialAmountInCents: 0),
+      builder: (_) => const AmountKeypadSheet(initialAmountInCents: 0),
     );
     if (cents == null || cents <= 0 || !mounted) return;
     setState(() {
@@ -324,6 +416,27 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
 
   // ── Salvar ─────────────────────────────────────────────────────────────────
 
+  /// Fecha a tela: via [widget.onClose] quando hospedada em modal/bottom
+  /// sheet (mesmo contrato do formulário individual), senão pop da rota.
+  void _close() {
+    final onClose = widget.onClose;
+    if (onClose != null) {
+      onClose();
+    } else {
+      context.pop();
+    }
+  }
+
+  /// Cancela pelo botão do rodapé (modo modal): confirma o descarte se houver
+  /// linhas preenchidas, como acontece ao usar o botão voltar.
+  void _cancel() {
+    if (_hasUnsavedContent) {
+      _confirmDiscard();
+    } else {
+      _close();
+    }
+  }
+
   String _transferFallbackDescription() {
     final accounts = ref.read(activeAccountsProvider);
     final from = accounts.where((a) => a.id == _accountId).firstOrNull;
@@ -335,7 +448,14 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
     if (!_canSave) return;
     setState(() => _saving = true);
 
-    final items = _filledRows.map((row) {
+    // Um único id compartilhado por todas as linhas quando o usuário opta por
+    // agrupar; só faz sentido a partir de 2 lançamentos. Na edição, reusa o
+    // groupId do bloco para mantê-lo agrupado (ou desagrupa com null).
+    final rows = _filledRows;
+    final shouldGroup = _groupTogether && rows.length > 1;
+    final groupId = shouldGroup ? (_editGroupId ?? const Uuid().v4()) : null;
+
+    final items = rows.map((row) {
       final description = row.description.text.trim();
       return BulkTransactionItem(
         date: _date,
@@ -349,17 +469,28 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
         accountId: _accountId!,
         toAccountId: _isTransfer ? _toAccountId : null,
         isCompleted: _effectiveIsCompleted,
+        groupId: groupId,
       );
     }).toList();
 
     try {
-      await ref.read(createTransactionsBulkProvider)(items);
-      await ref.read(gamificationServiceProvider).onTransactionCreated();
+      if (_isEditing) {
+        await ref.read(updateGroupedTransactionsProvider)(_editGroupId!, items);
+      } else {
+        await ref.read(createTransactionsBulkProvider)(items);
+        await ref.read(gamificationServiceProvider).onTransactionCreated();
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${items.length} transações cadastradas!')),
+          SnackBar(
+            content: Text(
+              _isEditing
+                  ? 'Bloco atualizado!'
+                  : '${items.length} transações cadastradas!',
+            ),
+          ),
         );
-        context.pop();
+        _close();
       }
     } catch (e) {
       if (mounted) {
@@ -392,7 +523,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
       ),
     );
     if (leave == true && mounted) {
-      context.pop();
+      _close();
     }
   }
 
@@ -414,7 +545,13 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
       },
       child: Scaffold(
         backgroundColor: cs.surface,
-        appBar: const AppPageAppBar(title: 'Inserir Vários'),
+        // Em modal o cabeçalho são as abas de tipo, como no formulário
+        // individual hospedado em bottom sheet.
+        appBar: widget.onClose != null
+            ? null
+            : AppPageAppBar(
+                title: _isEditing ? 'Editar Bloco' : 'Inserir Vários',
+              ),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -502,7 +639,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
         ),
       ],
       const SizedBox(height: 16),
-      _buildDateButton(cs, tt),
+      DateTimeButton(date: _date, onTap: _pickDateTime),
       if (!_isFutureDate)
         SwitchListTile.adaptive(
           value: _isPending,
@@ -511,67 +648,32 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
           title: const Text('Pendente'),
           subtitle: Text(
             _isPending
-                ? 'Ainda não aconteceu — conta no projetado, não no confirmado.'
+                ? 'Pendente — ainda não aconteceu.'
                 : 'Confirmada — já aconteceu.',
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
-          secondary: Icon(
-            _isPending
-                ? Icons.schedule_rounded
-                : Icons.check_circle_outline_rounded,
+          secondary: PendingStatusIcon(
+            isPending: _isPending,
             color: _activeColor,
           ),
         ),
-    ];
-  }
-
-  Widget _buildDateButton(ColorScheme cs, TextTheme tt) {
-    final d = _date;
-    final label =
-        '${d.day.toString().padLeft(2, '0')}/'
-        '${d.month.toString().padLeft(2, '0')}/'
-        '${d.year}';
-    return InkWell(
-      onTap: _pickDate,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      SwitchListTile.adaptive(
+        value: _groupTogether,
+        onChanged: (v) => setState(() => _groupTogether = v),
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Agrupar em um só lançamento'),
+        subtitle: Text(
+          _groupTogether
+              ? 'As linhas aparecem como um único item, mostrando só o total.'
+              : 'Cada linha aparece como um lançamento separado.',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
-        child: Row(
-          children: [
-            Icon(Icons.calendar_today_outlined, color: cs.onSurfaceVariant),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Data',
-                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  Text(
-                    label,
-                    style: tt.bodyMedium?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: cs.onSurfaceVariant,
-              size: 20,
-            ),
-          ],
+        secondary: Icon(
+          _groupTogether ? Icons.layers_rounded : Icons.layers_outlined,
+          color: _activeColor,
         ),
       ),
-    );
+    ];
   }
 
   // ── Tabela ─────────────────────────────────────────────────────────────────
@@ -662,6 +764,8 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
                 textAlign: TextAlign.center,
               ),
             ),
+          // Alinha com a coluna do botão "remover linha" nas linhas.
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -710,8 +814,11 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
               ),
             ),
             Expanded(
-              child: TextField(
+              // Mesmo autocomplete por histórico do formulário individual,
+              // em decoração compacta para caber na linha da tabela.
+              child: DescriptionAutocomplete(
                 controller: row.description,
+                transactionType: _type.name,
                 textCapitalization: TextCapitalization.sentences,
                 style: tt.bodyMedium,
                 decoration: InputDecoration(
@@ -723,6 +830,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
+                onSelected: (_) => setState(() {}),
               ),
             ),
             InkWell(
@@ -763,6 +871,23 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
                         ),
                 ),
               ),
+            // Remoção explícita da linha (além do swipe). Mantém sempre ao
+            // menos uma linha — a última não pode ser removida.
+            SizedBox(
+              width: 40,
+              child: _rows.length > 1
+                  ? IconButton(
+                      onPressed: () => _removeRow(row),
+                      tooltip: 'Remover linha',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: cs.onSurfaceVariant,
+                        size: 20,
+                      ),
+                    )
+                  : null,
+            ),
           ],
         ),
       ),
@@ -795,6 +920,13 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
                 ],
               ),
             ),
+            if (widget.onClose != null) ...[
+              OutlinedButton(
+                onPressed: _saving ? null : _cancel,
+                child: const Text('Cancelar'),
+              ),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               flex: 2,
               child: AppButton(
@@ -806,112 +938,6 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Teclado numérico modal para editar o valor de uma linha — mesmo fluxo de
-/// digitação do [AmountInput] do formulário, em versão enxuta.
-class _AmountKeypadSheet extends StatefulWidget {
-  final int initialAmountInCents;
-
-  /// Preview ao vivo enquanto digita (usado na edição por linha). Quando nulo,
-  /// o valor só chega ao chamador via `Navigator.pop` ao confirmar.
-  final ValueChanged<int>? onChanged;
-
-  const _AmountKeypadSheet({
-    required this.initialAmountInCents,
-    this.onChanged,
-  });
-
-  @override
-  State<_AmountKeypadSheet> createState() => _AmountKeypadSheetState();
-}
-
-class _AmountKeypadSheetState extends State<_AmountKeypadSheet> {
-  late String _digits;
-
-  @override
-  void initState() {
-    super.initState();
-    _digits = widget.initialAmountInCents == 0
-        ? ''
-        : widget.initialAmountInCents.toString();
-  }
-
-  // Centavos cabem folgadamente em 12 dígitos (~R$ 9,9 bi); acima disso o
-  // int.parse arriscaria estourar e zerar o valor silenciosamente.
-  static const _maxDigits = 12;
-
-  void _handleKeyPress(String key) {
-    if (key == ',') return;
-    if ((_digits.isEmpty || _digits == '0') && (key == '0' || key == '00')) {
-      return;
-    }
-    final next = _digits + key;
-    if (next.length > _maxDigits) return;
-    setState(() => _digits = next);
-    _notifyChange();
-  }
-
-  void _handleDelete() {
-    if (_digits.isEmpty) return;
-    setState(() => _digits = _digits.substring(0, _digits.length - 1));
-    _notifyChange();
-  }
-
-  void _notifyChange() {
-    widget.onChanged?.call(int.tryParse(_digits) ?? 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colorScheme;
-    final tt = context.textTheme;
-    final currentCents = int.tryParse(_digits) ?? 0;
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Digite o valor',
-                style: tt.titleMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                CurrencyFormatter.formatCents(currentCents),
-                style: tt.displayMedium?.copyWith(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 24),
-              NumericKeypad(
-                onKeyPressed: _handleKeyPress,
-                onDeletePressed: _handleDelete,
-                onConfirmPressed: () => Navigator.of(context).pop(currentCents),
-                autofocus: true,
-              ),
-            ],
-          ),
         ),
       ),
     );

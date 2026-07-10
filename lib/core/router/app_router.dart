@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/shell/app_shell.dart';
+import 'package:bestfin/core/shell/detail_shell.dart';
 import 'package:bestfin/features/accounts/presentation/screens/account_form_screen.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/screens/accounts_list_screen.dart';
@@ -17,6 +18,7 @@ import 'package:bestfin/features/installments/presentation/screens/installments_
 import 'package:bestfin/features/settings/presentation/screens/settings_screen.dart';
 import 'package:bestfin/features/transactions/presentation/screens/bulk_transaction_screen.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transaction_form_screen.dart';
+import 'package:bestfin/features/transactions/presentation/screens/transaction_group_screen.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transactions_list_screen.dart';
 import 'package:bestfin/features/recurring/presentation/screens/recurring_list_screen.dart';
@@ -189,133 +191,212 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: '/accounts',
-        builder: (context, state) => const AccountsListScreen(),
-      ),
-      GoRoute(
-        path: '/accounts/new',
-        builder: (context, state) => const AccountFormScreen(),
-      ),
-      GoRoute(
-        path: '/accounts/edit',
+        path: '/transaction/group/:groupId',
         builder: (context, state) {
-          final account = state.extra as Account;
-          return AccountFormScreen(accountToEdit: account);
+          final groupId = state.pathParameters['groupId']!;
+          return TransactionGroupScreen(groupId: groupId);
         },
       ),
-      GoRoute(
-        path: '/accounts/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return AccountDetailScreen(accountId: id);
-        },
+      // ── Páginas de feature (hub "Mais") ──────────────────────────────────
+      // Em telas largas renderizam ao lado da barra lateral persistente (só na
+      // área de conteúdo); em mobile, tela cheia com botão de voltar. As rotas
+      // e chamadas `push('/...')` existentes seguem inalteradas.
+      ShellRoute(
+        builder: (context, state, child) => DetailShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/accounts',
+            builder: (context, state) => const AccountsListScreen(),
+          ),
+          GoRoute(
+            path: '/accounts/new',
+            builder: (context, state) => const AccountFormScreen(),
+          ),
+          GoRoute(
+            path: '/accounts/edit',
+            builder: (context, state) {
+              final account = state.extra as Account;
+              return AccountFormScreen(accountToEdit: account);
+            },
+          ),
+          GoRoute(
+            path: '/accounts/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return AccountDetailScreen(accountId: id);
+            },
+          ),
+          GoRoute(
+            path: '/accounts/:id/reconcile',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return ReconciliationScreen(accountId: id);
+            },
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/budgets',
+            builder: (context, state) => const BudgetsListScreen(),
+          ),
+          GoRoute(
+            path: '/cashflow',
+            builder: (context, state) => const CashFlowScreen(),
+          ),
+          GoRoute(
+            path: '/backup',
+            builder: (context, state) => const BackupScreen(),
+          ),
+          GoRoute(
+            path: '/installments',
+            builder: (context, state) => const InstallmentsListScreen(),
+          ),
+          GoRoute(
+            path: '/recurring',
+            builder: (context, state) => const RecurringListScreen(),
+          ),
+          GoRoute(
+            path: '/recurring/subscriptions',
+            builder: (context, state) => const SubscriptionsHubScreen(),
+          ),
+          GoRoute(
+            path: '/goals',
+            builder: (context, state) => const GoalsListScreen(),
+          ),
+          GoRoute(
+            path: '/goals/new',
+            builder: (context, state) => const GoalFormScreen(),
+          ),
+          GoRoute(
+            path: '/goals/edit',
+            builder: (context, state) {
+              final goal = state.extra as GoalModel;
+              return GoalFormScreen(existingGoal: goal);
+            },
+          ),
+          GoRoute(
+            path: '/goals/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return GoalDetailScreen(goalId: id);
+            },
+          ),
+          GoRoute(
+            path: '/investments',
+            builder: (context, state) => const PortfolioScreen(),
+          ),
+          GoRoute(
+            path: '/investments/new',
+            builder: (context, state) => const InvestmentFormScreen(),
+          ),
+          GoRoute(
+            path: '/investments/edit',
+            builder: (context, state) {
+              final inv = state.extra as Investment;
+              return InvestmentFormScreen(existingInvestment: inv);
+            },
+          ),
+          GoRoute(
+            path: '/investments/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return InvestmentDetailScreen(investmentId: id);
+            },
+          ),
+          GoRoute(
+            path: '/financing',
+            builder: (context, state) => const FinancingListScreen(),
+          ),
+          GoRoute(
+            path: '/financing/new',
+            builder: (context, state) => const FinancingFormScreen(),
+          ),
+          GoRoute(
+            path: '/financing/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return FinancingDetailScreen(financingId: id);
+            },
+          ),
+          GoRoute(
+            path: '/notifications/review',
+            builder: (context, state) => const ReviewQueueScreen(),
+          ),
+          GoRoute(
+            path: '/notifications/settings',
+            builder: (context, state) => const NotificationSettingsScreen(),
+          ),
+          GoRoute(
+            path: '/sync',
+            builder: (context, state) => const SyncSettingsScreen(),
+          ),
+          GoRoute(
+            path: '/sync/household',
+            builder: (context, state) => const HouseholdScreen(),
+          ),
+          GoRoute(
+            path: '/gamification',
+            builder: (context, state) => const GamificationHubScreen(),
+          ),
+          GoRoute(
+            path: '/categories',
+            builder: (context, state) => const CategoriesScreen(),
+          ),
+          GoRoute(
+            path: '/categories/edit',
+            builder: (context, state) {
+              final cat = state.extra as CategoryModel;
+              return CategoryFormScreen(categoryToEdit: cat);
+            },
+          ),
+          GoRoute(
+            path: '/credit-cards',
+            builder: (context, state) => const CreditCardsListScreen(),
+          ),
+          GoRoute(
+            path: '/credit-cards/new',
+            builder: (context, state) => const CreditCardFormScreen(),
+          ),
+          GoRoute(
+            path: '/credit-cards/edit',
+            builder: (context, state) {
+              final card = state.extra as CreditCardModel;
+              return CreditCardFormScreen(card: card);
+            },
+          ),
+          GoRoute(
+            path: '/credit-cards/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return CreditCardDetailScreen(cardId: id);
+            },
+          ),
+          GoRoute(
+            path: '/credit-cards/:cardId/invoices/:invoiceId',
+            builder: (context, state) {
+              final cardId = state.pathParameters['cardId']!;
+              final invoiceId = state.pathParameters['invoiceId']!;
+              return InvoiceDetailScreen(cardId: cardId, invoiceId: invoiceId);
+            },
+          ),
+          GoRoute(
+            path: '/pdf-import',
+            builder: (context, state) => const PdfImportScreen(),
+          ),
+          GoRoute(
+            path: '/pdf-import/review',
+            builder: (context, state) {
+              final transactions = state.extra as List<PdfParsedTransaction>;
+              return PdfReviewScreen(transactions: transactions);
+            },
+          ),
+        ],
       ),
-      GoRoute(
-        path: '/accounts/:id/reconcile',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return ReconciliationScreen(accountId: id);
-        },
-      ),
-      GoRoute(
-        path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/budgets',
-        builder: (context, state) => const BudgetsListScreen(),
-      ),
-      GoRoute(
-        path: '/cashflow',
-        builder: (context, state) => const CashFlowScreen(),
-      ),
-      GoRoute(
-        path: '/backup',
-        builder: (context, state) => const BackupScreen(),
-      ),
-      GoRoute(
-        path: '/installments',
-        builder: (context, state) => const InstallmentsListScreen(),
-      ),
-      GoRoute(
-        path: '/recurring',
-        builder: (context, state) => const RecurringListScreen(),
-      ),
-      GoRoute(
-        path: '/recurring/subscriptions',
-        builder: (context, state) => const SubscriptionsHubScreen(),
-      ),
-      GoRoute(
-        path: '/goals',
-        builder: (context, state) => const GoalsListScreen(),
-      ),
-      GoRoute(
-        path: '/goals/new',
-        builder: (context, state) => const GoalFormScreen(),
-      ),
-      GoRoute(
-        path: '/goals/edit',
-        builder: (context, state) {
-          final goal = state.extra as GoalModel;
-          return GoalFormScreen(existingGoal: goal);
-        },
-      ),
-      GoRoute(
-        path: '/goals/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return GoalDetailScreen(goalId: id);
-        },
-      ),
-      GoRoute(
-        path: '/investments',
-        builder: (context, state) => const PortfolioScreen(),
-      ),
-      GoRoute(
-        path: '/investments/new',
-        builder: (context, state) => const InvestmentFormScreen(),
-      ),
-      GoRoute(
-        path: '/investments/edit',
-        builder: (context, state) {
-          final inv = state.extra as Investment;
-          return InvestmentFormScreen(existingInvestment: inv);
-        },
-      ),
-      GoRoute(
-        path: '/investments/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return InvestmentDetailScreen(investmentId: id);
-        },
-      ),
-      GoRoute(
-        path: '/financing',
-        builder: (context, state) => const FinancingListScreen(),
-      ),
-      GoRoute(
-        path: '/financing/new',
-        builder: (context, state) => const FinancingFormScreen(),
-      ),
-      GoRoute(
-        path: '/financing/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return FinancingDetailScreen(financingId: id);
-        },
-      ),
-      GoRoute(
-        path: '/notifications/review',
-        builder: (context, state) => const ReviewQueueScreen(),
-      ),
-      GoRoute(
-        path: '/notifications/settings',
-        builder: (context, state) => const NotificationSettingsScreen(),
-      ),
-      GoRoute(
-        path: '/sync',
-        builder: (context, state) => const SyncSettingsScreen(),
-      ),
+      // ── Rotas de tela cheia (sem barra lateral) ──────────────────────────
+      // Fluxos de autenticação do sync, configuração de PIN e criação de
+      // categoria (subfluxo do onboarding) permanecem cobrindo a tela inteira.
       GoRoute(
         path: '/sync/login',
         builder: (context, state) => const LoginScreen(),
@@ -343,72 +424,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const QrScannerScreen(),
       ),
       GoRoute(
-        path: '/sync/household',
-        builder: (context, state) => const HouseholdScreen(),
-      ),
-      GoRoute(
-        path: '/gamification',
-        builder: (context, state) => const GamificationHubScreen(),
-      ),
-      GoRoute(
-        path: '/categories',
-        builder: (context, state) => const CategoriesScreen(),
-      ),
-      GoRoute(
         path: '/categories/new',
         builder: (context, state) => const CategoryFormScreen(),
       ),
       GoRoute(
-        path: '/categories/edit',
-        builder: (context, state) {
-          final cat = state.extra as CategoryModel;
-          return CategoryFormScreen(categoryToEdit: cat);
-        },
-      ),
-      GoRoute(
-        path: '/credit-cards',
-        builder: (context, state) => const CreditCardsListScreen(),
-      ),
-      GoRoute(
-        path: '/credit-cards/new',
-        builder: (context, state) => const CreditCardFormScreen(),
-      ),
-      GoRoute(
-        path: '/credit-cards/edit',
-        builder: (context, state) {
-          final card = state.extra as CreditCardModel;
-          return CreditCardFormScreen(card: card);
-        },
-      ),
-      GoRoute(
-        path: '/credit-cards/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return CreditCardDetailScreen(cardId: id);
-        },
-      ),
-      GoRoute(
-        path: '/credit-cards/:cardId/invoices/:invoiceId',
-        builder: (context, state) {
-          final cardId = state.pathParameters['cardId']!;
-          final invoiceId = state.pathParameters['invoiceId']!;
-          return InvoiceDetailScreen(cardId: cardId, invoiceId: invoiceId);
-        },
-      ),
-      GoRoute(
         path: '/security/pin-setup',
         builder: (context, state) => const PinSetupScreen(),
-      ),
-      GoRoute(
-        path: '/pdf-import',
-        builder: (context, state) => const PdfImportScreen(),
-      ),
-      GoRoute(
-        path: '/pdf-import/review',
-        builder: (context, state) {
-          final transactions = state.extra as List<PdfParsedTransaction>;
-          return PdfReviewScreen(transactions: transactions);
-        },
       ),
     ],
   );

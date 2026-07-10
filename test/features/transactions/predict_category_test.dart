@@ -46,11 +46,7 @@ void main() {
   group('predictCategory', () {
     test('retorna null sem histórico', () {
       expect(
-        predictCategory(
-          const [],
-          type: TransactionType.expense,
-          now: now,
-        ),
+        predictCategory(const [], type: TransactionType.expense, now: now),
         isNull,
       );
     });
@@ -73,9 +69,27 @@ void main() {
 
     test('sem sinal de entidade/descrição, usa a categoria mais frequente', () {
       final history = [
-        tx(id: '1', date: now, description: 'a', amount: 100, categoryId: 'food'),
-        tx(id: '2', date: now, description: 'b', amount: 100, categoryId: 'food'),
-        tx(id: '3', date: now, description: 'c', amount: 100, categoryId: 'transport'),
+        tx(
+          id: '1',
+          date: now,
+          description: 'a',
+          amount: 100,
+          categoryId: 'food',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'b',
+          amount: 100,
+          categoryId: 'food',
+        ),
+        tx(
+          id: '3',
+          date: now,
+          description: 'c',
+          amount: 100,
+          categoryId: 'transport',
+        ),
       ];
       expect(
         predictCategory(history, type: TransactionType.expense, now: now),
@@ -86,9 +100,27 @@ void main() {
     test('entidade conhecida vence a frequência geral', () {
       final history = [
         // "food" é mais frequente no geral...
-        tx(id: '1', date: now, description: 'a', amount: 100, categoryId: 'food'),
-        tx(id: '2', date: now, description: 'b', amount: 100, categoryId: 'food'),
-        tx(id: '3', date: now, description: 'c', amount: 100, categoryId: 'food'),
+        tx(
+          id: '1',
+          date: now,
+          description: 'a',
+          amount: 100,
+          categoryId: 'food',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'b',
+          amount: 100,
+          categoryId: 'food',
+        ),
+        tx(
+          id: '3',
+          date: now,
+          description: 'c',
+          amount: 100,
+          categoryId: 'food',
+        ),
         // ...mas a entidade e-42 sempre foi "pets".
         tx(
           id: '4',
@@ -112,8 +144,20 @@ void main() {
 
     test('descrição idêntica é usada quando não há sinal de entidade', () {
       final history = [
-        tx(id: '1', date: now, description: 'a', amount: 100, categoryId: 'food'),
-        tx(id: '2', date: now, description: 'a', amount: 100, categoryId: 'food'),
+        tx(
+          id: '1',
+          date: now,
+          description: 'a',
+          amount: 100,
+          categoryId: 'food',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'a',
+          amount: 100,
+          categoryId: 'food',
+        ),
         tx(
           id: '3',
           date: now,

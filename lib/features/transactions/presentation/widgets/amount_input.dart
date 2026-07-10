@@ -67,7 +67,7 @@ class _AmountInputState extends State<AmountInput> {
     showAdaptiveModal(
       context: context,
       builder: (context) {
-        return _KeypadSheet(
+        return AmountKeypadSheet(
           initialAmountInCents: widget.amountInCents,
           onChanged: widget.onChanged,
           onConfirmed: widget.onConfirmed,
@@ -140,22 +140,30 @@ class _AmountInputState extends State<AmountInput> {
   }
 }
 
-class _KeypadSheet extends StatefulWidget {
+/// Teclado numérico modal compartilhado por todos os fluxos de digitação de
+/// valor (formulário, lançamento rápido e inserção em massa). Ao confirmar,
+/// fecha com o valor em centavos como resultado do `Navigator.pop`, para
+/// chamadores que preferem receber o valor só na confirmação.
+class AmountKeypadSheet extends StatefulWidget {
   final int initialAmountInCents;
-  final ValueChanged<int> onChanged;
+
+  /// Preview ao vivo enquanto digita. Quando nulo, o valor só chega ao
+  /// chamador via resultado do `Navigator.pop` ao confirmar.
+  final ValueChanged<int>? onChanged;
   final VoidCallback? onConfirmed;
 
-  const _KeypadSheet({
+  const AmountKeypadSheet({
+    super.key,
     required this.initialAmountInCents,
-    required this.onChanged,
+    this.onChanged,
     this.onConfirmed,
   });
 
   @override
-  State<_KeypadSheet> createState() => _KeypadSheetState();
+  State<AmountKeypadSheet> createState() => _AmountKeypadSheetState();
 }
 
-class _KeypadSheetState extends State<_KeypadSheet> {
+class _AmountKeypadSheetState extends State<AmountKeypadSheet> {
   late String _digits;
 
   @override
@@ -166,17 +174,21 @@ class _KeypadSheetState extends State<_KeypadSheet> {
         : widget.initialAmountInCents.toString();
   }
 
+  // Centavos cabem folgadamente em 12 dígitos (~R$ 9,9 bi); acima disso o
+  // int.parse arriscaria estourar e zerar o valor silenciosamente.
+  static const _maxDigits = 12;
+
   void _handleKeyPress(String key) {
     if (key == ',') return;
 
     // Evita zeros à esquerda redundantes ou iniciais
-    if ((_digits.isEmpty || _digits == '0') && (key == '0' || key == '00'))
+    if ((_digits.isEmpty || _digits == '0') && (key == '0' || key == '00')) {
       return;
+    }
 
-    setState(() {
-      _digits += key;
-    });
-
+    final next = _digits + key;
+    if (next.length > _maxDigits) return;
+    setState(() => _digits = next);
     _notifyChange();
   }
 
@@ -192,12 +204,13 @@ class _KeypadSheetState extends State<_KeypadSheet> {
 
   void _notifyChange() {
     final cents = int.tryParse(_digits) ?? 0;
-    widget.onChanged(cents);
+    widget.onChanged?.call(cents);
   }
 
   void _handleConfirm() {
+    final cents = int.tryParse(_digits) ?? 0;
     widget.onConfirmed?.call();
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(cents);
   }
 
   @override

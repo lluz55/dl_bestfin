@@ -32,16 +32,19 @@ void main() {
       );
     });
 
-    test('returns pending when isCompleted is false and date is today/past', () {
-      expect(
-        TransactionStatus.fromFlags(isCompleted: false, date: now),
-        TransactionStatus.pending,
-      );
-      expect(
-        TransactionStatus.fromFlags(isCompleted: false, date: yesterday),
-        TransactionStatus.pending,
-      );
-    });
+    test(
+      'returns pending when isCompleted is false and date is today/past',
+      () {
+        expect(
+          TransactionStatus.fromFlags(isCompleted: false, date: now),
+          TransactionStatus.pending,
+        );
+        expect(
+          TransactionStatus.fromFlags(isCompleted: false, date: yesterday),
+          TransactionStatus.pending,
+        );
+      },
+    );
 
     test(
       'returns scheduled when isCompleted is false and date is in the future',

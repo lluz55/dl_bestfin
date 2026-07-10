@@ -19,6 +19,7 @@ class TransactionModel {
   final String? installmentPlanId;
   final int? installmentNumber;
   final String? recurringRuleId;
+  final String? groupId;
   final String? creditCardId;
   final int? rawAmount;
   final String? invoiceId;
@@ -48,6 +49,7 @@ class TransactionModel {
     this.installmentPlanId,
     this.installmentNumber,
     this.recurringRuleId,
+    this.groupId,
     this.creditCardId,
     this.rawAmount,
     this.invoiceId,
@@ -84,6 +86,7 @@ class TransactionModel {
       installmentPlanId: tx.installmentPlanId,
       installmentNumber: tx.installmentNumber,
       recurringRuleId: recurringRuleId ?? tx.recurringRuleId,
+      groupId: tx.groupId,
       creditCardId: tx.creditCardId,
       rawAmount: tx.rawAmount,
       invoiceId: tx.invoiceId,
@@ -140,6 +143,9 @@ class TransactionModel {
       TransactionStatus.fromFlags(isCompleted: isCompleted, date: date);
 
   bool get isPending => !isCompleted;
+
+  /// Faz parte de um bloco de lançamentos agrupados ("Inserir vários" agrupado).
+  bool get isGrouped => groupId != null;
 
   /// Pendente com data futura — ainda não venceu, não precisa de ação agora.
   bool get isScheduled => status == TransactionStatus.scheduled;

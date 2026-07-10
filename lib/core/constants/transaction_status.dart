@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 enum TransactionStatus {
   completed('Concluída', Icons.check_circle_rounded),
-  scheduled('Agendado', Icons.event_available_rounded),
-  pending('Pendente', Icons.schedule_rounded);
+  // O relógio é exclusivo de transações futuras (agendadas); pendências
+  // vencidas usam um ícone de alerta.
+  scheduled('Agendado', Icons.schedule_rounded),
+  pending('Pendente', Icons.error_outline_rounded);
 
   final String label;
   final IconData icon;

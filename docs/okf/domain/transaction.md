@@ -22,6 +22,7 @@ timestamp: 2026-06-29T00:00:00Z
 | `entityName` | String? | Nome do estabelecimento/pessoa |
 | `isRecurring` | bool | Gerada por regra recorrente? |
 | `recurringRuleId` | String? | FK para RecurringRule |
+| `groupId` | String? | Agrupa lançamentos de um lote "Inserir vários" em um bloco exibido como um só |
 | `sentiment` | SentimentType? | `happy` \| `neutral` \| `regret` |
 | `attachmentPath` | String? | Caminho de arquivo anexado |
 

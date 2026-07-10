@@ -14,6 +14,10 @@ class BulkTransactionItem {
   final String? toAccountId; // obrigatório para transferências
   final bool isCompleted;
 
+  /// Quando não-nulo, todas as linhas do lote compartilham este id e são
+  /// exibidas como um único lançamento agrupado. null = lançamentos avulsos.
+  final String? groupId;
+
   const BulkTransactionItem({
     required this.date,
     required this.description,
@@ -24,5 +28,6 @@ class BulkTransactionItem {
     required this.accountId,
     this.toAccountId,
     this.isCompleted = true,
+    this.groupId,
   });
 }

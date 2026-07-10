@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/constants/sentiment_types.dart';
 import 'package:bestfin/core/constants/transaction_status.dart';
-import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
@@ -13,11 +12,13 @@ import 'package:bestfin/core/widgets/account_selector.dart';
 import 'package:bestfin/core/widgets/category_picker.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/core/widgets/entity_autocomplete.dart';
+import 'package:bestfin/core/widgets/pending_status_icon.dart';
 import 'package:bestfin/core/widgets/sentiment_emoji_button.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/amount_input.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/date_time_button.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/description_autocomplete.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_type_tabs.dart';
 import 'package:bestfin/features/installments/presentation/providers/installments_provider.dart';
@@ -177,10 +178,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _sentiment = tx?.sentiment;
     _splits = List<SplitEntry>.from(tx?.splits ?? []);
     _date = _isCloningState ? DateTime.now() : (tx?.date ?? DateTime.now());
-    _isPending =
-        tx?.isPending ??
-        draft?.isPending ??
-        (_isFutureDate ? false : ref.read(defaultPendingForPastProvider));
+    // Só datas futuras nascem pendentes/agendadas automaticamente; hoje e
+    // datas passadas nascem confirmadas. Edição preserva o valor existente.
+    _isPending = tx?.isPending ?? draft?.isPending ?? false;
 
     // Rascunho carrega só o id da categoria; resolve nome/cor/ícone p/ exibição.
     if (_categoryId != null && _categoryName == null) {
@@ -297,10 +297,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         pickedTime?.hour ?? _date.hour,
         pickedTime?.minute ?? _date.minute,
       );
-      // Deixou de ser futura agora: aplica o padrão de "Pendente" (não havia
-      // toggle visível antes, então não existe escolha do usuário a preservar).
+      // Deixou de ser futura agora: nasce confirmada (só datas futuras são
+      // agendadas automaticamente; não havia toggle visível antes, então não
+      // existe escolha do usuário a preservar).
       if (wasFuture && !_isFutureDate) {
-        _isPending = ref.read(defaultPendingForPastProvider);
+        _isPending = false;
       }
     });
   }
@@ -1225,7 +1226,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ),
       ],
       const SizedBox(height: 16),
-      _DateTimeButton(date: _date, onTap: _pickDateTime, cs: cs, tt: tt),
+      DateTimeButton(date: _date, onTap: _pickDateTime),
     ]);
   }
 
@@ -1241,14 +1242,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           title: const Text('Pendente'),
           subtitle: Text(
             _isPending
-                ? 'Ainda não aconteceu — conta no projetado, não no confirmado.'
+                ? 'Pendente — ainda não aconteceu.'
                 : 'Confirmada — já aconteceu.',
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
-          secondary: Icon(
-            _isPending
-                ? Icons.schedule_rounded
-                : Icons.check_circle_outline_rounded,
+          secondary: PendingStatusIcon(
+            isPending: _isPending,
             color: _activeColor,
           ),
         ),
@@ -1357,100 +1356,5 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ),
       ],
     ]);
-  }
-}
-
-// ── Date/time button ─────────────────────────────────────────────────────────
-
-class _DateTimeButton extends StatelessWidget {
-  const _DateTimeButton({
-    required this.date,
-    required this.onTap,
-    required this.cs,
-    required this.tt,
-  });
-
-  final DateTime date;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  String _formatDateFull(DateTime d) {
-    const months = [
-      'janeiro',
-      'fevereiro',
-      'março',
-      'abril',
-      'maio',
-      'junho',
-      'julho',
-      'agosto',
-      'setembro',
-      'outubro',
-      'novembro',
-      'dezembro',
-    ];
-    final h = d.hour.toString().padLeft(2, '0');
-    final m = d.minute.toString().padLeft(2, '0');
-    return '${d.day} de ${months[d.month - 1]} de ${d.year}, $h:$m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.calendar_today_outlined,
-                  color: cs.onSurfaceVariant,
-                  size: 22,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Data e Hora',
-                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  Text(
-                    _formatDateFull(date),
-                    style: tt.bodyMedium?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: cs.onSurfaceVariant,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

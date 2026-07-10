@@ -12,6 +12,7 @@ import 'invoices.dart';
 @TableIndex(name: 'transactions_category_idx', columns: {#categoryId})
 @TableIndex(name: 'transactions_entity_idx', columns: {#entityId})
 @TableIndex(name: 'transactions_goal_idx', columns: {#goalId})
+@TableIndex(name: 'transactions_group_idx', columns: {#groupId})
 @DataClassName('Transaction')
 class Transactions extends Table {
   TextColumn get id => text()();
@@ -36,6 +37,10 @@ class Transactions extends Table {
   TextColumn get installmentPlanId => text().nullable()();
   IntColumn get installmentNumber => integer().nullable()();
   TextColumn get recurringRuleId => text().nullable()();
+  // Agrupa vários lançamentos criados juntos ("Inserir vários" agrupado) em um
+  // único bloco: compartilham este id e são exibidos como uma transação só,
+  // revelando o valor total. null = lançamento avulso.
+  TextColumn get groupId => text().nullable()();
   TextColumn get creditCardId => text().nullable().references(
     CreditCards,
     #id,
