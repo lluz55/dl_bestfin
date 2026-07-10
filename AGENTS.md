@@ -141,3 +141,34 @@ Ao receber uma tarefa de codificação no BestFin, siga este fluxo passo a passo
     *   Crie os componentes visuais utilizando os tokens do `Theme` e consuma os providers Riverpod, seguindo os padrões de design estabelecidos.
 5.  **Verificar e Validar:**
     *   Rode os linters (`nix develop -c flutter analyze`) e os testes (`nix develop -c flutter test`) para validar se tudo está funcionando como esperado e sem violações de estilo.
+
+---
+
+## 📦 6. Releases e Publicação de Binários
+
+> [!IMPORTANT]
+> **REGRA DE OURO DE RELEASE:** **Todo release DEVE incluir os binários compilados** anexados ao GitHub Release. Um release sem os binários de **Linux** e **Android** é considerado incompleto. Nunca crie a tag/release sem, na sequência, gerar e anexar os artefatos.
+
+### 6.1 Fluxo de Release
+1.  **Bump de versão** em `pubspec.yaml` (`version: X.Y.Z+build`, incrementando também o `build`).
+2.  **Commit + tag** (`vX.Y.Z`) e `git push` do commit e da tag.
+3.  **Compilar os binários** (sempre via `nix develop -c`):
+    ```bash
+    nix develop -c flutter build apk --release      # Android → build/app/outputs/flutter-apk/app-release.apk
+    nix develop -c flutter build linux --release     # Linux → build/linux/x64/release/bundle/
+    ```
+4.  **Empacotar o Linux** (o build gera um diretório de bundle, não um arquivo único):
+    ```bash
+    tar -czf bestfin-vX.Y.Z-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+    ```
+5.  **Criar o release e anexar os binários:**
+    ```bash
+    gh release create vX.Y.Z --title "BestFin vX.Y.Z" --notes "..." \
+      build/app/outputs/flutter-apk/app-release.apk#bestfin-vX.Y.Z-android.apk \
+      bestfin-vX.Y.Z-linux-x64.tar.gz
+    ```
+    *   Para releases já existentes, anexe com `gh release upload vX.Y.Z <arquivos>`.
+
+### 6.2 Observações
+*   O APK de release é assinado com `android/bestfin-release.jks` via `android/key.properties` (ambos fora do Git). Garanta que essas credenciais existam localmente antes de compilar.
+*   Nomeie os artefatos com a versão e a plataforma (ex: `bestfin-v1.0.6-android.apk`, `bestfin-v1.0.6-linux-x64.tar.gz`) para facilitar a identificação.
