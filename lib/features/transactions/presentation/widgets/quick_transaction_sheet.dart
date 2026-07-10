@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
@@ -357,11 +359,15 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
       _predictCategory();
     });
 
+    final isMobile = Breakpoints.isCompact(context);
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          maxHeight: isMobile
+              ? MediaQuery.sizeOf(context).height * 0.9
+              : double.infinity,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -624,23 +630,140 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
     });
   }
 
+  Future<CategoryModel?> _showSubcategoriesModal(
+    BuildContext context,
+    CategoryModel parentCat,
+    Color themeColor,
+  ) async {
+    return showAdaptiveModal<CategoryModel>(
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: parentCat.parsedColor.withValues(
+                        alpha: 0.12,
+                      ),
+                      child: Icon(
+                        IconMapper.fromString(parentCat.icon),
+                        color: parentCat.parsedColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Subcategorias de ${parentCat.name}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: parentCat.children.length,
+                  itemBuilder: (context, index) {
+                    final child = parentCat.children[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: child.parsedColor.withValues(
+                          alpha: 0.12,
+                        ),
+                        child: Icon(
+                          IconMapper.fromString(child.icon),
+                          color: child.parsedColor,
+                          size: 18,
+                        ),
+                      ),
+                      title: Text(
+                        child.name,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).pop(child),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _categorySelector({required Color color}) {
     final allCats = ref.watch(allFlatCategoriesProvider);
-    final cats = allCats
+    final typeCats = allCats
         .where((c) => c.type == _type.name && !c.isArchived)
         .toList();
+
+    // 1. Obter categorias recentes das últimas transações do tipo correto
+    final historyAsync = ref.watch(categoryPredictionHistoryProvider(_type));
+    final history = historyAsync.value ?? const [];
+
+    final recentCategoryIds = <String>[];
+    // Se há uma categoria atualmente selecionada, ela deve aparecer no topo das recentes
+    if (_categoryId != null && _categoryTouched) {
+      recentCategoryIds.add(_categoryId!);
+    }
+
+    for (final tx in history) {
+      if (tx.categoryId != null && !recentCategoryIds.contains(tx.categoryId)) {
+        final exists = typeCats.any((c) => c.id == tx.categoryId);
+        if (exists) {
+          recentCategoryIds.add(tx.categoryId!);
+        }
+      }
+      if (recentCategoryIds.length >= 5) break;
+    }
+    final finalRecentIds = recentCategoryIds.take(5).toList();
+
+    // 2. Obter categorias pai (ou individuais) em ordem alfabética (isRoot == true)
+    final parentOrIndividualCats = typeCats
+        .where((c) => c.isRoot)
+        .where((c) => !finalRecentIds.contains(c.id))
+        .toList();
+    parentOrIndividualCats.sort((a, b) => a.name.compareTo(b.name));
+    final finalParentCats = parentOrIndividualCats.take(5).toList();
+
+    // Mapeia recentes para CategoryModel
+    final recentCats = finalRecentIds.map((id) {
+      return typeCats.firstWhere((c) => c.id == id);
+    }).toList();
+
+    final displayCats = [...recentCats, ...finalParentCats];
     final isSuggested = _categoryPredicted && _categoryId != null;
+
     return _SelectorRow(
       label: isSuggested ? 'Categoria · sugerida' : 'Categoria',
       child: SizedBox(
         height: 40,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          // Último item é o atalho para o picker completo (busca + hierarquia).
-          itemCount: cats.length + 1,
+          itemCount: displayCats.length + 1,
           separatorBuilder: (_, _) => const SizedBox(width: 8),
           itemBuilder: (context, i) {
-            if (i == cats.length) {
+            if (i == displayCats.length) {
               return _PickChip(
                 label: 'Buscar',
                 icon: Icons.search_rounded,
@@ -649,17 +772,35 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                 onTap: _openCategoryPicker,
               );
             }
-            final CategoryModel c = cats[i];
+            final CategoryModel c = displayCats[i];
+            final isSelected = c.id == _categoryId;
             return _PickChip(
-              label: c.name,
+              label: c.displayName,
               icon: IconMapper.fromString(c.icon),
-              selected: c.id == _categoryId,
+              selected: isSelected,
               color: color,
-              onTap: () => setState(() {
-                _categoryId = c.id;
-                _categoryTouched = true;
-                _categoryPredicted = false;
-              }),
+              onTap: () async {
+                if (c.hasChildren) {
+                  final selectedChild = await _showSubcategoriesModal(
+                    context,
+                    c,
+                    color,
+                  );
+                  if (selectedChild != null && mounted) {
+                    setState(() {
+                      _categoryId = selectedChild.id;
+                      _categoryTouched = true;
+                      _categoryPredicted = false;
+                    });
+                  }
+                } else {
+                  setState(() {
+                    _categoryId = c.id;
+                    _categoryTouched = true;
+                    _categoryPredicted = false;
+                  });
+                }
+              },
             );
           },
         ),

@@ -30,7 +30,9 @@ class GetDashboardData {
         return today.subtract(Duration(days: today.weekday - 1));
       case 2: // 3 meses
         return now.subtract(const Duration(days: 90));
-      case 3: // Ano
+      case 3: // 6 meses
+        return now.subtract(const Duration(days: 180));
+      case 4: // Ano
         return DateTime(now.year, 1, 1);
       default: // Este mês
         return DateTime(now.year, now.month, 1);
@@ -257,19 +259,25 @@ class GetDashboardData {
       }
     }
 
-    final recentTransactions = transactions.take(10).toList();
+    // Últimas transações do período selecionado (já vêm ordenadas por data
+    // desc de watchAllTransactions), limitadas às 10 mais recentes.
+    final recentTransactions = transactions
+        .where((tx) => !tx.date.isBefore(start))
+        .take(10)
+        .toList();
 
-    // ── Monthly History (last 6 months for bar chart) ─────────────────────────
-    final monthlyHistory = _calculateMonthlyHistory(transactions, now);
+    // ── Monthly History (meses da janela do período selecionado) ──────────────
+    final monthlyHistory = _calculateMonthlyHistory(transactions, now, start);
 
-    // ── Cash Flow History (cumulative balance over time) ───────────────────────
-    final cashFlowHistory = _calculateCashFlowHistory(transactions, now);
+    // ── Cash Flow History (cumulative balance ao longo do período) ────────────
+    final cashFlowHistory = _calculateCashFlowHistory(transactions, now, start);
 
-    // ── Net Worth History (current balance as single point; historical requires account snapshots) ─
+    // ── Net Worth History (evolução patrimonial na janela do período) ─────────
     final netWorthHistory = _calculateNetWorthHistory(
       accounts,
       transactions,
       now,
+      start,
     );
 
     // ── Category Ranking (all categories sorted by spending) ────────────────────
@@ -292,15 +300,27 @@ class GetDashboardData {
     );
   }
 
+  /// Número de meses (>= 1) cobertos pela janela [start] → agora, usado para
+  /// dimensionar os gráficos de histórico conforme o período selecionado.
+  static int _monthsInWindow(DateTime start, DateTime now) {
+    final startMonth = DateTime(start.year, start.month, 1);
+    final count =
+        (now.year - startMonth.year) * 12 + (now.month - startMonth.month) + 1;
+    return count < 1 ? 1 : count;
+  }
+
   List<MonthlyBar> _calculateMonthlyHistory(
     List<TransactionModel> transactions,
     DateTime now,
+    DateTime start,
   ) {
     final Map<String, MonthlyBar> monthlyMap = {};
+    final months = _monthsInWindow(start, now);
 
-    // Initialize the last 6 months in chronological order to ensure 6 months are always represented
-    for (int i = 0; i < 6; i++) {
-      final date = DateTime(now.year, now.month - 5 + i, 1);
+    // Inicializa os meses da janela em ordem cronológica para garantir que
+    // todos os meses do período estejam sempre representados.
+    for (int i = 0; i < months; i++) {
+      final date = DateTime(now.year, now.month - (months - 1 - i), 1);
       final key = '${date.year}-${date.month}';
       monthlyMap[key] = MonthlyBar(
         year: date.year,
@@ -310,13 +330,13 @@ class GetDashboardData {
       );
     }
 
-    final sixMonthsAgo = DateTime(now.year, now.month - 5, 1);
+    final windowStart = DateTime(now.year, now.month - (months - 1), 1);
 
     // A agregação por chave de mês independe da ordem de iteração — sortear
     // o histórico inteiro aqui custaria O(n log n) sobre TODAS as transações
-    // do usuário a cada save, só para descartar tudo além dos últimos 6 meses.
+    // do usuário a cada save, só para descartar tudo fora da janela.
     for (final tx in transactions) {
-      if (tx.date.isBefore(sixMonthsAgo)) continue;
+      if (tx.date.isBefore(windowStart)) continue;
       final key = '${tx.date.year}-${tx.date.month}';
       final existing = monthlyMap[key];
       if (existing != null) {
@@ -363,17 +383,16 @@ class GetDashboardData {
   List<CashFlowPoint> _calculateCashFlowHistory(
     List<TransactionModel> transactions,
     DateTime now,
+    DateTime windowStart,
   ) {
-    final sixMonthsAgo = DateTime(now.year, now.month - 5, 1);
-
     // Particiona antes de ordenar: o saldo acumulado anterior à janela é uma
-    // soma simples (não depende de ordem), então só a janela de 6 meses
+    // soma simples (não depende de ordem), então só a janela do período
     // precisa ser ordenada — o custo deixa de crescer com o histórico total.
     int cumulative = 0;
     final filtered = <TransactionModel>[];
     for (final tx in transactions) {
       if (!tx.isCompleted) continue;
-      if (tx.date.isBefore(sixMonthsAgo)) {
+      if (tx.date.isBefore(windowStart)) {
         if (tx.type == TransactionType.income) {
           cumulative += tx.amount;
         } else if (tx.type == TransactionType.expense) {
@@ -387,9 +406,9 @@ class GetDashboardData {
 
     final Map<String, CashFlowPoint> pointsMap = {};
 
-    // Add a baseline starting point at the beginning of the 6-month window
+    // Add a baseline starting point at the beginning of the selected window
     pointsMap['start'] = CashFlowPoint(
-      date: sixMonthsAgo,
+      date: windowStart,
       income: 0,
       expense: 0,
       cumulativeBalance: cumulative,
@@ -427,7 +446,7 @@ class GetDashboardData {
     final Map<String, ({int income, int expense})> pendingByDay = {};
     for (final tx in transactions) {
       if (tx.isCompleted) continue;
-      if (tx.date.isBefore(sixMonthsAgo)) continue;
+      if (tx.date.isBefore(windowStart)) continue;
       final key = '${tx.date.year}-${tx.date.month}-${tx.date.day}';
       final existing = pendingByDay[key] ?? (income: 0, expense: 0);
       pendingByDay[key] = (
@@ -464,6 +483,7 @@ class GetDashboardData {
     List<Account> accounts,
     List<TransactionModel> transactions,
     DateTime now,
+    DateTime start,
   ) {
     const liquidTypes = {
       AccountType.checking,
@@ -479,8 +499,9 @@ class GetDashboardData {
         .where((a) => a.isActive && liquidTypes.contains(a.type))
         .fold<int>(0, (sum, acc) => sum + acc.balance);
 
-    // Initialize map keys for exactly the last 6 months to ensure a full timeline is always shown
-    const monthsCount = 6;
+    // Inicializa as chaves de mês da janela do período para garantir uma
+    // linha do tempo completa mesmo em meses sem movimentação.
+    final monthsCount = _monthsInWindow(start, now);
     final Map<String, int> monthlyNet = {};
     final List<String> orderedKeys = [];
 

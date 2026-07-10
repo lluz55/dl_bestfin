@@ -22,6 +22,7 @@ abstract class TransactionRepository {
     DateTime? startDate,
     DateTime? endDate,
     bool? isCompleted,
+    String? groupId,
   });
   Stream<List<TransactionModel>> watchSuggestedTransactions();
 
@@ -122,7 +123,29 @@ class TransactionRepositoryImpl implements TransactionRepository {
     _database,
   );
 
-  TransactionRepositoryImpl(this._database);
+  // O mapa enriquecido de categorias (árvore pai/filho) é consultado a cada
+  // emissão dos streams de transação. Como categorias e seus relacionamentos
+  // mudam com pouca frequência, cacheamos o Future e o invalidamos apenas
+  // quando essas tabelas realmente mudam — evitando refazer a árvore inteira a
+  // cada gravação de transação. Guardar o Future (e não o Map) também dedupa
+  // reconstruções concorrentes disparadas por emissões simultâneas.
+  Future<Map<String, CategoryModel>>? _enrichedCategoriesFuture;
+  StreamSubscription<void>? _categoriesInvalidationSub;
+  StreamSubscription<void>? _relationshipsInvalidationSub;
+
+  TransactionRepositoryImpl(this._database) {
+    _categoriesInvalidationSub = _database.categoriesDao
+        .watchAllCategories()
+        .listen((_) => _enrichedCategoriesFuture = null);
+    _relationshipsInvalidationSub = _database.categoriesDao
+        .watchAllRelationships()
+        .listen((_) => _enrichedCategoriesFuture = null);
+  }
+
+  void dispose() {
+    unawaited(_categoriesInvalidationSub?.cancel());
+    unawaited(_relationshipsInvalidationSub?.cancel());
+  }
 
   // Agendar/cancelar lembretes é um efeito colateral best-effort — uma falha
   // aqui (ex.: plugin de notificação indisponível) nunca deve interromper a
@@ -170,7 +193,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
             ),
           ]);
 
-    return query.watch().map((rows) {
+    return query.watch().asyncMap((rows) async {
+      final categoriesMap = await _loadEnrichedCategoriesMap();
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -198,11 +222,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
 
       return txMap.entries.map((e) {
+        final catId = catMap[e.key]?.id;
         return TransactionModel.fromDb(
           e.value,
-          category: catMap[e.key] != null
-              ? CategoryModel.fromDb(catMap[e.key]!)
-              : null,
+          category: catId != null ? categoriesMap[catId] : null,
           entity: entMap[e.key],
           entries: entriesMap[e.key]!,
           recurringRuleId: ruleMap[e.key]?.id,
@@ -220,6 +243,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     DateTime? startDate,
     DateTime? endDate,
     bool? isCompleted,
+    String? groupId,
   }) {
     final query = _database.select(_database.transactions).join([
       leftOuterJoin(
@@ -250,6 +274,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     if (categoryId != null) {
       query.where(_database.transactions.categoryId.equals(categoryId));
     }
+    if (groupId != null) {
+      query.where(_database.transactions.groupId.equals(groupId));
+    }
     if (startDate != null) {
       query.where(_database.transactions.date.isBiggerOrEqualValue(startDate));
     }
@@ -276,7 +303,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       ),
     ]);
 
-    return query.watch().map((rows) {
+    return query.watch().asyncMap((rows) async {
+      final categoriesMap = await _loadEnrichedCategoriesMap();
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -304,11 +332,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
 
       return txMap.entries.map((e) {
+        final catId = catMap[e.key]?.id;
         return TransactionModel.fromDb(
           e.value,
-          category: catMap[e.key] != null
-              ? CategoryModel.fromDb(catMap[e.key]!)
-              : null,
+          category: catId != null ? categoriesMap[catId] : null,
           entity: entMap[e.key],
           entries: entriesMap[e.key]!,
           recurringRuleId: ruleMap[e.key]?.id,
@@ -352,7 +379,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
             ),
           ]);
 
-    return query.watch().map((rows) {
+    return query.watch().asyncMap((rows) async {
+      final categoriesMap = await _loadEnrichedCategoriesMap();
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -380,11 +408,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
 
       return txMap.entries.map((e) {
+        final catId = catMap[e.key]?.id;
         return TransactionModel.fromDb(
           e.value,
-          category: catMap[e.key] != null
-              ? CategoryModel.fromDb(catMap[e.key]!)
-              : null,
+          category: catId != null ? categoriesMap[catId] : null,
           entity: entMap[e.key],
           entries: entriesMap[e.key]!,
           recurringRuleId: ruleMap[e.key]?.id,
@@ -429,9 +456,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
         .map(EntryModel.fromDb)
         .toList();
 
+    final categoriesMap = await _loadEnrichedCategoriesMap();
     return TransactionModel.fromDb(
       tx,
-      category: cat != null ? CategoryModel.fromDb(cat) : null,
+      category: cat != null ? categoriesMap[cat.id] : null,
       entity: ent,
       entries: entries,
       recurringRuleId: rule?.id,
@@ -1367,5 +1395,72 @@ class TransactionRepositoryImpl implements TransactionRepository {
       ..limit(1);
     final row = await selectQuery.getSingleOrNull();
     return row != null;
+  }
+
+  Future<Map<String, CategoryModel>> _loadEnrichedCategoriesMap() {
+    return _enrichedCategoriesFuture ??= _buildEnrichedCategoriesMap();
+  }
+
+  Future<Map<String, CategoryModel>> _buildEnrichedCategoriesMap() async {
+    final flatList = await _database.categoriesDao.watchAllCategories().first;
+    final active = flatList.where((c) => !c.isArchived).toList();
+    final filteredIds = active.map((c) => c.id).toSet();
+    final relationships = await _database.categoriesDao.getAllRelationships();
+
+    final childToParentIds = <String, List<String>>{};
+    final parentToChildIds = <String, List<String>>{};
+    for (final rel in relationships) {
+      if (filteredIds.contains(rel.parentCategoryId) &&
+          filteredIds.contains(rel.childCategoryId)) {
+        childToParentIds
+            .putIfAbsent(rel.childCategoryId, () => [])
+            .add(rel.parentCategoryId);
+        parentToChildIds
+            .putIfAbsent(rel.parentCategoryId, () => [])
+            .add(rel.childCategoryId);
+      }
+    }
+
+    final allModels = <String, CategoryModel>{
+      for (final c in active)
+        c.id: CategoryModel.fromDb(c, parentIds: childToParentIds[c.id] ?? []),
+    };
+
+    final Map<String, CategoryModel> enrichedMap = {};
+    CategoryModel nest(
+      String id, {
+      String? parentName,
+      String? parentIcon,
+      String? parentColor,
+    }) {
+      final base = allModels[id]!;
+      final children = (parentToChildIds[id] ?? [])
+          .where(filteredIds.contains)
+          .map(
+            (cid) => nest(
+              cid,
+              parentName: base.name,
+              parentIcon: base.icon,
+              parentColor: base.color,
+            ),
+          )
+          .toList();
+      final enriched = base.copyWith(
+        children: children,
+        parentName: parentName,
+        parentIcon: parentIcon,
+        parentColor: parentColor,
+      );
+      enrichedMap[id] = enriched;
+      return enriched;
+    }
+
+    for (final model in allModels.values) {
+      if (model.isRoot) {
+        nest(model.id);
+      }
+    }
+
+    return enrichedMap;
   }
 }

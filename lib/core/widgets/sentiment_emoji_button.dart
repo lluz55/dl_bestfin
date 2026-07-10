@@ -7,11 +7,13 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 class SentimentEmojiButton extends StatefulWidget {
   final SentimentType? selectedSentiment;
   final ValueChanged<SentimentType?> onSentimentSelected;
+  final double? height;
 
   const SentimentEmojiButton({
     super.key,
     required this.selectedSentiment,
     required this.onSentimentSelected,
+    this.height,
   });
 
   @override
@@ -62,7 +64,7 @@ class _SentimentEmojiButtonState extends State<SentimentEmojiButton> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           width: 56,
-          height: 56,
+          height: widget.height,
           decoration: BoxDecoration(
             color: selected != null
                 ? selected.color.withValues(alpha: 0.15)
@@ -160,13 +162,45 @@ class _SentimentPickerOverlayState extends State<_SentimentPickerOverlay> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (widget.selectedSentiment != null) ...[
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            widget.onSelected(null);
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: cs.errorContainer.withValues(alpha: 0.15),
+                              border: Border.all(
+                                color: cs.error.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.block_rounded,
+                                color: cs.error,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       for (final sentiment in SentimentType.values) ...[
                         _PickerEmojiButton(
                           sentiment: sentiment,
                           isSelected: widget.selectedSentiment == sentiment,
                           onTap: () {
                             HapticFeedback.selectionClick();
-                            widget.onSelected(sentiment);
+                            final isAlreadySelected =
+                                widget.selectedSentiment == sentiment;
+                            widget.onSelected(
+                              isAlreadySelected ? null : sentiment,
+                            );
                           },
                         ),
                         if (sentiment != SentimentType.values.last)

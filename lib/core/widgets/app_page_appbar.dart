@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -39,14 +40,26 @@ class AppPageAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final tt = context.textTheme;
 
     // Detecta se um back button deve aparecer, para controle explícito do ícone e spacing
-    final canPop = ModalRoute.of(context)?.canPop ?? false;
+    bool canPop = false;
+    try {
+      canPop = GoRouter.of(context).canPop();
+    } catch (_) {}
+    if (!canPop) {
+      canPop = ModalRoute.of(context)?.canPop ?? false;
+    }
     final effectiveLeading =
         leading ??
         (automaticallyImplyLeading && canPop
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => Navigator.maybePop(context),
+                onPressed: () {
+                  try {
+                    GoRouter.of(context).pop();
+                  } catch (_) {
+                    Navigator.maybePop(context);
+                  }
+                },
               )
             : null);
     final hasLeading = effectiveLeading != null;

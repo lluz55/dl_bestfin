@@ -76,7 +76,7 @@ class DateFormatter {
     return '$h:$m';
   }
 
-  /// Formata a data de forma relativa: "Hoje", "Ontem" ou "dd/mm/aaaa"
+  /// Formata a data de forma relativa: "Hoje", "Ontem", "dd/mm" (ano atual) ou "dd/mm/aaaa" (ano diferente)
   static String formatRelativeDate(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -88,7 +88,13 @@ class DateFormatter {
     } else if (compareDate == yesterday) {
       return 'Ontem';
     } else {
-      return formatDate(date);
+      if (date.year == now.year) {
+        final day = date.day.toString().padLeft(2, '0');
+        final month = date.month.toString().padLeft(2, '0');
+        return '$day/$month';
+      } else {
+        return formatDate(date);
+      }
     }
   }
 }

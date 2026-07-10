@@ -171,8 +171,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
 
       await _saveOrShareFile(
         bytes: utf8.encode(csvString),
-        fileName:
-            'bestfin_export_${DateTime.now().millisecondsSinceEpoch}.csv',
+        fileName: 'bestfin_export_${DateTime.now().millisecondsSinceEpoch}.csv',
         shareSubject: 'Relatório CSV BestFin',
       );
     } catch (e, st) {
@@ -607,275 +606,271 @@ class _BackupViewState extends ConsumerState<BackupView> {
       children: [
         ListView(
           padding: const EdgeInsets.all(16),
-            children: [
-              // Filters Section
-              Card(
-                elevation: 0,
-                color: cs.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
-                  ),
+          children: [
+            // Filters Section
+            Card(
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Filtro de Exportação',
-                        style: tt.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Filtro de Exportação',
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final preset in _periodPresets)
+                          ChoiceChip(
+                            label: Text(preset),
+                            selected: _selectedPreset == preset,
+                            onSelected: (_) => _applyPreset(preset),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickDateRange,
+                            icon: const Icon(Icons.date_range_rounded),
+                            label: Text(
+                              dateRangeLabel,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          for (final preset in _periodPresets)
-                            ChoiceChip(
-                              label: Text(preset),
-                              selected: _selectedPreset == preset,
-                              onSelected: (_) => _applyPreset(preset),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _pickDateRange,
-                              icon: const Icon(Icons.date_range_rounded),
-                              label: Text(
-                                dateRangeLabel,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          if (_startDate != null) ...[
-                            const SizedBox(width: 8),
-                            IconButton.filledTonal(
-                              onPressed: _clearDateRange,
-                              icon: const Icon(Icons.clear_rounded),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Separador CSV',
-                        style: tt.labelLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment<String>(
-                            value: ';',
-                            label: Text('Ponto e Vírgula ( ; )'),
-                          ),
-                          ButtonSegment<String>(
-                            value: ',',
-                            label: Text('Vírgula ( , )'),
-                          ),
-                        ],
-                        selected: {_csvSeparator},
-                        onSelectionChanged: (Set<String> newSelection) {
-                          setState(() {
-                            _csvSeparator = newSelection.first;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Export Options Title
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'Formatos de Exportação',
-                  style: tt.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-
-              // Export Options Cards
-              ExportButton(
-                icon: Icons.picture_as_pdf_rounded,
-                label: 'Relatório Financeiro',
-                format: 'PDF',
-                color: Colors.red.shade700,
-                onTap: _handleExportPdf,
-              ),
-              const SizedBox(height: 12),
-              ExportButton(
-                icon: Icons.table_chart_rounded,
-                label: 'Planilha de Transações',
-                format: 'CSV',
-                color: Colors.green.shade700,
-                onTap: _handleExportCsv,
-              ),
-              const SizedBox(height: 12),
-              ExportButton(
-                icon: Icons.code_rounded,
-                label: 'Backup de Dados Estruturados',
-                format: 'JSON',
-                color: Colors.orange.shade800,
-                onTap: _handleExportJson,
-              ),
-              const SizedBox(height: 24),
-
-              // Backup Section Title
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'Segurança e Restauração',
-                  style: tt.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-
-              // Backup SQLite Card
-              Card(
-                elevation: 0,
-                color: cs.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.storage_rounded, color: cs.primary),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Cópia de Segurança SQLite',
-                            style: tt.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: cs.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Crie um backup físico binário do arquivo .sqlite completo do BestFin. '
-                        'Ideal para arquivar localmente ou compartilhar entre dispositivos.',
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _handleDatabaseBackup,
-                          icon: const Icon(Icons.cloud_upload_rounded),
-                          label: const Text('Exportar Banco SQLite'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Import and Restore Box
-              Card(
-                elevation: 0,
-                color: cs.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.settings_backup_restore_rounded,
-                            color: cs.secondary,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Importação e Restauração',
-                            style: tt.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: cs.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Importe transações de outras planilhas em CSV ou restaure dados completos '
-                        'a partir de arquivos de backup JSON ou arquivos de banco de dados SQLite.',
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _handleImportCsv,
-                              icon: const Icon(Icons.file_open_rounded),
-                              label: const Text('Importar CSV'),
-                            ),
-                          ),
+                        if (_startDate != null) ...[
                           const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _handleRestoreJson,
-                              icon: const Icon(Icons.restore_rounded),
-                              label: const Text('Restaurar JSON'),
-                            ),
+                          IconButton.filledTonal(
+                            onPressed: _clearDateRange,
+                            icon: const Icon(Icons.clear_rounded),
                           ),
                         ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Separador CSV',
+                      style: tt.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
                       ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => context.push('/pdf-import'),
-                          icon: const Icon(Icons.picture_as_pdf_rounded),
-                          label: const Text('Importar Fatura PDF'),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment<String>(
+                          value: ';',
+                          label: Text('Ponto e Vírgula ( ; )'),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      AppButton(
-                        label: 'Substituir Arquivo SQLite',
-                        icon: Icons.settings_system_daydream_rounded,
-                        variant: AppButtonVariant.destructiveOutlined,
-                        expanded: true,
-                        onPressed: _handleDatabaseRestore,
-                      ),
-                    ],
-                  ),
+                        ButtonSegment<String>(
+                          value: ',',
+                          label: Text('Vírgula ( , )'),
+                        ),
+                      ],
+                      selected: {_csvSeparator},
+                      onSelectionChanged: (Set<String> newSelection) {
+                        setState(() {
+                          _csvSeparator = newSelection.first;
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 48),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+
+            // Export Options Title
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Text(
+                'Formatos de Exportação',
+                style: tt.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+
+            // Export Options Cards
+            ExportButton(
+              icon: Icons.picture_as_pdf_rounded,
+              label: 'Relatório Financeiro',
+              format: 'PDF',
+              color: Colors.red.shade700,
+              onTap: _handleExportPdf,
+            ),
+            const SizedBox(height: 12),
+            ExportButton(
+              icon: Icons.table_chart_rounded,
+              label: 'Planilha de Transações',
+              format: 'CSV',
+              color: Colors.green.shade700,
+              onTap: _handleExportCsv,
+            ),
+            const SizedBox(height: 12),
+            ExportButton(
+              icon: Icons.code_rounded,
+              label: 'Backup de Dados Estruturados',
+              format: 'JSON',
+              color: Colors.orange.shade800,
+              onTap: _handleExportJson,
+            ),
+            const SizedBox(height: 24),
+
+            // Backup Section Title
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Text(
+                'Segurança e Restauração',
+                style: tt.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+
+            // Backup SQLite Card
+            Card(
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.storage_rounded, color: cs.primary),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Cópia de Segurança SQLite',
+                          style: tt.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Crie um backup físico binário do arquivo .sqlite completo do BestFin. '
+                      'Ideal para arquivar localmente ou compartilhar entre dispositivos.',
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _handleDatabaseBackup,
+                        icon: const Icon(Icons.cloud_upload_rounded),
+                        label: const Text('Exportar Banco SQLite'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Import and Restore Box
+            Card(
+              elevation: 0,
+              color: cs.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.settings_backup_restore_rounded,
+                          color: cs.secondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Importação e Restauração',
+                          style: tt.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Importe transações de outras planilhas em CSV ou restaure dados completos '
+                      'a partir de arquivos de backup JSON ou arquivos de banco de dados SQLite.',
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _handleImportCsv,
+                            icon: const Icon(Icons.file_open_rounded),
+                            label: const Text('Importar CSV'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _handleRestoreJson,
+                            icon: const Icon(Icons.restore_rounded),
+                            label: const Text('Restaurar JSON'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.push('/pdf-import'),
+                        icon: const Icon(Icons.picture_as_pdf_rounded),
+                        label: const Text('Importar Fatura PDF'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AppButton(
+                      label: 'Substituir Arquivo SQLite',
+                      icon: Icons.settings_system_daydream_rounded,
+                      variant: AppButtonVariant.destructiveOutlined,
+                      expanded: true,
+                      onPressed: _handleDatabaseRestore,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 48),
+          ],
+        ),
 
         // Loader Overlay
         if (_isLoading)

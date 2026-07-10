@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
-import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
@@ -13,6 +12,18 @@ import 'package:bestfin/features/accounts/presentation/widgets/account_card.dart
 import 'package:fl_chart/fl_chart.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/theme/typography.dart';
+import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/core/utils/date_formatter.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction_group.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/transaction_tile.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/grouped_transaction_tile.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
+import 'package:bestfin/features/transactions/presentation/screens/transaction_group_screen.dart';
 
 class AccountDetailScreen extends ConsumerWidget {
   const AccountDetailScreen({super.key, required this.accountId});
@@ -76,12 +87,26 @@ class AccountDetailScreen extends ConsumerWidget {
     );
   }
 
+  int _calculateDayNet(List<TransactionModel> list) {
+    int net = 0;
+    for (final tx in list) {
+      if (tx.type == TransactionType.income) {
+        net += tx.amount;
+      } else if (tx.type == TransactionType.expense) {
+        net -= tx.amount;
+      }
+    }
+    return net;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
     ref.watch(valuesHiddenProvider);
     final accountAsync = ref.watch(accountByIdProvider(accountId));
-    final transactionsAsync = ref.watch(accountTransactionsProvider(accountId));
+    final groupedDataAsync = ref.watch(
+      accountGroupedTransactionsProvider(accountId),
+    );
     final chartSpotsAsync = ref.watch(
       accountBalanceEvolutionProvider(accountId),
     );
@@ -288,7 +313,7 @@ class AccountDetailScreen extends ConsumerWidget {
                                     lineBarsData: [
                                       LineChartBarData(
                                         spots: spots,
-                                        isCurved: true,
+                                        isCurved: false,
                                         color: accountColor,
                                         barWidth: 3,
                                         isStrokeCapRound: true,
@@ -344,9 +369,9 @@ class AccountDetailScreen extends ConsumerWidget {
               ),
 
               // Transactions list
-              transactionsAsync.when(
-                data: (txList) {
-                  if (txList.isEmpty) {
+              groupedDataAsync.when(
+                data: (groupedData) {
+                  if (groupedData.flatList.isEmpty) {
                     return const SliverFillRemaining(
                       hasScrollBody: false,
                       child: Padding(
@@ -363,71 +388,64 @@ class AccountDetailScreen extends ConsumerWidget {
                     );
                   }
 
+                  final flatList = groupedData.flatList;
+                  final grouped = groupedData.grouped;
+
                   return SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
-                      final txWrapper = txList[index];
-                      final tx = txWrapper.transaction;
-                      final entry = txWrapper.entry;
-
-                      // Determinar sinal: se entry for 'credit', diminui (despesa), 'debit' aumenta (receita)
-                      final isExpense = entry.type == 'credit';
-                      final amountSigned = isExpense
-                          ? -entry.amount
-                          : entry.amount;
-
-                      final dateFormatted =
-                          '${tx.date.day.toString().padLeft(2, '0')}/${tx.date.month.toString().padLeft(2, '0')}';
-
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 4,
-                        ),
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isExpense
-                                ? theme.colorScheme.errorContainer.withValues(
-                                    alpha: 0.2,
-                                  )
-                                : theme.colorScheme.primaryContainer.withValues(
-                                    alpha: 0.2,
-                                  ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isExpense
-                                ? Icons.arrow_downward_rounded
-                                : Icons.arrow_upward_rounded,
-                            color: isExpense
-                                ? theme.colorScheme.error
-                                : theme.colorScheme.primary,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          tx.description,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        subtitle: Text(
-                          dateFormatted,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: AmountDisplay(
-                          amountInCents: amountSigned,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          showSign: true,
-                        ),
-                      );
-                    }, childCount: txList.length),
+                      final item = flatList[index];
+                      if (item is String) {
+                        final dateKey = item;
+                        final txs = grouped[dateKey]!;
+                        return _DayGroupHeader(
+                          dateKey: dateKey,
+                          transactions: txs,
+                          dayNet: _calculateDayNet(txs),
+                          cs: theme.colorScheme,
+                          colors: context.customColors,
+                        );
+                      } else if (item is TransactionGroup) {
+                        return GroupedTransactionTile(
+                          group: item,
+                          onTap: () {
+                            showTransactionGroupModal(context, item.groupId);
+                          },
+                        );
+                      } else {
+                        final tx = item as TransactionModel;
+                        return TransactionTile(
+                          transaction: tx,
+                          onTap: () {
+                            if (Breakpoints.isCompact(context)) {
+                              context.push('/transaction/edit', extra: tx);
+                            } else {
+                              ref
+                                  .read(transactionFormModalProvider.notifier)
+                                  .open(transaction: tx);
+                            }
+                          },
+                          onClone: () {
+                            if (Breakpoints.isCompact(context)) {
+                              context.push(
+                                '/transaction/new?isCloning=true',
+                                extra: tx,
+                              );
+                            } else {
+                              ref
+                                  .read(transactionFormModalProvider.notifier)
+                                  .open(transaction: tx, isCloning: true);
+                            }
+                          },
+                          onDelete: () =>
+                              showDeleteTransactionSheet(context, ref, tx),
+                          onMarkAsPaid: tx.isPending
+                              ? () => ref.read(markTransactionAsPaidProvider)(
+                                  tx.id,
+                                )
+                              : null,
+                        );
+                      }
+                    }, childCount: flatList.length),
                   );
                 },
                 loading: () => const SliverToBoxAdapter(
@@ -454,6 +472,88 @@ class AccountDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: AppLoadingIndicator()),
         error: (err, _) => Center(child: Text('Erro ao carregar conta: $err')),
       ),
+    );
+  }
+}
+
+class _DayGroupHeader extends StatelessWidget {
+  const _DayGroupHeader({
+    required this.dateKey,
+    required this.transactions,
+    required this.dayNet,
+    required this.cs,
+    required this.colors,
+  });
+
+  final String dateKey;
+  final List<TransactionModel> transactions;
+  final int dayNet;
+  final ColorScheme cs;
+  final dynamic colors;
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isToday = _isToday(transactions.first.date);
+    final label = DateFormatter.formatRelativeDate(transactions.first.date);
+    final isPositive = dayNet >= 0;
+    final netColor = isPositive ? colors.income : colors.expense;
+    final prefix = isPositive ? '+' : '−';
+    final absNet = dayNet.abs();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? cs.primaryContainer
+                      : cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isToday ? cs.onPrimaryContainer : cs.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                '$prefix${CurrencyFormatter.formatCents(absNet)}',
+                style: AppTypography.monospace.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: netColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ],
     );
   }
 }

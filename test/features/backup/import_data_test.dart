@@ -208,45 +208,49 @@ void main() {
       );
     });
 
-    test('restoreJson refuses an incompatible backup without wiping data',
-        () async {
-      await db.accountsDao.insertAccount(
-        AccountsCompanion.insert(
-          id: 'keep_me',
-          name: 'Conta Preservada',
-          type: 'checking',
-        ),
-      );
+    test(
+      'restoreJson refuses an incompatible backup without wiping data',
+      () async {
+        await db.accountsDao.insertAccount(
+          AccountsCompanion.insert(
+            id: 'keep_me',
+            name: 'Conta Preservada',
+            type: 'checking',
+          ),
+        );
 
-      final futureBackup = json.encode({
-        'version': kBackupFormatVersion,
-        'schema_version': db.schemaVersion + 5,
-        'exported_at': '2026-05-28T12:00:00Z',
-        'accounts': [],
-      });
+        final futureBackup = json.encode({
+          'version': kBackupFormatVersion,
+          'schema_version': db.schemaVersion + 5,
+          'exported_at': '2026-05-28T12:00:00Z',
+          'accounts': [],
+        });
 
-      await expectLater(
-        importData.restoreJson(futureBackup),
-        throwsA(isA<BackupIncompatibleException>()),
-      );
+        await expectLater(
+          importData.restoreJson(futureBackup),
+          throwsA(isA<BackupIncompatibleException>()),
+        );
 
-      // O banco atual não pode ter sido apagado por um backup incompatível.
-      final accounts = await db.select(db.accounts).get();
-      expect(accounts.length, 1);
-      expect(accounts.first.id, 'keep_me');
-    });
+        // O banco atual não pode ter sido apagado por um backup incompatível.
+        final accounts = await db.select(db.accounts).get();
+        expect(accounts.length, 1);
+        expect(accounts.first.id, 'keep_me');
+      },
+    );
 
-    test('previewJson exposes schema_version and accepts older schemas',
-        () async {
-      final olderJson = json.encode({
-        'version': kBackupFormatVersion,
-        'schema_version': db.schemaVersion - 1,
-        'exported_at': '2026-05-28T12:00:00Z',
-        'accounts': [],
-      });
+    test(
+      'previewJson exposes schema_version and accepts older schemas',
+      () async {
+        final olderJson = json.encode({
+          'version': kBackupFormatVersion,
+          'schema_version': db.schemaVersion - 1,
+          'exported_at': '2026-05-28T12:00:00Z',
+          'accounts': [],
+        });
 
-      final preview = await importData.previewJson(olderJson);
-      expect(preview['schema_version'], db.schemaVersion - 1);
-    });
+        final preview = await importData.previewJson(olderJson);
+        expect(preview['schema_version'], db.schemaVersion - 1);
+      },
+    );
   });
 }

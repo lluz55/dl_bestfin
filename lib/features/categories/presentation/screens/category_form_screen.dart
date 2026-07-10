@@ -114,9 +114,8 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
             .where(
               (c) =>
                   !c.isArchived &&
-                  !c.hasChildren &&
                   c.id != editingId &&
-                  c.type == _type,
+                  (c.type == _type || c.type == 'both' || _type == 'both'),
             )
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
@@ -215,6 +214,11 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                     value: 'income',
                     label: Text('Receita'),
                     icon: Icon(Icons.arrow_upward),
+                  ),
+                  ButtonSegment(
+                    value: 'both',
+                    label: Text('Ambas'),
+                    icon: Icon(Icons.all_inclusive),
                   ),
                   ButtonSegment(
                     value: 'transfer',

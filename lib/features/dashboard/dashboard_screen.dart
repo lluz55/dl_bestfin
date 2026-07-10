@@ -12,10 +12,13 @@ import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/profile_avatar.dart';
-import 'package:bestfin/core/widgets/staggered_transaction_list.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/quick_transaction_sheet.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/transaction_tile.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
 
 import 'package:bestfin/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
@@ -32,7 +35,6 @@ import 'package:bestfin/features/dashboard/presentation/widgets/insight_card.dar
 import 'package:bestfin/features/dashboard/presentation/widgets/chart_widgets_wrapper.dart';
 import 'package:bestfin/features/dashboard/presentation/widgets/dashboard_grid.dart';
 import 'package:bestfin/features/gamification/presentation/widgets/streaks_dashboard_widget.dart';
-import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/budgets/presentation/widgets/budgets_overview_card.dart';
 import 'package:bestfin/features/cashflow/presentation/widgets/cashflow_projection_card.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
@@ -47,7 +49,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  static const _filters = ['Este mês', 'Semana', '3 meses', 'Ano'];
+  static const _filters = ['Este mês', 'Semana', '3 meses', '6 meses', 'Ano'];
 
   final _customizeKey = GlobalKey(debugLabel: 'tutorial_customize');
 
@@ -63,6 +65,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _runTransactionDemo() {
     return showAdaptiveModal<void>(
       context: context,
+      maxHeightFraction: 0.95,
       builder: (_) =>
           const QuickTransactionSheet(initialType: TransactionType.expense),
     );
@@ -244,46 +247,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  List<TransactionItem> _buildTransactionItems(
-    dynamic data,
-    Map<dynamic, dynamic> accountsById,
-  ) {
-    return data.recentTransactions.map<TransactionItem>((tx) {
-      final isExpense = tx.type == TransactionType.expense;
-      final amountInCents = isExpense ? -tx.amount : tx.amount;
-
-      final day = tx.date.day.toString().padLeft(2, '0');
-      final month = tx.date.month.toString().padLeft(2, '0');
-      final dateStr = '$day/$month';
-
-      if (tx.type == TransactionType.transfer) {
-        final fromName = accountsById[tx.fromAccountId]?.name ?? '—';
-        final toName = accountsById[tx.toAccountId]?.name ?? '—';
-        return TransactionItem(
-          title: '$fromName → $toName',
-          category: 'Transferência',
-          amountInCents: amountInCents,
-          date: dateStr,
-          icon: Icons.swap_horiz_rounded,
-          isCreditCard: tx.creditCardId != null,
-          isRecurring: tx.recurringRuleId != null,
-          rawTransaction: tx,
-        );
-      }
-
-      return TransactionItem(
-        title: tx.description,
-        category: tx.category?.name ?? 'Sem Categoria',
-        amountInCents: amountInCents,
-        date: dateStr,
-        icon: tx.category?.iconData ?? Icons.receipt_long_outlined,
-        isCreditCard: tx.creditCardId != null,
-        isRecurring: tx.recurringRuleId != null,
-        rawTransaction: tx,
-      );
-    }).toList();
-  }
-
   void _showSyncErrorDialog(BuildContext context, String message) {
     showDialog<void>(
       context: context,
@@ -428,48 +391,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               tt: tt,
             ),
             const SizedBox(height: 8),
-            Consumer(
-              builder: (context, ref, _) {
-                final accounts = ref.watch(activeAccountsProvider);
-                final accountsById = {for (final a in accounts) a.id: a};
-                final transactionItems = _buildTransactionItems(
-                  data,
-                  accountsById,
-                );
-                if (transactionItems.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 24,
-                      horizontal: 20,
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Nenhuma transação recente encontrada.',
-                        style: tt.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                return StaggeredTransactionList(
-                  items: transactionItems,
-                  onItemTap: (item) {
-                    if (item.rawTransaction != null) {
-                      if (Breakpoints.isCompact(context)) {
-                        context.push(
-                          '/transaction/edit',
-                          extra: item.rawTransaction,
-                        );
-                      } else {
-                        ref
-                            .read(transactionFormModalProvider.notifier)
-                            .open(transaction: item.rawTransaction);
-                      }
-                    }
-                  },
-                );
-              },
+            _RecentTransactionsList(
+              transactions: List<TransactionModel>.from(
+                data.recentTransactions,
+              ),
             ),
           ],
         ),
@@ -810,6 +735,68 @@ class _ShortcutsRow extends ConsumerWidget {
       },
       loading: () => const Center(child: AppLoadingIndicator()),
       error: (e, s) => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// Lista de "Últimas transações" da Home. Reaproveita o mesmo [TransactionTile]
+/// da tela de Transações para manter a listagem visualmente consistente
+/// (ícone de categoria, entidade, badges de pendente/agendada e ações de
+/// duplicar/excluir/marcar como pago), diferindo apenas por não ter modo de
+/// seleção em massa.
+class _RecentTransactionsList extends ConsumerWidget {
+  const _RecentTransactionsList({required this.transactions});
+
+  final List<TransactionModel> transactions;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+
+    if (transactions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+        child: Center(
+          child: Text(
+            'Nenhuma transação recente encontrada.',
+            style: tt.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final tx in transactions)
+          TransactionTile(
+            transaction: tx,
+            onTap: () {
+              if (Breakpoints.isCompact(context)) {
+                context.push('/transaction/edit', extra: tx);
+              } else {
+                ref
+                    .read(transactionFormModalProvider.notifier)
+                    .open(transaction: tx);
+              }
+            },
+            onClone: () {
+              if (Breakpoints.isCompact(context)) {
+                context.push('/transaction/new?isCloning=true', extra: tx);
+              } else {
+                ref
+                    .read(transactionFormModalProvider.notifier)
+                    .open(transaction: tx, isCloning: true);
+              }
+            },
+            onDelete: () => showDeleteTransactionSheet(context, ref, tx),
+            onMarkAsPaid: tx.isPending
+                ? () => ref.read(markTransactionAsPaidProvider)(tx.id)
+                : null,
+          ),
+      ],
     );
   }
 }

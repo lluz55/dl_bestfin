@@ -21,6 +21,7 @@ import 'package:bestfin/features/transactions/presentation/widgets/transaction_t
 import 'package:bestfin/features/transactions/presentation/widgets/grouped_transaction_tile.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_filters.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/delete_transaction_sheet.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/period_calendar_picker.dart';
 
 class TransactionsListScreen extends ConsumerStatefulWidget {
   const TransactionsListScreen({super.key});
@@ -356,12 +357,15 @@ class _TransactionsListScreenState
                             if (item is String) {
                               final dateKey = item;
                               final txs = grouped[dateKey]!;
-                              return _DayGroupHeader(
-                                dateKey: dateKey,
-                                transactions: txs,
-                                dayNet: _calculateDayNet(txs),
-                                cs: cs,
-                                colors: colors,
+                              return InkWell(
+                                onTap: () => PeriodCalendarPicker.show(context),
+                                child: _DayGroupHeader(
+                                  dateKey: dateKey,
+                                  transactions: txs,
+                                  dayNet: _calculateDayNet(txs),
+                                  cs: cs,
+                                  colors: colors,
+                                ),
                               );
                             } else if (item is TransactionGroup) {
                               final memberIds = [

@@ -95,55 +95,58 @@ class RecurringRepositoryImpl implements RecurringRepository {
   ) async {
     if (rules.isEmpty) return [];
 
-    final result = <RecurringRuleModel>[];
-    for (final rule in rules) {
-      // Busca a transação-base para enriquecer com dados de exibição
-      final baseTx = await (_database.select(
-        _database.transactions,
-      )..where((t) => t.id.equals(rule.baseTransactionId))).getSingleOrNull();
+    // Enriquecimento em lote: em vez de 3 queries por regra (N+1), carregamos
+    // transações-base, categorias e entries em uma consulta cada, indexadas por
+    // id para montar o resultado sem novas idas ao banco.
+    final baseIds = rules.map((r) => r.baseTransactionId).toSet().toList();
 
-      String? categoryName;
-      String? categoryColor;
-      String? categoryIcon;
-      int? amountInCents;
-      String? accountId;
+    final baseTxList = await (_database.select(
+      _database.transactions,
+    )..where((t) => t.id.isIn(baseIds))).get();
+    final baseTxById = {for (final tx in baseTxList) tx.id: tx};
 
-      if (baseTx != null) {
-        // Busca categoria
-        if (baseTx.categoryId != null) {
-          final cat = await (_database.select(
-            _database.categories,
-          )..where((c) => c.id.equals(baseTx.categoryId!))).getSingleOrNull();
-          categoryName = cat?.name;
-          categoryColor = cat?.color;
-          categoryIcon = cat?.icon;
-        }
-
-        // Busca entry para pegar o valor e accountId
-        final entry =
-            await (_database.select(_database.entries)
-                  ..where((e) => e.transactionId.equals(baseTx.id))
-                  ..limit(1))
-                .getSingleOrNull();
-        amountInCents = entry?.amount;
-        accountId = entry?.accountId;
+    final categoryIds = baseTxList
+        .map((tx) => tx.categoryId)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final categoriesById = <String, db.Category>{};
+    if (categoryIds.isNotEmpty) {
+      final categories = await (_database.select(
+        _database.categories,
+      )..where((c) => c.id.isIn(categoryIds))).get();
+      for (final cat in categories) {
+        categoriesById[cat.id] = cat;
       }
-
-      result.add(
-        RecurringRuleModel.fromDb(
-          rule,
-          description: baseTx?.description,
-          type: baseTx?.type,
-          amountInCents: amountInCents,
-          categoryId: baseTx?.categoryId,
-          categoryName: categoryName,
-          categoryColor: categoryColor,
-          categoryIcon: categoryIcon,
-          accountId: accountId,
-        ),
-      );
     }
 
-    return result;
+    // Primeira entry por transação-base (mesma semântica do `limit(1)` anterior).
+    final firstEntryByTxId = <String, db.Entry>{};
+    final entries = await (_database.select(
+      _database.entries,
+    )..where((e) => e.transactionId.isIn(baseIds))).get();
+    for (final entry in entries) {
+      firstEntryByTxId.putIfAbsent(entry.transactionId, () => entry);
+    }
+
+    return rules.map((rule) {
+      final baseTx = baseTxById[rule.baseTransactionId];
+      final cat = baseTx?.categoryId != null
+          ? categoriesById[baseTx!.categoryId!]
+          : null;
+      final entry = baseTx != null ? firstEntryByTxId[baseTx.id] : null;
+
+      return RecurringRuleModel.fromDb(
+        rule,
+        description: baseTx?.description,
+        type: baseTx?.type,
+        amountInCents: entry?.amount,
+        categoryId: baseTx?.categoryId,
+        categoryName: cat?.name,
+        categoryColor: cat?.color,
+        categoryIcon: cat?.icon,
+        accountId: entry?.accountId,
+      );
+    }).toList();
   }
 }

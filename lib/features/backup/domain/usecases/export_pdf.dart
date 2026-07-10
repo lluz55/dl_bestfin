@@ -128,10 +128,10 @@ class ExportPdfUseCase {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     // Months present in the period, ascending, for the monthly evolution table
-    final monthKeys =
-        <DateTime>{...monthlyIncomeCents.keys, ...monthlyExpenseCents.keys}
-            .toList()
-          ..sort();
+    final monthKeys = <DateTime>{
+      ...monthlyIncomeCents.keys,
+      ...monthlyExpenseCents.keys,
+    }.toList()..sort();
 
     // Insights computed from the data at export time
     final insights = txList.isEmpty
@@ -380,11 +380,7 @@ class ExportPdfUseCase {
                         titleFont,
                         alignEnd: true,
                       ),
-                      _buildTableHeaderCell(
-                        'Saldo',
-                        titleFont,
-                        alignEnd: true,
-                      ),
+                      _buildTableHeaderCell('Saldo', titleFont, alignEnd: true),
                     ],
                   ),
                   ...monthKeys.map((month) {
@@ -880,14 +876,22 @@ class ExportPdfUseCase {
             pw.SizedBox(width: 4),
             pw.Text(
               'Receitas',
-              style: pw.TextStyle(font: bodyFont, fontSize: 8, color: greyColor),
+              style: pw.TextStyle(
+                font: bodyFont,
+                fontSize: 8,
+                color: greyColor,
+              ),
             ),
             pw.SizedBox(width: 16),
             _buildLegendDot(expenseColor),
             pw.SizedBox(width: 4),
             pw.Text(
               'Despesas',
-              style: pw.TextStyle(font: bodyFont, fontSize: 8, color: greyColor),
+              style: pw.TextStyle(
+                font: bodyFont,
+                fontSize: 8,
+                color: greyColor,
+              ),
             ),
           ],
         ),

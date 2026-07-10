@@ -464,52 +464,49 @@ void main() {
       },
     );
 
-    test(
-      'registro adiado é relido e aplicado quando volta em versão suportada, '
-      'limpando o marcador',
-      () async {
-        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    test('registro adiado é relido e aplicado quando volta em versão suportada, '
+        'limpando o marcador', () async {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-        // 1º pull: evento de versão futura → adiado; o cursor avança mesmo assim.
-        transport.remoteRecords.add(
-          SyncRecord(
-            entityType: 'transaction',
-            entityId: 'tx-adiado',
-            updatedAt: now - 7200, // fora da margem normal de releitura
-            isDeleted: false,
-            schemaVersion: kSyncSchemaVersion + 1,
-            payload: '{}',
-          ),
-        );
-        await service.pullRemoteChanges();
+      // 1º pull: evento de versão futura → adiado; o cursor avança mesmo assim.
+      transport.remoteRecords.add(
+        SyncRecord(
+          entityType: 'transaction',
+          entityId: 'tx-adiado',
+          updatedAt: now - 7200, // fora da margem normal de releitura
+          isDeleted: false,
+          schemaVersion: kSyncSchemaVersion + 1,
+          payload: '{}',
+        ),
+      );
+      await service.pullRemoteChanges();
 
-        // Simula o app atualizado: o mesmo evento agora decodifica na versão
-        // suportada (na prática, o build novo entende o payload novo).
-        transport.remoteRecords.clear();
-        transport.remoteRecords.add(
-          remoteTransaction('tx-adiado', updatedAt: now - 7200),
-        );
+      // Simula o app atualizado: o mesmo evento agora decodifica na versão
+      // suportada (na prática, o build novo entende o payload novo).
+      transport.remoteRecords.clear();
+      transport.remoteRecords.add(
+        remoteTransaction('tx-adiado', updatedAt: now - 7200),
+      );
 
-        // 2º pull: sem o marcador, `since` excluiria o evento (7200s > margem
-        // de 3600s). O marcador força a janela de volta até ele.
-        final result = await service.pullRemoteChanges();
-        expect(result.pulled, 1);
-        expect(result.deferred, 0);
+      // 2º pull: sem o marcador, `since` excluiria o evento (7200s > margem
+      // de 3600s). O marcador força a janela de volta até ele.
+      final result = await service.pullRemoteChanges();
+      expect(result.pulled, 1);
+      expect(result.deferred, 0);
 
-        final tx = await (db.select(
-          db.transactions,
-        )..where((t) => t.id.equals('tx-adiado'))).getSingleOrNull();
-        expect(tx, isNotNull);
+      final tx = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('tx-adiado'))).getSingleOrNull();
+      expect(tx, isNotNull);
 
-        final prefs = await SharedPreferences.getInstance();
-        expect(
-          prefs.getInt(
-            'sync_incompatible_since_${transport.identity!.publicKey}',
-          ),
-          isNull,
-        );
-      },
-    );
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(
+          'sync_incompatible_since_${transport.identity!.publicKey}',
+        ),
+        isNull,
+      );
+    });
   });
 
   group('cursor de pull', () {
@@ -536,33 +533,30 @@ void main() {
       },
     );
 
-    test(
-      'evento de par com relógio atrasado ainda é capturado após um par '
-      'adiantado (sync não fica unidirecional)',
-      () async {
-        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    test('evento de par com relógio atrasado ainda é capturado após um par '
+        'adiantado (sync não fica unidirecional)', () async {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-        // 1º pull: vê o evento do par adiantado. Sob o cursor antigo
-        // (event-time) o cursor saltaria para now+1800.
-        transport.remoteRecords.add(
-          remoteTransaction('tx-fast', updatedAt: now + 1800),
-        );
-        await service.pullRemoteChanges();
+      // 1º pull: vê o evento do par adiantado. Sob o cursor antigo
+      // (event-time) o cursor saltaria para now+1800.
+      transport.remoteRecords.add(
+        remoteTransaction('tx-fast', updatedAt: now + 1800),
+      );
+      await service.pullRemoteChanges();
 
-        // 2º pull: um par com relógio levemente ATRASADO publica um evento.
-        // Sob o cursor antigo, `since = (now+1800) - overlap` o excluiria para
-        // sempre. Com o cursor ancorado no relógio local, ele é capturado.
-        transport.remoteRecords.add(
-          remoteTransaction('tx-slow', updatedAt: now - 60),
-        );
-        final result = await service.pullRemoteChanges();
-        expect(result.pulled, greaterThanOrEqualTo(1));
+      // 2º pull: um par com relógio levemente ATRASADO publica um evento.
+      // Sob o cursor antigo, `since = (now+1800) - overlap` o excluiria para
+      // sempre. Com o cursor ancorado no relógio local, ele é capturado.
+      transport.remoteRecords.add(
+        remoteTransaction('tx-slow', updatedAt: now - 60),
+      );
+      final result = await service.pullRemoteChanges();
+      expect(result.pulled, greaterThanOrEqualTo(1));
 
-        final tx = await (db.select(
-          db.transactions,
-        )..where((t) => t.id.equals('tx-slow'))).getSingleOrNull();
-        expect(tx, isNotNull);
-      },
-    );
+      final tx = await (db.select(
+        db.transactions,
+      )..where((t) => t.id.equals('tx-slow'))).getSingleOrNull();
+      expect(tx, isNotNull);
+    });
   });
 }

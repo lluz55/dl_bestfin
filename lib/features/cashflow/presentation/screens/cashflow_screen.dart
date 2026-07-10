@@ -6,6 +6,7 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/cashflow/domain/models/cashflow_projection.dart';
 import 'package:bestfin/features/cashflow/presentation/providers/cashflow_provider.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class CashFlowScreen extends ConsumerWidget {
   const CashFlowScreen({super.key});
@@ -14,6 +15,7 @@ class CashFlowScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    ref.watch(valuesHiddenProvider);
     final projectionAsync = ref.watch(cashFlowProjectionProvider);
 
     return Scaffold(

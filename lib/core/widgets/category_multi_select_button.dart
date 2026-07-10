@@ -138,6 +138,18 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
         .toList();
   }
 
+  void _selectAll() {
+    setState(() {
+      _selected.addAll(_filtered.map((c) => c.id));
+    });
+  }
+
+  void _selectNone() {
+    setState(() {
+      _selected.removeAll(_filtered.map((c) => c.id));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -169,6 +181,18 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.select_all_rounded),
+                      tooltip: 'Selecionar todos',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _selectAll,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.deselect_rounded),
+                      tooltip: 'Desmarcar todos',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _selectNone,
                     ),
                     TextButton(
                       onPressed: () {

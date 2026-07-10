@@ -124,7 +124,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
     final List<db.Category> filtered;
     if (typeFilter != null) {
-      filtered = active.where((c) => c.type == typeFilter).toList();
+      filtered = active
+          .where((c) => c.type == typeFilter || c.type == 'both')
+          .toList();
     } else {
       filtered = active;
     }

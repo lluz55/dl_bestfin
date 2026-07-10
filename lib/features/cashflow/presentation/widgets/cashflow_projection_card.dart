@@ -6,6 +6,7 @@ import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/cashflow/presentation/providers/cashflow_provider.dart';
+import 'package:bestfin/core/providers/privacy_provider.dart';
 
 class CashFlowProjectionCard extends ConsumerWidget {
   const CashFlowProjectionCard({super.key});
@@ -14,6 +15,7 @@ class CashFlowProjectionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    ref.watch(valuesHiddenProvider);
     final projectionAsync = ref.watch(cashFlowProjectionProvider);
 
     return AnimatedCard(

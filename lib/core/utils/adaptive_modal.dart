@@ -7,6 +7,7 @@ Future<T?> showAdaptiveModal<T>({
   required WidgetBuilder builder,
   bool isScrollControlled = true,
   bool useSafeArea = true,
+  double? maxHeightFraction,
 }) {
   if (Breakpoints.isCompact(context)) {
     return showModalBottomSheet<T>(
@@ -24,20 +25,25 @@ Future<T?> showAdaptiveModal<T>({
     barrierColor: Colors.transparent,
     transitionDuration: Duration.zero,
     pageBuilder: (context, animation, secondaryAnimation) {
-      return _AdaptiveModalDialog(builder: builder);
+      return _AdaptiveModalDialog(
+        builder: builder,
+        maxHeightFraction: maxHeightFraction,
+      );
     },
   );
 }
 
 class _AdaptiveModalDialog extends StatelessWidget {
-  const _AdaptiveModalDialog({required this.builder});
+  const _AdaptiveModalDialog({required this.builder, this.maxHeightFraction});
 
   final WidgetBuilder builder;
+  final double? maxHeightFraction;
 
   @override
   Widget build(BuildContext context) {
     return AdaptiveModalPanel(
       onClose: () => Navigator.of(context).pop(),
+      maxHeightFraction: maxHeightFraction ?? 0.6,
       builder: (context, requestClose) => builder(context),
     );
   }

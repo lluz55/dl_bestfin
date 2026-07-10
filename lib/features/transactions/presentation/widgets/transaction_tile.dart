@@ -6,6 +6,7 @@ import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
+import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
@@ -127,8 +128,14 @@ class TransactionTile extends ConsumerWidget {
     final isScheduled = transaction.isScheduled;
     final isOverdue = transaction.isOverdue;
 
+    final account = _findAccount(accounts, transaction.accountId);
+    final isFoodOrMealVoucher =
+        account != null &&
+        (account.type == AccountType.foodVoucher ||
+            account.type == AccountType.mealVoucher);
+
     Widget iconWidget;
-    if (isCreditCard || isRecurring || isPending) {
+    if (isCreditCard || isRecurring || isPending || isFoodOrMealVoucher) {
       iconWidget = SizedBox(
         width: 44,
         height: 44,
@@ -193,6 +200,27 @@ class TransactionTile extends ConsumerWidget {
                   child: Center(
                     child: Icon(
                       Icons.credit_card_rounded,
+                      size: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            if (isFoodOrMealVoucher)
+              Positioned(
+                left: isRecurring ? 14 : 0,
+                right: isCreditCard ? null : 0,
+                bottom: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      account.type.defaultIcon,
                       size: 11,
                       color: cs.onSurfaceVariant,
                     ),
@@ -340,13 +368,6 @@ class TransactionTile extends ConsumerWidget {
                             ),
                           ),
                         ],
-                        if (transaction.sentiment != null) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            transaction.sentiment!.emoji,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -355,12 +376,24 @@ class TransactionTile extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '$sign${CurrencyFormatter.formatCents(transaction.amount)}',
-                style: tt.titleSmall?.copyWith(
-                  color: amountColor,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (transaction.sentiment != null) ...[
+                    Text(
+                      transaction.sentiment!.emoji,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    '$sign${CurrencyFormatter.formatCents(transaction.amount)}',
+                    style: tt.titleSmall?.copyWith(
+                      color: amountColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
               // Alternativa ao swipe: menu de ações (duplicar/excluir) acessível
               // por toque, para quem não descobre ou não consegue usar o gesto.

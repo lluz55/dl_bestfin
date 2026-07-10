@@ -283,7 +283,6 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(_date),
     );
-    final wasFuture = _isFutureDate;
     setState(() {
       _date = DateTime(
         pickedDate.year,
@@ -292,12 +291,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
         pickedTime?.hour ?? _date.hour,
         pickedTime?.minute ?? _date.minute,
       );
-      // Deixou de ser futura: nasce confirmada (só datas futuras são agendadas
-      // automaticamente; não havia toggle visível antes, então não existe
-      // escolha do usuário a preservar).
-      if (wasFuture && !_isFutureDate) {
-        _isPending = false;
-      }
+      _isPending = TransactionStatus.isFutureDate(_date);
     });
   }
 
@@ -841,7 +835,10 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 alignment: Alignment.centerRight,
                 child: Text(
-                  CurrencyFormatter.formatCents(row.amountInCents),
+                  CurrencyFormatter.formatCents(
+                    row.amountInCents,
+                    ignoreVisibility: true,
+                  ),
                   style: tt.bodyMedium?.copyWith(
                     color: row.amountInCents > 0
                         ? _activeColor
@@ -907,7 +904,10 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    CurrencyFormatter.formatCents(_totalInCents),
+                    CurrencyFormatter.formatCents(
+                      _totalInCents,
+                      ignoreVisibility: true,
+                    ),
                     style: tt.titleMedium?.copyWith(
                       color: _activeColor,
                       fontWeight: FontWeight.w800,

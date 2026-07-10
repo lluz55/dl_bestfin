@@ -242,10 +242,7 @@ void main() {
       final txs = await repository.watchAllTransactions().first;
       expect(txs.length, 2);
       expect(txs.every((t) => t.groupId == groupId), isTrue);
-      expect(
-        txs.map((t) => t.description).toSet(),
-        {'Novo A', 'Novo B'},
-      );
+      expect(txs.map((t) => t.description).toSet(), {'Novo A', 'Novo B'});
       // Saldo recalculado: -(2500 + 500) = -3000 (mesma soma, membros novos).
       expect(await db.accountsDao.watchAccountBalance(accountId).first, -3000);
 

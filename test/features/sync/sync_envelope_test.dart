@@ -37,12 +37,18 @@ void main() {
       expect(decoded.payload, 'não é json');
     });
 
-    test('entidade que por acaso tem chave "v" não é tratada como envelope', () {
-      // Envelope exige exatamente {v: int, payload: String}.
-      final lookalike = jsonEncode({'v': 3, 'payload': {'id': 'x'}});
-      final decoded = decodeSyncEnvelope(lookalike);
-      expect(decoded.schemaVersion, 1);
-      expect(decoded.payload, lookalike);
-    });
+    test(
+      'entidade que por acaso tem chave "v" não é tratada como envelope',
+      () {
+        // Envelope exige exatamente {v: int, payload: String}.
+        final lookalike = jsonEncode({
+          'v': 3,
+          'payload': {'id': 'x'},
+        });
+        final decoded = decodeSyncEnvelope(lookalike);
+        expect(decoded.schemaVersion, 1);
+        expect(decoded.payload, lookalike);
+      },
+    );
   });
 }

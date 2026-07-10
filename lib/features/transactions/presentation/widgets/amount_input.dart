@@ -107,7 +107,10 @@ class _AmountInputState extends State<AmountInput> {
             ),
             const SizedBox(height: 8),
             Text(
-              CurrencyFormatter.formatCents(widget.amountInCents),
+              CurrencyFormatter.formatCents(
+                widget.amountInCents,
+                ignoreVisibility: true,
+              ),
               style: tt.displayLarge?.copyWith(
                 color: displayColor,
                 fontWeight: FontWeight.w900,
@@ -245,7 +248,10 @@ class _AmountKeypadSheetState extends State<AmountKeypadSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                CurrencyFormatter.formatCents(currentCents),
+                CurrencyFormatter.formatCents(
+                  currentCents,
+                  ignoreVisibility: true,
+                ),
                 style: tt.displayMedium?.copyWith(
                   color: cs.primary,
                   fontWeight: FontWeight.w900,

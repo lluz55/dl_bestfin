@@ -108,7 +108,7 @@ class _CashFlowContent extends StatelessWidget {
                     child: Row(
                       children: [
                         SizedBox(
-                          width: 80,
+                          width: 60,
                           child: Text(
                             '${p.date.day.toString().padLeft(2, '0')}/${p.date.month.toString().padLeft(2, '0')}',
                             style: tt.labelSmall,
@@ -118,19 +118,27 @@ class _CashFlowContent extends StatelessWidget {
                           child: Text(
                             '+ ${CurrencyFormatter.formatCents(p.income)}',
                             style: tt.labelSmall?.copyWith(color: cs.primary),
+                            textAlign: TextAlign.right,
                           ),
                         ),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Text(
                             '- ${CurrencyFormatter.formatCents(p.expense)}',
                             style: tt.labelSmall?.copyWith(color: cs.error),
+                            textAlign: TextAlign.right,
                           ),
                         ),
-                        Text(
-                          '${net >= 0 ? '+' : ''}${CurrencyFormatter.formatCents(net)}',
-                          style: tt.labelSmall?.copyWith(
-                            color: net >= 0 ? cs.tertiary : cs.error,
-                            fontWeight: FontWeight.w600,
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: 90,
+                          child: Text(
+                            '${net >= 0 ? '+' : ''}${CurrencyFormatter.formatCents(net)}',
+                            style: tt.labelSmall?.copyWith(
+                              color: net >= 0 ? cs.tertiary : cs.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.right,
                           ),
                         ),
                       ],

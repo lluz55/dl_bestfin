@@ -13,18 +13,21 @@ Future<T?> showLimitedTransactionSheet<T>({
   required BuildContext context,
   required Widget Function(BuildContext sheetContext) builder,
 }) {
+  final isMobile = Breakpoints.isCompact(context);
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (sheetContext) => ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.65,
-        ),
-        child: builder(sheetContext),
-      ),
+      child: isMobile
+          ? ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.65,
+              ),
+              child: builder(sheetContext),
+            )
+          : builder(sheetContext),
     ),
   );
 }

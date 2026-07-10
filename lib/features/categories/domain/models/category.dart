@@ -94,7 +94,7 @@ class CategoryModel {
   bool get isRoot => parentIds.isEmpty;
   bool get hasChildren => children.isNotEmpty;
 
-  String get displayName => parentName != null ? '$parentName › $name' : name;
+  String get displayName => parentName != null ? '$parentName/$name' : name;
 
   Color get parsedColor {
     final hex = color.replaceFirst('#', '');

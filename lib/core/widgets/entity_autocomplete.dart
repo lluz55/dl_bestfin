@@ -335,72 +335,74 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                             ),
                         itemCount: categories.length + 1,
                         itemBuilder: (context, index) {
-                        if (index == categories.length) {
-                          return InkWell(
-                            onTap: () async {
-                              final newCat = await _showCreateCategorySheet();
-                              if (newCat != null && context.mounted) {
-                                Navigator.pop(context, newCat.id);
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  style: BorderStyle.solid,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_circle_outline,
-                                    size: 32,
+                          if (index == categories.length) {
+                            return InkWell(
+                              onTap: () async {
+                                final newCat = await _showCreateCategorySheet();
+                                if (newCat != null && context.mounted) {
+                                  Navigator.pop(context, newCat.id);
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.primary,
+                                    style: BorderStyle.solid,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Incluir Nova',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_circle_outline,
+                                      size: 32,
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.primary,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Incluir Nova',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            );
+                          }
+
+                          final cat = categories[index];
+                          return InkWell(
+                            onTap: () => Navigator.pop(context, cat.id),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  cat.icon,
+                                  size: 32,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  cat.label,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              ],
                             ),
                           );
-                        }
-
-                        final cat = categories[index];
-                        return InkWell(
-                          onTap: () => Navigator.pop(context, cat.id),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                cat.icon,
-                                size: 32,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                cat.label,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            ],
-                          ),
-                        );
                         },
                       ),
                     ),

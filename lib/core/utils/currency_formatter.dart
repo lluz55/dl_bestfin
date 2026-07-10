@@ -8,8 +8,8 @@ class CurrencyFormatter {
   }
 
   /// Formata centavos para o padrão BRL: "R$ 1.234,56" ou "-R$ 1.234,56"
-  static String formatCents(int cents) {
-    if (valuesHidden) return 'R\$ •••••';
+  static String formatCents(int cents, {bool ignoreVisibility = false}) {
+    if (valuesHidden && !ignoreVisibility) return 'R\$ •••••';
     final double value = cents / 100.0;
     final isNegative = value < 0;
     final absValue = value.abs();
@@ -29,8 +29,11 @@ class CurrencyFormatter {
   }
 
   /// Formata centavos sem o símbolo "R$": "1.234,56" ou "-1.234,56"
-  static String formatCentsWithoutSymbol(int cents) {
-    if (valuesHidden) return '•••••';
+  static String formatCentsWithoutSymbol(
+    int cents, {
+    bool ignoreVisibility = false,
+  }) {
+    if (valuesHidden && !ignoreVisibility) return '•••••';
     final double value = cents / 100.0;
     final isNegative = value < 0;
     final absValue = value.abs();

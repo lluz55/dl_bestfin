@@ -31,6 +31,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   late String _iconCodePoint;
   late String _colorHex;
   late int _initialBalanceCents;
+  bool _initialBalanceLoaded = false;
 
   final _nameController = TextEditingController();
   bool _saving = false;
@@ -46,7 +47,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       _type = acc.type;
       _iconCodePoint = acc.icon;
       _colorHex = acc.color;
-      _initialBalanceCents = acc.balance;
+      _initialBalanceCents = 0;
       _nameController.text = _name;
     } else {
       _name = '';
@@ -103,6 +104,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           type: _type.name,
           icon: _iconCodePoint,
           color: _colorHex,
+          initialBalance: _initialBalanceCents,
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -148,9 +150,28 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     }
   }
 
+  int _oldInitialBalanceCents = 0;
+
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+
+    if (_isEditing && !_initialBalanceLoaded) {
+      final initialBalanceAsync = ref.watch(
+        initialBalanceProvider(widget.accountToEdit!.id),
+      );
+      initialBalanceAsync.whenData((val) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _initialBalanceCents = val;
+              _oldInitialBalanceCents = val;
+              _initialBalanceLoaded = true;
+            });
+          }
+        });
+      });
+    }
 
     // Local live preview account model
     final previewAccount = Account(
@@ -161,7 +182,9 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       color: _colorHex,
       isActive: widget.accountToEdit?.isActive ?? true,
       balance: _isEditing
-          ? widget.accountToEdit!.balance
+          ? (widget.accountToEdit!.balance -
+                _oldInitialBalanceCents +
+                _initialBalanceCents)
           : _initialBalanceCents,
     );
 
@@ -248,9 +271,56 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                       colorHex: _colorHex,
                       onTap: _showPersonalizarSheet,
                     ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Cor da Conta',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: AppColorPicker.colors.map((item) {
+                        final isSelected =
+                            item.$1.toLowerCase() == _colorHex.toLowerCase();
+                        final color = AppColorPicker.hexToColor(item.$1);
+                        return Tooltip(
+                          message: item.$2,
+                          child: InkWell(
+                            onTap: () => setState(() => _colorHex = item.$1),
+                            customBorder: const CircleBorder(),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? theme.colorScheme.outline
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: isSelected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 20,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
                     const SizedBox(height: 16),
-                    // Currency input for initial balance (only visible during creation mode!)
-                    if (!_isEditing) ...[
+                    // Currency input for initial balance
+                    if (!_isEditing || _initialBalanceLoaded) ...[
                       AmountInput(
                         amountInCents: _initialBalanceCents,
                         label: 'Saldo Inicial',

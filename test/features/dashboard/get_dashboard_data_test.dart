@@ -134,12 +134,21 @@ void main() {
         closeTo(15000 / 23000, 0.001),
       );
 
-      // Verificar as transações recentes (devem conter as 5 transações em ordem decrescente de data):
-      expect(dashboardData.recentTransactions.length, 5);
+      // Verificar as transações recentes: a lista respeita o período
+      // selecionado (padrão "Este mês"), portanto exclui o "Aluguel Mês
+      // Passado" — restam as 4 transações do mês corrente em ordem
+      // decrescente de data.
+      expect(dashboardData.recentTransactions.length, 4);
       expect(
         dashboardData.recentTransactions.first.description,
         'Cinema',
       ); // A mais recente
+      expect(
+        dashboardData.recentTransactions.any(
+          (tx) => tx.description == 'Aluguel Mês Passado',
+        ),
+        isFalse,
+      );
     },
   );
 }

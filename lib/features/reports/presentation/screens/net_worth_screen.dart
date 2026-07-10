@@ -128,6 +128,7 @@ class _NetWorthContent extends StatelessWidget {
                               CurrencyFormatter.formatCents(p.netWorth),
                               style: tt.labelMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
+                                color: p.netWorth < 0 ? cs.error : cs.onSurface,
                               ),
                             ),
                           ),

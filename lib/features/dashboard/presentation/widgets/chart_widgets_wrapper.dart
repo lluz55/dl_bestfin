@@ -82,7 +82,11 @@ class CategoryRankingWidgetWrapper extends StatelessWidget {
       Color color;
       if (item.category != null && item.category!.color.isNotEmpty) {
         try {
-          color = Color(int.parse(item.category!.color, radix: 16));
+          final hex = item.category!.color.replaceFirst('#', '');
+          final buffer = StringBuffer();
+          if (hex.length == 6) buffer.write('ff');
+          buffer.write(hex);
+          color = Color(int.parse(buffer.toString(), radix: 16));
         } catch (_) {
           color = cs.primary;
         }

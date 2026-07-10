@@ -173,8 +173,7 @@ class _NetWorthLineChartWidgetState extends State<NetWorthLineChartWidget>
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
-                  isCurved: true,
-                  curveSmoothness: 0.35,
+                  isCurved: false,
                   color: cs.primary,
                   barWidth: 3,
                   dotData: FlDotData(
@@ -279,6 +278,27 @@ class _CashFlowLineChartWidgetState extends State<CashFlowLineChartWidget>
             LineChartData(
               minY: minVal - padding,
               maxY: maxVal + padding,
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipItems: (spots) => spots.map((s) {
+                    final i = s.x.toInt();
+                    if (i >= widget.points.length) return null;
+                    final p = widget.points[i];
+                    final dateFormatted =
+                        '${p.date.day.toString().padLeft(2, '0')}/${p.date.month.toString().padLeft(2, '0')}';
+                    final formattedWorth = CurrencyFormatter.formatCents(
+                      p.cumulativeBalance,
+                    );
+                    return LineTooltipItem(
+                      '$dateFormatted\n$formattedWorth',
+                      Theme.of(context).textTheme.labelSmall!.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
               titlesData: const FlTitlesData(
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(showTitles: false),
@@ -306,7 +326,7 @@ class _CashFlowLineChartWidgetState extends State<CashFlowLineChartWidget>
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
-                  isCurved: true,
+                  isCurved: false,
                   color: cs.tertiary,
                   barWidth: 3,
                   dotData: const FlDotData(show: false),

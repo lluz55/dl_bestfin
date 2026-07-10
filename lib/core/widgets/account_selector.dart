@@ -19,6 +19,7 @@ class AccountSelector extends ConsumerStatefulWidget {
     this.selectedCreditCardId,
     this.onCreditCardSelected,
     this.focusNode,
+    this.excludeAccountId,
   });
 
   final String? selectedAccountId;
@@ -29,6 +30,7 @@ class AccountSelector extends ConsumerStatefulWidget {
   final String? selectedCreditCardId;
   final ValueChanged<CreditCardModel?>? onCreditCardSelected;
   final FocusNode? focusNode;
+  final String? excludeAccountId;
 
   @override
   ConsumerState<AccountSelector> createState() => _AccountSelectorState();
@@ -69,7 +71,12 @@ class _AccountSelectorState extends ConsumerState<AccountSelector> {
     if (_isSheetOpen) return;
     _isSheetOpen = true;
 
-    final activeAccounts = ref.read(activeAccountsProvider);
+    final allActiveAccounts = ref.read(activeAccountsProvider);
+    final activeAccounts = widget.excludeAccountId != null
+        ? allActiveAccounts
+              .where((a) => a.id != widget.excludeAccountId)
+              .toList()
+        : allActiveAccounts;
     final creditCards = widget.showCreditCards
         ? ref.read(creditCardsStreamProvider).value ?? []
         : <CreditCardModel>[];
@@ -86,7 +93,12 @@ class _AccountSelectorState extends ConsumerState<AccountSelector> {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final activeAccounts = ref.watch(activeAccountsProvider);
+    final allActiveAccounts = ref.watch(activeAccountsProvider);
+    final activeAccounts = widget.excludeAccountId != null
+        ? allActiveAccounts
+              .where((a) => a.id != widget.excludeAccountId)
+              .toList()
+        : allActiveAccounts;
     final creditCards = widget.showCreditCards
         ? ref.watch(creditCardsStreamProvider).value ?? []
         : <CreditCardModel>[];

@@ -34,17 +34,7 @@ class _CategoryPickerSheet extends ConsumerStatefulWidget {
 
 class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
   String _query = '';
-  final Set<String> _expandedIds = {};
 
-  void _toggleExpand(String id) => setState(
-    () => _expandedIds.contains(id)
-        ? _expandedIds.remove(id)
-        : _expandedIds.add(id),
-  );
-
-  // Builds the visible list:
-  //  - no query  → roots always visible; children visible only if parent is expanded
-  //  - with query → all categories that match are shown (collapse state ignored)
   List<CategoryModel> _buildItems(List<CategoryModel> roots) {
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
@@ -61,21 +51,26 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
       }
       return result;
     }
+    return roots;
+  }
 
-    final result = <CategoryModel>[];
-    void addWithExpansion(CategoryModel cat) {
-      result.add(cat);
-      if (cat.hasChildren && _expandedIds.contains(cat.id)) {
-        for (final child in cat.children) {
-          addWithExpansion(child);
-        }
-      }
+  void _openSubcategoryPicker(
+    BuildContext context,
+    CategoryModel parent,
+  ) async {
+    final selected = await showModalBottomSheet<CategoryModel>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SubcategoryPickerSheet(
+        parent: parent,
+        selectedCategoryId: widget.selectedCategoryId,
+      ),
+    );
+    if (!context.mounted) return;
+    if (selected != null) {
+      Navigator.of(context).pop(selected);
     }
-
-    for (final root in roots) {
-      addWithExpansion(root);
-    }
-    return result;
   }
 
   @override
@@ -150,28 +145,36 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
                       );
                     }
 
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      itemCount: items.length,
-                      itemBuilder: (context, i) {
-                        final category = items[i];
-                        final isSelected =
-                            category.id == widget.selectedCategoryId;
-                        final isExpanded = _expandedIds.contains(category.id);
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            itemCount: items.length,
+                            itemBuilder: (context, i) {
+                              final category = items[i];
+                              final isSelected =
+                                  category.id == widget.selectedCategoryId;
 
-                        return _CategoryPickerTile(
-                          category: category,
-                          isSelected: isSelected,
-                          isExpanded: isExpanded,
-                          onTap: () => Navigator.of(context).pop(category),
-                          onExpandToggle: category.hasChildren
-                              ? () => _toggleExpand(category.id)
-                              : null,
-                          cs: cs,
-                          tt: tt,
-                        );
-                      },
+                              return _CategoryPickerTile(
+                                category: category,
+                                isSelected: isSelected,
+                                onTap: category.hasChildren
+                                    ? () => _openSubcategoryPicker(
+                                        context,
+                                        category,
+                                      )
+                                    : () => Navigator.of(context).pop(category),
+                                cs: cs,
+                                tt: tt,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -188,46 +191,34 @@ class _CategoryPickerTile extends StatelessWidget {
   const _CategoryPickerTile({
     required this.category,
     required this.isSelected,
-    required this.isExpanded,
     required this.onTap,
-    this.onExpandToggle,
     required this.cs,
     required this.tt,
   });
 
   final CategoryModel category;
   final bool isSelected;
-  final bool isExpanded;
   final VoidCallback onTap;
-  final VoidCallback? onExpandToggle;
   final ColorScheme cs;
   final TextTheme tt;
 
   @override
   Widget build(BuildContext context) {
     final Widget? trailing;
-    if (onExpandToggle != null) {
+    if (category.hasChildren) {
       trailing = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isSelected)
             Padding(
-              padding: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.only(right: 8),
               child: Icon(
                 Icons.check_circle_rounded,
                 color: cs.primary,
                 size: 20,
               ),
             ),
-          IconButton(
-            icon: Icon(
-              isExpanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              color: cs.onSurfaceVariant,
-            ),
-            onPressed: onExpandToggle,
-          ),
+          Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
         ],
       );
     } else {
@@ -237,10 +228,7 @@ class _CategoryPickerTile extends StatelessWidget {
     }
 
     return ListTile(
-      contentPadding: EdgeInsets.only(
-        left: category.parentIds.length * 32.0,
-        right: 0,
-      ),
+      contentPadding: EdgeInsets.zero,
       leading: CategoryIcon(
         icon: category.icon,
         color: category.color,
@@ -261,6 +249,107 @@ class _CategoryPickerTile extends StatelessWidget {
       ),
       trailing: trailing,
       onTap: onTap,
+    );
+  }
+}
+
+class SubcategoryPickerSheet extends StatelessWidget {
+  const SubcategoryPickerSheet({required this.parent, this.selectedCategoryId});
+
+  final CategoryModel parent;
+  final String? selectedCategoryId;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final shapes = context.shapes;
+    final tt = context.textTheme;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: shapes.bottomSheet,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 4),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        parent.name,
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  itemCount: parent.children.length,
+                  itemBuilder: (context, i) {
+                    final child = parent.children[i];
+                    final isSelected = child.id == selectedCategoryId;
+
+                    return _CategoryPickerTile(
+                      category: child,
+                      isSelected: isSelected,
+                      onTap: child.hasChildren
+                          ? () async {
+                              final selected =
+                                  await showModalBottomSheet<CategoryModel>(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => SubcategoryPickerSheet(
+                                      parent: child,
+                                      selectedCategoryId: selectedCategoryId,
+                                    ),
+                                  );
+                              if (!context.mounted) return;
+                              if (selected != null) {
+                                Navigator.of(context).pop(selected);
+                              }
+                            }
+                          : () => Navigator.of(context).pop(child),
+                      cs: cs,
+                      tt: tt,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

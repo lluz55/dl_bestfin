@@ -152,9 +152,7 @@ class _TutorialRunnerState extends ConsumerState<TutorialRunner> {
       ),
     ];
 
-    final valid = allSpecs
-        .where((s) => s.key.currentContext != null)
-        .toList();
+    final valid = allSpecs.where((s) => s.key.currentContext != null).toList();
 
     if (valid.isEmpty) {
       _done();

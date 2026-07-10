@@ -145,9 +145,20 @@ class _TileRow extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        _TypeBadge(
+                          label: category.typeLabel,
+                          color: category.type == 'both'
+                              ? cs.primary
+                              : category.type == 'income'
+                              ? context.customColors.income
+                              : category.type == 'expense'
+                              ? cs.error
+                              : cs.secondary,
+                        ),
                         if (category.isSystem) ...[
                           const SizedBox(width: 6),
-                          _TypeBadge(label: 'Sistema', color: cs.secondary),
+                          _TypeBadge(label: 'Sistema', color: cs.outline),
                         ],
                       ],
                     ),
@@ -243,9 +254,24 @@ class _SubcategoryTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  category.displayName,
-                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                Row(
+                  children: [
+                    Text(
+                      category.name,
+                      style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                    ),
+                    const SizedBox(width: 6),
+                    _TypeBadge(
+                      label: category.typeLabel,
+                      color: category.type == 'both'
+                          ? cs.primary
+                          : category.type == 'income'
+                          ? context.customColors.income
+                          : category.type == 'expense'
+                          ? cs.error
+                          : cs.secondary,
+                    ),
+                  ],
                 ),
                 if (category.description != null &&
                     category.description!.trim().isNotEmpty)

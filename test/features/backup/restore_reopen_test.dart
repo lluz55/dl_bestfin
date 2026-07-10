@@ -110,29 +110,30 @@ void main() {
     ],
   });
 
-  test('restoreJson survives close + reopen on a file-backed database',
-      () async {
-    final dbFile = File(p.join(tempDir.path, 'bestfin.sqlite'));
-
-    // Instância "B" (a que existe durante o onboarding): restaura o backup.
-    final dbB = AppDatabase.forTesting(NativeDatabase(dbFile));
-    await ImportDataUseCase(dbB).restoreJson(backupJson());
-    await dbB.close();
-
-    // Instância "C" (criada após invalidate): deve ver os dados restaurados.
-    final dbC = AppDatabase.forTesting(NativeDatabase(dbFile));
-    final accounts = await dbC.select(dbC.accounts).get();
-    final transactions = await dbC.select(dbC.transactions).get();
-    final entries = await dbC.select(dbC.entries).get();
-
-    expect(accounts.map((a) => a.name), ['BB']);
-    expect(transactions, hasLength(1));
-    expect(entries, hasLength(1));
-    await dbC.close();
-  });
-
   test(
-      'restoreJson persists even when a stale connection is still open '
+    'restoreJson survives close + reopen on a file-backed database',
+    () async {
+      final dbFile = File(p.join(tempDir.path, 'bestfin.sqlite'));
+
+      // Instância "B" (a que existe durante o onboarding): restaura o backup.
+      final dbB = AppDatabase.forTesting(NativeDatabase(dbFile));
+      await ImportDataUseCase(dbB).restoreJson(backupJson());
+      await dbB.close();
+
+      // Instância "C" (criada após invalidate): deve ver os dados restaurados.
+      final dbC = AppDatabase.forTesting(NativeDatabase(dbFile));
+      final accounts = await dbC.select(dbC.accounts).get();
+      final transactions = await dbC.select(dbC.transactions).get();
+      final entries = await dbC.select(dbC.entries).get();
+
+      expect(accounts.map((a) => a.name), ['BB']);
+      expect(transactions, hasLength(1));
+      expect(entries, hasLength(1));
+      await dbC.close();
+    },
+  );
+
+  test('restoreJson persists even when a stale connection is still open '
       '(clear-all does not await the old close)', () async {
     final dbFile = File(p.join(tempDir.path, 'bestfin.sqlite'));
 

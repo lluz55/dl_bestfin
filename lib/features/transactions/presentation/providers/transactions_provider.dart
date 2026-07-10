@@ -17,7 +17,9 @@ import 'package:bestfin/core/constants/transaction_types.dart';
 // Repository
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   final database = ref.watch(databaseProvider);
-  return TransactionRepositoryImpl(database);
+  final repository = TransactionRepositoryImpl(database);
+  ref.onDispose(repository.dispose);
+  return repository;
 });
 
 // Use cases
@@ -152,9 +154,7 @@ final filteredTransactionsProvider = StreamProvider<List<TransactionModel>>((
 final transactionGroupMembersProvider = StreamProvider.autoDispose
     .family<List<TransactionModel>, String>((ref, groupId) {
       final repository = ref.watch(transactionRepositoryProvider);
-      return repository.watchAllTransactions().map(
-        (list) => list.where((tx) => tx.groupId == groupId).toList(),
-      );
+      return repository.watchTransactionsWithFilters(groupId: groupId);
     });
 
 final transactionDeleteContextProvider =
@@ -260,3 +260,54 @@ final groupedTransactionsProvider =
         );
       });
     });
+
+final accountFilteredTransactionsProvider =
+    StreamProvider.family<List<TransactionModel>, String>((ref, accountId) {
+      final getTransactions = ref.watch(getTransactionsProvider);
+      return getTransactions(accountIds: [accountId]);
+    });
+
+final accountGroupedTransactionsProvider =
+    Provider.family<AsyncValue<GroupedTransactions>, String>((ref, accountId) {
+      final transactionsAsync = ref.watch(
+        accountFilteredTransactionsProvider(accountId),
+      );
+      return transactionsAsync.whenData((transactions) {
+        final Map<String, List<TransactionModel>> grouped = {};
+        for (final tx in transactions) {
+          final dateKey = DateFormatter.formatDate(tx.date);
+          grouped.putIfAbsent(dateKey, () => []).add(tx);
+        }
+        final sortedDates = grouped.keys.toList();
+        final List<Object> flatList = [];
+        for (final dateKey in sortedDates) {
+          flatList.add(dateKey);
+          flatList.addAll(collapseTransactionGroups(grouped[dateKey]!));
+        }
+
+        int totalIncomes = 0;
+        int totalExpenses = 0;
+        for (final tx in transactions) {
+          if (tx.type == TransactionType.income) {
+            totalIncomes += tx.amount;
+          } else if (tx.type == TransactionType.expense) {
+            totalExpenses += tx.amount;
+          }
+        }
+
+        return GroupedTransactions(
+          grouped: grouped,
+          sortedDates: sortedDates,
+          flatList: flatList,
+          totalIncomes: totalIncomes,
+          totalExpenses: totalExpenses,
+        );
+      });
+    });
+
+final allTransactionsStreamProvider = StreamProvider<List<TransactionModel>>((
+  ref,
+) {
+  final repository = ref.watch(transactionRepositoryProvider);
+  return repository.watchAllTransactions();
+});

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/core/constants/sentiment_types.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 
 /// Rascunho de uma nova transação começada no "Lançamento Rápido" e levada para
@@ -14,6 +15,7 @@ class TransactionDraft {
   final String? categoryId;
   final String? entityId;
   final bool isPending;
+  final SentimentType? sentiment;
 
   const TransactionDraft({
     required this.type,
@@ -24,6 +26,7 @@ class TransactionDraft {
     this.categoryId,
     this.entityId,
     this.isPending = false,
+    this.sentiment,
   });
 }
 

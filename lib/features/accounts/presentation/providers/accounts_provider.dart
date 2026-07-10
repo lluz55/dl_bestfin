@@ -128,3 +128,11 @@ final accountBalanceEvolutionProvider =
         return spots;
       });
     });
+
+final initialBalanceProvider = FutureProvider.family<int, String>((
+  ref,
+  accountId,
+) {
+  final repository = ref.watch(accountRepositoryProvider);
+  return repository.getInitialBalance(accountId);
+});

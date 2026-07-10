@@ -175,7 +175,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     _entityId = tx?.entityId ?? draft?.entityId;
     _goalId = tx?.goalId;
-    _sentiment = tx?.sentiment;
+    _sentiment = tx?.sentiment ?? draft?.sentiment;
     _splits = List<SplitEntry>.from(tx?.splits ?? []);
     _date = _isCloningState ? DateTime.now() : (tx?.date ?? DateTime.now());
     // Só datas futuras nascem pendentes/agendadas automaticamente; hoje e
@@ -288,7 +288,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(_date),
     );
-    final wasFuture = _isFutureDate;
     setState(() {
       _date = DateTime(
         pickedDate.year,
@@ -297,12 +296,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         pickedTime?.hour ?? _date.hour,
         pickedTime?.minute ?? _date.minute,
       );
-      // Deixou de ser futura agora: nasce confirmada (só datas futuras são
-      // agendadas automaticamente; não havia toggle visível antes, então não
-      // existe escolha do usuário a preservar).
-      if (wasFuture && !_isFutureDate) {
-        _isPending = false;
-      }
+      _isPending = TransactionStatus.isFutureDate(_date);
     });
   }
 
@@ -1028,35 +1022,37 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     return _bottomScrollable([
       // Description + sentiment
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: DescriptionAutocomplete(
-              controller: _descriptionController,
-              transactionType: _type.name,
-              focusNode: _descriptionFocusNode,
-              onSelected: (selection) {
-                setState(() => _descriptionController.text = selection);
-              },
-              onFieldSubmitted: (_) {
-                // Transferência não tem campo de entidade — pula direto para
-                // as observações, que existem para todos os tipos.
-                FocusScope.of(context).requestFocus(
-                  _type == TransactionType.transfer
-                      ? _notesFocusNode
-                      : _entityFocusNode,
-                );
-              },
-              onChanged: _onDescriptionChanged,
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: DescriptionAutocomplete(
+                controller: _descriptionController,
+                transactionType: _type.name,
+                focusNode: _descriptionFocusNode,
+                onSelected: (selection) {
+                  setState(() => _descriptionController.text = selection);
+                },
+                onFieldSubmitted: (_) {
+                  // Transferência não tem campo de entidade — pula direto para
+                  // as observações, que existem para todos os tipos.
+                  FocusScope.of(context).requestFocus(
+                    _type == TransactionType.transfer
+                        ? _notesFocusNode
+                        : _entityFocusNode,
+                  );
+                },
+                onChanged: _onDescriptionChanged,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          SentimentEmojiButton(
-            selectedSentiment: _sentiment,
-            onSentimentSelected: (s) => setState(() => _sentiment = s),
-          ),
-        ],
+            const SizedBox(width: 8),
+            SentimentEmojiButton(
+              selectedSentiment: _sentiment,
+              onSentimentSelected: (s) => setState(() => _sentiment = s),
+            ),
+          ],
+        ),
       ),
 
       // Campo Categoria (exceto transferência). Quando a despesa está
@@ -1186,6 +1182,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           onAccountSelected: (acc) => setState(() => _accountId = acc?.id),
           hint: 'Conta de origem',
           showBalance: false,
+          excludeAccountId: _toAccountId,
         ),
         const SizedBox(height: 16),
         AccountSelector(
@@ -1193,6 +1190,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           onAccountSelected: (acc) => setState(() => _toAccountId = acc?.id),
           hint: 'Conta de destino',
           showBalance: false,
+          excludeAccountId: _accountId,
         ),
       ] else ...[
         EntityAutocomplete(

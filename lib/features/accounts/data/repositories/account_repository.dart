@@ -29,6 +29,8 @@ abstract class AccountRepository {
     required int initialBalance,
   });
 
+  Future<int> getInitialBalance(String accountId);
+
   Future<void> updateAccount({
     required String id,
     required String name,
@@ -36,6 +38,7 @@ abstract class AccountRepository {
     required String? icon,
     required String? color,
     bool? isActive,
+    int? initialBalance,
   });
   Future<void> deleteAccount(String id);
   Future<bool> canDelete(String id);
@@ -52,14 +55,15 @@ class AccountRepositoryImpl implements AccountRepository {
       "COALESCE(SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END), 0)",
     );
 
-    final query = _database.select(_database.accounts).join([
-      leftOuterJoin(
-        _database.entries,
-        _database.entries.accountId.equalsExp(_database.accounts.id),
-      ),
-    ])
-      ..where(_database.accounts.type.equals('credit_card_bill').not())
-      ..addColumns([balanceExpr]);
+    final query =
+        _database.select(_database.accounts).join([
+            leftOuterJoin(
+              _database.entries,
+              _database.entries.accountId.equalsExp(_database.accounts.id),
+            ),
+          ])
+          ..where(_database.accounts.type.equals('credit_card_bill').not())
+          ..addColumns([balanceExpr]);
 
     query.groupBy([_database.accounts.id]);
 
@@ -78,14 +82,15 @@ class AccountRepositoryImpl implements AccountRepository {
       "COALESCE(SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END), 0)",
     );
 
-    final query = _database.select(_database.accounts).join([
-      leftOuterJoin(
-        _database.entries,
-        _database.entries.accountId.equalsExp(_database.accounts.id),
-      ),
-    ])
-      ..where(_database.accounts.id.equals(id))
-      ..addColumns([balanceExpr]);
+    final query =
+        _database.select(_database.accounts).join([
+            leftOuterJoin(
+              _database.entries,
+              _database.entries.accountId.equalsExp(_database.accounts.id),
+            ),
+          ])
+          ..where(_database.accounts.id.equals(id))
+          ..addColumns([balanceExpr]);
 
     query.groupBy([_database.accounts.id]);
 
@@ -161,6 +166,28 @@ class AccountRepositoryImpl implements AccountRepository {
   }
 
   @override
+  Future<int> getInitialBalance(String accountId) async {
+    final query =
+        _database.select(_database.entries).join([
+            innerJoin(
+              _database.transactions,
+              _database.transactions.id.equalsExp(
+                _database.entries.transactionId,
+              ),
+            ),
+          ])
+          ..where(_database.entries.accountId.equals(accountId))
+          ..where(
+            _database.transactions.categoryId.equals('cat_opening_balance'),
+          )
+          ..limit(1);
+
+    final row = await query.getSingleOrNull();
+    if (row == null) return 0;
+    return row.readTable(_database.entries).amount;
+  }
+
+  @override
   Future<void> updateAccount({
     required String id,
     required String name,
@@ -168,20 +195,73 @@ class AccountRepositoryImpl implements AccountRepository {
     required String? icon,
     required String? color,
     bool? isActive,
+    int? initialBalance,
   }) async {
     await _ensureUniqueName(name, excludeId: id);
-    await (_database.update(
-      _database.accounts,
-    )..where((t) => t.id.equals(id))).write(
-      db.AccountsCompanion(
-        name: Value(name),
-        type: Value(type),
-        icon: Value(icon),
-        color: Value(color),
-        isArchived: isActive != null ? Value(!isActive) : const Value.absent(),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    await _database.transaction(() async {
+      await (_database.update(
+        _database.accounts,
+      )..where((t) => t.id.equals(id))).write(
+        db.AccountsCompanion(
+          name: Value(name),
+          type: Value(type),
+          icon: Value(icon),
+          color: Value(color),
+          isArchived: isActive != null
+              ? Value(!isActive)
+              : const Value.absent(),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      if (initialBalance != null) {
+        final query =
+            _database.select(_database.entries).join([
+                innerJoin(
+                  _database.transactions,
+                  _database.transactions.id.equalsExp(
+                    _database.entries.transactionId,
+                  ),
+                ),
+              ])
+              ..where(_database.entries.accountId.equals(id))
+              ..where(
+                _database.transactions.categoryId.equals('cat_opening_balance'),
+              )
+              ..limit(1);
+
+        final row = await query.getSingleOrNull();
+        if (row != null) {
+          final entry = row.readTable(_database.entries);
+          final transaction = row.readTable(_database.transactions);
+          if (initialBalance > 0) {
+            await (_database.update(_database.entries)
+                  ..where((t) => t.id.equals(entry.id)))
+                .write(db.EntriesCompanion(amount: Value(initialBalance)));
+          } else {
+            await (_database.delete(
+              _database.transactions,
+            )..where((t) => t.id.equals(transaction.id))).go();
+            await (_database.delete(
+              _database.entries,
+            )..where((t) => t.id.equals(entry.id))).go();
+          }
+        } else if (initialBalance > 0) {
+          await _database.transactionsDao.createTransaction(
+            data: db.TransactionsCompanion.insert(
+              id: const Uuid().v4(),
+              description: 'Saldo Inicial',
+              type: 'income',
+              date: DateTime.now(),
+              categoryId: const Value('cat_opening_balance'),
+              isCompleted: const Value(true),
+            ),
+            accountId: id,
+            amount: initialBalance,
+          );
+        }
+      }
+    });
     await _enqueueAccountSync(id, 'update');
   }
 

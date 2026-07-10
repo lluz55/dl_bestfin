@@ -138,23 +138,24 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
     );
 
-    final query = select(budgets).join([
-      leftOuterJoin(
-        transactions,
-        transactions.categoryId.equalsExp(budgets.categoryId) &
-            transactions.type.equals('expense') &
-            transactions.isConfirmed.equals(true) &
-            transactions.date.isBiggerOrEqualValue(start) &
-            transactions.date.isSmallerThanValue(end),
-      ),
-      leftOuterJoin(
-        entries,
-        entries.transactionId.equalsExp(transactions.id) &
-            entries.type.equals('credit'),
-      ),
-    ])
-      ..where(budgets.year.equals(year) & budgets.month.equals(month))
-      ..addColumns([confirmedExpr, pendingExpr]);
+    final query =
+        select(budgets).join([
+            leftOuterJoin(
+              transactions,
+              transactions.categoryId.equalsExp(budgets.categoryId) &
+                  transactions.type.equals('expense') &
+                  transactions.isConfirmed.equals(true) &
+                  transactions.date.isBiggerOrEqualValue(start) &
+                  transactions.date.isSmallerThanValue(end),
+            ),
+            leftOuterJoin(
+              entries,
+              entries.transactionId.equalsExp(transactions.id) &
+                  entries.type.equals('credit'),
+            ),
+          ])
+          ..where(budgets.year.equals(year) & budgets.month.equals(month))
+          ..addColumns([confirmedExpr, pendingExpr]);
 
     query.groupBy([budgets.id]);
 
@@ -163,11 +164,7 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       final budget = row.readTable(budgets);
       final spent = row.read(confirmedExpr) ?? 0;
       final pending = row.read(pendingExpr) ?? 0;
-      return BudgetWithSpending(
-        budget: budget,
-        spent: spent,
-        pending: pending,
-      );
+      return BudgetWithSpending(budget: budget, spent: spent, pending: pending);
     }).toList();
   }
 
@@ -185,23 +182,24 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
     );
 
-    final query = select(budgets).join([
-      leftOuterJoin(
-        transactions,
-        transactions.categoryId.equalsExp(budgets.categoryId) &
-            transactions.type.equals('expense') &
-            transactions.isConfirmed.equals(true) &
-            transactions.date.isBiggerOrEqualValue(start) &
-            transactions.date.isSmallerThanValue(end),
-      ),
-      leftOuterJoin(
-        entries,
-        entries.transactionId.equalsExp(transactions.id) &
-            entries.type.equals('credit'),
-      ),
-    ])
-      ..where(budgets.year.equals(year) & budgets.month.equals(month))
-      ..addColumns([confirmedExpr, pendingExpr]);
+    final query =
+        select(budgets).join([
+            leftOuterJoin(
+              transactions,
+              transactions.categoryId.equalsExp(budgets.categoryId) &
+                  transactions.type.equals('expense') &
+                  transactions.isConfirmed.equals(true) &
+                  transactions.date.isBiggerOrEqualValue(start) &
+                  transactions.date.isSmallerThanValue(end),
+            ),
+            leftOuterJoin(
+              entries,
+              entries.transactionId.equalsExp(transactions.id) &
+                  entries.type.equals('credit'),
+            ),
+          ])
+          ..where(budgets.year.equals(year) & budgets.month.equals(month))
+          ..addColumns([confirmedExpr, pendingExpr]);
 
     query.groupBy([budgets.id]);
 

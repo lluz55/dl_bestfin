@@ -24,8 +24,7 @@ class _SidebarShortcutsEditSheetState
   @override
   void initState() {
     super.initState();
-    _selected = (ref.read(sidebarShortcutsProvider).value ?? const [])
-        .toSet();
+    _selected = (ref.read(sidebarShortcutsProvider).value ?? const []).toSet();
   }
 
   void _toggle(NavShortcut shortcut) {
@@ -102,7 +101,11 @@ class _SidebarShortcutsEditSheetState
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-              child: AppButton(label: 'Salvar', expanded: true, onPressed: _save),
+              child: AppButton(
+                label: 'Salvar',
+                expanded: true,
+                onPressed: _save,
+              ),
             ),
           ),
         ],
@@ -152,9 +155,7 @@ class _ShortcutToggleTile extends StatelessWidget {
                   child: Text(
                     shortcut.label,
                     style: tt.bodyLarge?.copyWith(
-                      color: selected
-                          ? cs.onSecondaryContainer
-                          : cs.onSurface,
+                      color: selected ? cs.onSecondaryContainer : cs.onSurface,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),

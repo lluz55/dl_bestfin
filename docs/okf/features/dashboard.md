@@ -48,7 +48,13 @@ O usuário pode reordenar/ocultar widgets via `HomeWidgetsEditSheet`. Gerenciado
 
 ## Filtros de Período
 
-`['Este mês', 'Semana', '3 meses', 'Ano']` — chips animados no topo. O filtro selecionado é passado ao `dashboardProvider`.
+`['Este mês', 'Semana', '3 meses', 'Ano']` — chips animados no topo (`dashboardPeriodProvider`). O índice é passado ao `dashboardProvider` → `GetDashboardData(periodIndex:)`.
+
+O período janela **todos** os dados derivados de transações no `aggregate`: totais de receita/despesa, donut e ranking de categorias, a lista de **Últimas transações** (`recentTransactions`, filtrada por `!date.isBefore(start)` antes do `take(10)`) e os três gráficos de histórico (Histórico mensal, Evolução patrimonial, Fluxo de caixa), dimensionados por `_monthsInWindow(start, now)` em vez dos 6 meses fixos antigos. O Fluxo de caixa é diário e reflete a janela exata. Componentes de ponto-no-tempo (Saldo, Livre para gastar) e projeções próprias (Orçamentos, Projeção, Próximas contas) não dependem do período.
+
+## Últimas Transações
+
+Reutiliza o `TransactionTile` da tela de Transações (`transactions/presentation/widgets/transaction_tile.dart`) via `_RecentTransactionsList`, para listagem visualmente idêntica (ícone de categoria, entidade, badges, ações de duplicar/excluir/marcar como pago) — sem modo de seleção em massa.
 
 ## Pull-to-Refresh
 

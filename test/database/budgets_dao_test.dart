@@ -15,7 +15,11 @@ void main() {
     categoryId = const Uuid().v4();
 
     await db.accountsDao.insertAccount(
-      AccountsCompanion.insert(id: accountId, name: 'Checking', type: 'checking'),
+      AccountsCompanion.insert(
+        id: accountId,
+        name: 'Checking',
+        type: 'checking',
+      ),
     );
     await db.categoriesDao.insertCategory(
       CategoriesCompanion.insert(
@@ -88,7 +92,10 @@ void main() {
       expect(breakdown.confirmed, 10000);
       expect(breakdown.pending, 4000);
       expect(breakdown.total, 14000);
-      expect(await db.budgetsDao.getSpentForCategory(categoryId, year, month), 10000);
+      expect(
+        await db.budgetsDao.getSpentForCategory(categoryId, year, month),
+        10000,
+      );
     },
   );
 

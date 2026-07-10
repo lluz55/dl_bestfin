@@ -481,7 +481,8 @@ class _AnimatedBottomBar extends StatelessWidget {
                   children: [
                     for (int i = 0; i < destinations.length; i++)
                       Expanded(
-                        key: (destinationKeys != null &&
+                        key:
+                            (destinationKeys != null &&
                                 i < destinationKeys!.length)
                             ? destinationKeys![i]
                             : null,

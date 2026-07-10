@@ -10,6 +10,7 @@ import 'package:bestfin/features/accounts/presentation/providers/accounts_provid
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/features/credit_cards/presentation/providers/credit_cards_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/period_calendar_picker.dart';
 
 class TransactionFiltersWidget extends ConsumerWidget {
   const TransactionFiltersWidget({super.key});
@@ -357,37 +358,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
   }
 
   Future<void> _showDateFilter(BuildContext context, WidgetRef ref) async {
-    final filters = ref.read(transactionFiltersProvider);
-
-    final selectedRange = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDateRange: filters.startDate != null && filters.endDate != null
-          ? DateTimeRange(start: filters.startDate!, end: filters.endDate!)
-          : null,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            appBarTheme: Theme.of(context).appBarTheme.copyWith(
-              backgroundColor: context.colorScheme.surface,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (selectedRange != null) {
-      ref
-          .read(transactionFiltersProvider.notifier)
-          .update(
-            (state) => state.copyWith(
-              startDate: selectedRange.start,
-              endDate: selectedRange.end,
-            ),
-          );
-    }
+    await PeriodCalendarPicker.show(context);
   }
 
   @override

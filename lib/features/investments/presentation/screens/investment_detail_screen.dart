@@ -354,7 +354,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
                                   FlSpot(0, investedAmt),
                                   FlSpot(1, currentVal),
                                 ],
-                                isCurved: true,
+                                isCurved: false,
                                 color: cs.primary,
                                 barWidth: 4,
                                 isStrokeCapRound: true,

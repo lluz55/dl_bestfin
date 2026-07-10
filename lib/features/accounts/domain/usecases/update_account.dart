@@ -12,6 +12,7 @@ class UpdateAccount {
     required String? icon,
     required String? color,
     bool? isActive,
+    int? initialBalance,
   }) {
     return repository.updateAccount(
       id: id,
@@ -20,6 +21,7 @@ class UpdateAccount {
       icon: icon,
       color: color,
       isActive: isActive,
+      initialBalance: initialBalance,
     );
   }
 }

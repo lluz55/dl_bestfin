@@ -110,7 +110,10 @@ class BackupDatabaseUseCase {
     //     backup não pode ser maior que o schema desta build, senão o Drift
     //     falharia ao abrir (não há migração de downgrade).
     final backupSchemaVersion =
-        (header[60] << 24) | (header[61] << 16) | (header[62] << 8) | header[63];
+        (header[60] << 24) |
+        (header[61] << 16) |
+        (header[62] << 8) |
+        header[63];
     if (backupSchemaVersion > _db.schemaVersion) {
       throw BackupIncompatibleException(
         'Este backup foi gerado por uma versão mais nova do BestFin '

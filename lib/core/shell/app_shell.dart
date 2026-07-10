@@ -55,6 +55,7 @@ class AppShell extends ConsumerWidget {
     void openQuickSheet(TransactionType type) {
       showAdaptiveModal<void>(
         context: context,
+        maxHeightFraction: 0.95,
         builder: (_) => QuickTransactionSheet(initialType: type),
       );
     }
