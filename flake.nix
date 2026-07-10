@@ -62,6 +62,16 @@
 
         linuxDesktopDeps = [ pkgs.gtk3 pkgs.pcre2 pkgs.libepoxy pkgs.libsecret pkgs.libsysprof-capture ];
 
+        # sqlcipher_flutter_libs compila o SQLCipher no Linux e faz
+        # `find_package(OpenSSL REQUIRED)` com OPENSSL_USE_STATIC_LIBS=ON,
+        # exigindo libcrypto.a. Unimos headers (.dev) e libs estáticas (.out)
+        # num único prefixo para o CMake achar via OPENSSL_ROOT_DIR.
+        opensslStatic = pkgs.openssl.override { static = true; };
+        opensslJoined = pkgs.symlinkJoin {
+          name = "openssl-static-joined";
+          paths = [ opensslStatic.out opensslStatic.dev ];
+        };
+
         flutterBuildEnv = pkgs.writeShellScriptBin "flutter-build" ''
           set -euo pipefail
           export ANDROID_HOME="${androidSdk}/share/android-sdk"
@@ -159,6 +169,7 @@
             export GRADLE_USER_HOME="$HOME/.gradle"
             export PATH="$HOME/.pub-cache/bin:$PATH"
             export LD_LIBRARY_PATH="${pkgs.sqlite.out}/lib:$LD_LIBRARY_PATH"
+            export OPENSSL_ROOT_DIR="${opensslJoined}"
             export LLAMA_LIBRARY_PATH="${llama-cpp-vulkan}/lib/libllama.so"
             export LLAMA_SERVER_BIN="${llama-cpp-vulkan}/bin/llama-server"
             export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
