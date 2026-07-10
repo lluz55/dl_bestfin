@@ -5,9 +5,14 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 
 class WelcomeStep extends StatelessWidget {
-  const WelcomeStep({super.key, required this.onNext});
+  const WelcomeStep({
+    super.key,
+    required this.onNext,
+    required this.onRestoreBackup,
+  });
 
   final VoidCallback onNext;
+  final VoidCallback onRestoreBackup;
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +112,15 @@ class WelcomeStep extends StatelessWidget {
                   onPressed: () => context.push('/sync/login'),
                 )
                 .animate(delay: const Duration(milliseconds: 820))
+                .fadeIn()
+                .slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack),
+            const SizedBox(height: 4),
+            TextButton.icon(
+                  onPressed: onRestoreBackup,
+                  icon: const Icon(Icons.restore_rounded, size: 18),
+                  label: const Text('Restaurar de um backup'),
+                )
+                .animate(delay: const Duration(milliseconds: 890))
                 .fadeIn()
                 .slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack),
             const SizedBox(height: 16),

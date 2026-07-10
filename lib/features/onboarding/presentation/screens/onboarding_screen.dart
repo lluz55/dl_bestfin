@@ -1,12 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/account_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/byte_formatter.dart';
+import 'package:bestfin/features/backup/domain/usecases/backup_database.dart';
+import 'package:bestfin/features/backup/domain/usecases/import_data.dart';
 import 'package:bestfin/features/accounts/data/repositories/account_repository.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
@@ -38,6 +44,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late final PageController _controller;
   late int _currentPage;
   bool _isSyncing = false;
+  bool _isRestoring = false;
 
   @override
   void initState() {
@@ -114,6 +121,62 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  /// Restaura um backup (.sqlite ou .json) exportado pelo BestFin e conclui
+  /// o onboarding direto — os dados restaurados já contêm contas/categorias,
+  /// então a conta do rascunho do step 2 NÃO é criada (por isso não usa
+  /// `_finish()`).
+  Future<void> _restoreFromBackup() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['sqlite', 'json'],
+      );
+      if (result == null || result.files.single.path == null) return;
+      final path = result.files.single.path!;
+
+      setState(() => _isRestoring = true);
+
+      if (path.toLowerCase().endsWith('.json')) {
+        final jsonString = await File(path).readAsString(encoding: utf8);
+        final importUseCase = ref.read(importDataUseCaseProvider);
+        await importUseCase.previewJson(jsonString); // valida o formato
+        await importUseCase.restoreJson(jsonString);
+        // Fecha a conexão antiga antes de invalidar — evita duas instâncias
+        // do AppDatabase abertas ao mesmo tempo sobre o mesmo arquivo.
+        await ref.read(databaseProvider).close();
+        ref.invalidate(databaseProvider);
+      } else {
+        // restoreBackup valida o header SQLite e fecha o banco atual.
+        await ref.read(backupDatabaseUseCaseProvider).restoreBackup(path);
+        ref.invalidate(databaseProvider);
+      }
+
+      // Verificação pós-restore na instância nova do banco.
+      final db = ref.read(databaseProvider);
+      final restoredAccounts = await db.select(db.accounts).get();
+      debugPrint(
+        '[Restore] Backup restaurado: ${restoredAccounts.length} conta(s) '
+        'no banco.',
+      );
+
+      await OnboardingActions.complete(ref);
+      // Router guard will automatically navigate to /home
+    } catch (e, st) {
+      debugPrint('Erro ao restaurar backup: $e\n$st');
+      if (mounted) {
+        setState(() => _isRestoring = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Erro ao restaurar backup: '
+              '${e is FormatException ? e.message : e}',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -143,6 +206,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         _finish();
       }
     });
+
+    if (_isRestoring) {
+      return Scaffold(
+        backgroundColor: cs.surface,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.restore_rounded,
+                      size: 48,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Text(
+                  'Restaurando seu backup...',
+                  textAlign: TextAlign.center,
+                  style: context.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const AppLoadingIndicator(),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     if (_isSyncing) {
       return Scaffold(
@@ -343,7 +448,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   unawaited(OnboardingActions.saveStep(i));
                 },
                 children: [
-                  WelcomeStep(onNext: _nextPage),
+                  WelcomeStep(
+                    onNext: _nextPage,
+                    onRestoreBackup: _restoreFromBackup,
+                  ),
                   ProfileStep(onNext: _nextPage),
                   CreateAccountStep(onNext: _nextPage),
                   SelectCategoriesStep(onNext: _nextPage),
