@@ -104,8 +104,9 @@ class ReportsHubScreen extends ConsumerWidget {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // Mesmo em telas estreitas, mantém pelo menos 2 colunas.
-          const maxCrossAxisExtent = 350.0;
+          // Mesmo em telas estreitas, mantém pelo menos 2 colunas;
+          // em telas grandes, quanto menor o extent, mais colunas cabem.
+          const maxCrossAxisExtent = 260.0;
           const horizontalPadding = 32.0;
           final availableWidth = constraints.maxWidth - horizontalPadding;
           final crossAxisCount = (availableWidth / maxCrossAxisExtent)

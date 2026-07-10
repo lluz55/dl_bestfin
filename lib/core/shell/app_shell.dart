@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/shell/responsive_navigation.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
+import 'package:bestfin/features/transactions/presentation/screens/bulk_transaction_screen.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/transaction_form_modal_overlay.dart';
 import 'package:bestfin/features/transactions/presentation/widgets/quick_transaction_sheet.dart';
 import 'package:bestfin/core/widgets/global_fab.dart';
@@ -14,7 +15,10 @@ class AppShell extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  static const _destinations = [
+  /// Rotas das abas, alinhadas 1:1 com [destinations] por índice.
+  static const tabRoutes = ['/home', '/transactions', '/reports', '/more'];
+
+  static const destinations = [
     NavigationDestinationItem(
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
@@ -58,14 +62,21 @@ class AppShell extends ConsumerWidget {
     return ResponsiveNavigation(
       selectedIndex: navigationShell.currentIndex,
       onDestinationSelected: _onBranchTap,
-      destinations: _destinations,
-      lastDestinationKey: tutorialKeys.maisTabKey,
+      destinations: destinations,
+      // Índices: 0 Início, 1 Transações, 2 Relatórios, 3 Mais — chaves usadas
+      // pelos coach marks do tutorial para destacar cada aba.
+      destinationKeys: [
+        null,
+        tutorialKeys.transactionsTabKey,
+        tutorialKeys.reportsTabKey,
+        tutorialKeys.maisTabKey,
+      ],
       floatingActionButton: GlobalFAB(
         key: tutorialKeys.fabKey,
         onExpense: () => openQuickSheet(TransactionType.expense),
         onIncome: () => openQuickSheet(TransactionType.income),
         onTransfer: () => openQuickSheet(TransactionType.transfer),
-        onBulk: () => context.push('/transaction/bulk-new'),
+        onBulk: () => showBulkTransactionModal(context),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Stack(

@@ -32,7 +32,6 @@ import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/core/providers/user_profile_provider.dart';
 import 'package:bestfin/core/providers/sidebar_provider.dart';
 import 'package:bestfin/core/providers/reminders_settings_provider.dart';
-import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/notifications/notification_service.dart';
 import 'package:bestfin/core/notifications/reminder_provider.dart';
@@ -81,8 +80,6 @@ void main() async {
   initialRemindersEnabled = prefs.getBool(kRemindersEnabledKey) ?? true;
   initialReminderLeadTimeDays =
       prefs.getInt(kReminderLeadTimeDaysKey) ?? ReminderLeadTime.oneDay.days;
-  initialDefaultPendingForPast =
-      prefs.getBool(kDefaultPendingForPastKey) ?? true;
   initialUserName = prefs.getString(kUserNameKey);
   initialUserPhotoPath = prefs.getString(kUserPhotoPathKey);
   runApp(const ProviderScope(child: BestFinApp()));

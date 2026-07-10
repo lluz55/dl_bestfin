@@ -8,7 +8,6 @@ import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/user_profile_provider.dart';
 import 'package:bestfin/core/providers/sidebar_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
-import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -16,6 +15,7 @@ import 'package:bestfin/core/widgets/profile_avatar.dart';
 import 'package:bestfin/core/widgets/staggered_transaction_list.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/quick_transaction_sheet.dart';
 
 import 'package:bestfin/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
@@ -58,6 +58,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return 'Boa noite';
   }
 
+  /// Demonstração prática do primeiro passo do tutorial: abre o fluxo real de
+  /// nova transação (despesa) e retorna quando o modal é fechado.
+  Future<void> _runTransactionDemo() {
+    return showAdaptiveModal<void>(
+      context: context,
+      builder: (_) =>
+          const QuickTransactionSheet(initialType: TransactionType.expense),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
@@ -79,8 +89,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return TutorialRunner(
       fabKey: tutorialKeys.fabKey,
+      transactionsTabKey: tutorialKeys.transactionsTabKey,
+      reportsTabKey: tutorialKeys.reportsTabKey,
       maisTabKey: tutorialKeys.maisTabKey,
       customizeKey: _customizeKey,
+      onCreateTransaction: _runTransactionDemo,
       child: Scaffold(
         backgroundColor: cs.surface,
         body: RefreshIndicator(
@@ -110,7 +123,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ref.watch(sidebarCollapsedProvider),
                   onToggleHidden: () =>
                       ref.read(valuesHiddenProvider.notifier).toggle(),
-                  onTheme: () => showThemeSettingsSheet(context),
                   onCustomize: () => showHomeWidgetsEditSheet(context),
                   onSyncErrorTap: syncState.backgroundErrorMessage == null
                       ? null
@@ -481,7 +493,6 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.hidden,
     required this.syncIndicator,
     required this.onToggleHidden,
-    required this.onTheme,
     required this.onCustomize,
     required this.showHeaderIcon,
     this.onSyncErrorTap,
@@ -495,7 +506,6 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   final bool hidden;
   final _SyncIndicator syncIndicator;
   final VoidCallback onToggleHidden;
-  final VoidCallback onTheme;
   final VoidCallback onCustomize;
   final VoidCallback? onSyncErrorTap;
   final GlobalKey? customizeKey;
@@ -667,13 +677,6 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                     ),
                     tooltip: hidden ? 'Mostrar valores' : 'Ocultar valores',
                     onPressed: onToggleHidden,
-                    cs: cs,
-                  ),
-                  const SizedBox(width: 6),
-                  _TonalIconButton(
-                    icon: const Icon(Icons.palette_outlined, size: 18),
-                    tooltip: 'Aparência',
-                    onPressed: onTheme,
                     cs: cs,
                   ),
                   const SizedBox(width: 6),

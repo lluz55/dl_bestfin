@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/sidebar_provider.dart';
+import 'package:bestfin/core/providers/sidebar_shortcuts_provider.dart';
+import 'package:bestfin/core/shell/sidebar_shortcuts_edit_sheet.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/theme/motion.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 
 /// Respiro reservado para a barra de navegação inferior flutuante — o
 /// [Scaffold] usa `extendBody: true`, então o corpo (e qualquer overlay,
@@ -36,7 +39,7 @@ class ResponsiveNavigation extends ConsumerStatefulWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.bottomOverlay,
-    this.lastDestinationKey,
+    this.destinationKeys,
   });
 
   final int selectedIndex;
@@ -46,7 +49,10 @@ class ResponsiveNavigation extends ConsumerStatefulWidget {
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomOverlay;
-  final GlobalKey? lastDestinationKey;
+
+  /// GlobalKeys por destino (índice), usadas pelos coach marks do tutorial para
+  /// destacar abas específicas. `null` em posições que não são alvo.
+  final List<GlobalKey?>? destinationKeys;
 
   @override
   ConsumerState<ResponsiveNavigation> createState() =>
@@ -94,7 +100,7 @@ class _ResponsiveNavigationState extends ConsumerState<ResponsiveNavigation> {
       floatingActionButton: widget.floatingActionButton,
       floatingActionButtonLocation: widget.floatingActionButtonLocation,
       bottomOverlay: widget.bottomOverlay,
-      lastDestinationKey: widget.lastDestinationKey,
+      destinationKeys: widget.destinationKeys,
     );
   }
 }
@@ -110,7 +116,7 @@ class _CompactLayout extends StatelessWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.bottomOverlay,
-    this.lastDestinationKey,
+    this.destinationKeys,
   });
 
   final int selectedIndex;
@@ -120,7 +126,10 @@ class _CompactLayout extends StatelessWidget {
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomOverlay;
-  final GlobalKey? lastDestinationKey;
+
+  /// GlobalKeys por destino (índice), usadas pelos coach marks do tutorial para
+  /// destacar abas específicas. `null` em posições que não são alvo.
+  final List<GlobalKey?>? destinationKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +156,7 @@ class _CompactLayout extends StatelessWidget {
         onDestinationSelected: onDestinationSelected,
         destinations: destinations,
         cs: cs,
-        lastItemKey: lastDestinationKey,
+        destinationKeys: destinationKeys,
       ),
     );
   }
@@ -325,6 +334,7 @@ class _MediumOverlayDrawer extends StatelessWidget {
                     cs: cs,
                     tt: tt,
                   ),
+                _SidebarShortcuts(cs: cs, tt: tt),
               ],
             ),
           ),
@@ -416,14 +426,14 @@ class _AnimatedBottomBar extends StatelessWidget {
     required this.onDestinationSelected,
     required this.destinations,
     required this.cs,
-    this.lastItemKey,
+    this.destinationKeys,
   });
 
   final int selectedIndex;
   final void Function(int) onDestinationSelected;
   final List<NavigationDestinationItem> destinations;
   final ColorScheme cs;
-  final GlobalKey? lastItemKey;
+  final List<GlobalKey?>? destinationKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -471,8 +481,9 @@ class _AnimatedBottomBar extends StatelessWidget {
                   children: [
                     for (int i = 0; i < destinations.length; i++)
                       Expanded(
-                        key: (i == destinations.length - 1)
-                            ? lastItemKey
+                        key: (destinationKeys != null &&
+                                i < destinationKeys!.length)
+                            ? destinationKeys![i]
                             : null,
                         child: _NavBarItem(
                           icon: destinations[i].icon,
@@ -587,6 +598,7 @@ class _AnimatedNavigationDrawer extends StatelessWidget {
                     cs: cs,
                     tt: tt,
                   ),
+                _SidebarShortcuts(cs: cs, tt: tt),
               ],
             ),
           ),
@@ -666,6 +678,7 @@ class _CollapsedDrawer extends StatelessWidget {
                     onTap: () => onDestinationSelected(i),
                     cs: cs,
                   ),
+                _CollapsedSidebarShortcuts(cs: cs),
               ],
             ),
           ),
@@ -865,6 +878,102 @@ class _NavBarItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Sidebar shortcuts (below "Mais", after a divider) ───────────────────────
+
+void _openShortcutsEditor(BuildContext context) {
+  showAdaptiveModal<void>(
+    context: context,
+    builder: (_) => const SidebarShortcutsEditSheet(),
+  );
+}
+
+/// Atalhos fixados exibidos nos drawers com rótulo (expandido e overlay médio),
+/// logo abaixo das abas principais e após um separador.
+class _SidebarShortcuts extends ConsumerWidget {
+  const _SidebarShortcuts({required this.cs, required this.tt});
+
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shortcuts = ref.watch(sidebarShortcutsProvider).value ?? const [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        for (final s in shortcuts)
+          _DrawerItem(
+            icon: s.icon,
+            activeIcon: s.icon,
+            label: s.label,
+            isSelected: false,
+            onTap: () => context.push(s.route),
+            cs: cs,
+            tt: tt,
+          ),
+        _DrawerItem(
+          icon: Icons.add_rounded,
+          activeIcon: Icons.add_rounded,
+          label: shortcuts.isEmpty ? 'Adicionar atalho' : 'Editar atalhos',
+          isSelected: false,
+          onTap: () => _openShortcutsEditor(context),
+          cs: cs,
+          tt: tt,
+        ),
+      ],
+    );
+  }
+}
+
+/// Versão icon-only dos atalhos para o drawer recolhido (72px).
+class _CollapsedSidebarShortcuts extends ConsumerWidget {
+  const _CollapsedSidebarShortcuts({required this.cs});
+
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shortcuts = ref.watch(sidebarShortcutsProvider).value ?? const [];
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          child: Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        for (final s in shortcuts)
+          _CollapsedDrawerItem(
+            icon: s.icon,
+            activeIcon: s.icon,
+            label: s.label,
+            isSelected: false,
+            onTap: () => context.push(s.route),
+            cs: cs,
+          ),
+        _CollapsedDrawerItem(
+          icon: Icons.add_rounded,
+          activeIcon: Icons.add_rounded,
+          label: 'Atalhos',
+          isSelected: false,
+          onTap: () => _openShortcutsEditor(context),
+          cs: cs,
+        ),
+      ],
     );
   }
 }

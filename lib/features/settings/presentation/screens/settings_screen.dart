@@ -18,6 +18,7 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
@@ -25,8 +26,8 @@ import 'package:bestfin/core/providers/user_profile_provider.dart';
 import 'package:bestfin/core/widgets/profile_avatar.dart';
 import 'package:bestfin/core/widgets/profile_editor.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
+import 'package:bestfin/core/providers/sidebar_shortcuts_provider.dart';
 import 'package:bestfin/core/providers/reminders_settings_provider.dart';
-import 'package:bestfin/core/providers/pending_default_provider.dart';
 import 'package:bestfin/features/backup/presentation/screens/backup_screen.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
@@ -258,10 +259,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     initialIsLocked = false;
     initialUserName = null;
     initialUserPhotoPath = null;
+    initialTutorialSeen = false;
 
     // Reset provider states
     ref.read(onboardingCompletedProvider.notifier).set(false);
     ref.read(biometricsEnabledProvider.notifier).set(false);
+    ref.read(tutorialSeenProvider.notifier).set(false);
     ref.read(isLockedProvider.notifier).unlock();
 
     // Invalidate providers to force them to reload from the cleared state
@@ -271,6 +274,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(alwaysHideValuesProvider);
     ref.invalidate(homeWidgetsProvider);
     ref.invalidate(shortcutsProvider);
+    ref.invalidate(sidebarShortcutsProvider);
     ref.invalidate(userProfileProvider);
 
     // Navega imediatamente. `set(false)` acima já reabilita a rota /onboarding
@@ -475,19 +479,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   )
                 : null,
           ),
-          _SettingsTile(
-            icon: Icons.schedule_rounded,
-            title: 'Pendente por padrão',
-            subtitle:
-                'Novos lançamentos de hoje ou datas passadas já nascem marcados como pendentes',
-            cs: cs,
-            tt: tt,
-            trailing: Switch(
-              value: ref.watch(defaultPendingForPastProvider),
-              onChanged: (v) =>
-                  ref.read(defaultPendingForPastProvider.notifier).set(v),
-            ),
-          ),
         ],
       ),
       _SettingsSection(
@@ -559,6 +550,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
       _SettingsSection(
+        title: 'Ajuda',
+        cs: cs,
+        tt: tt,
+        tiles: [
+          _SettingsTile(
+            icon: Icons.school_outlined,
+            title: 'Rever tutorial',
+            subtitle: 'Exibir novamente o guia de primeiros passos',
+            cs: cs,
+            tt: tt,
+            onTap: _replayTutorial,
+          ),
+        ],
+      ),
+      _SettingsSection(
         title: 'Sobre',
         cs: cs,
         tt: tt,
@@ -580,6 +586,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     ];
+  }
+
+  /// Redefine o tutorial e volta ao início, onde os coach marks reaparecem.
+  Future<void> _replayTutorial() async {
+    await TutorialActions.reset(ref);
+    if (!mounted) return;
+    context.go('/home');
   }
 
   /// Em telas grandes, seleciona o detalhe para exibir na coluna direita; em
