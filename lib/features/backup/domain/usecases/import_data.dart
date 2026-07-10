@@ -3,11 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/core/database/database_provider.dart';
+import 'package:bestfin/features/backup/domain/backup_version.dart';
 import 'package:uuid/uuid.dart';
 import 'package:csv/csv.dart';
 
 final importDataUseCaseProvider = Provider<ImportDataUseCase>((ref) {
-  return ImportDataUseCase(ref.read(databaseProvider));
+  // watch (não read): após um invalidate do databaseProvider (clear-all,
+  // restore), o use case precisa ser reconstruído com a instância nova —
+  // com read ele ficava preso a um banco já fechado.
+  return ImportDataUseCase(ref.watch(databaseProvider));
 });
 
 class ImportDataUseCase {
@@ -313,6 +317,10 @@ class ImportDataUseCase {
         );
       }
 
+      // Rejeita formatos antigos demais ou de um app mais novo (esquema que
+      // esta build não modela) antes de mostrar o preview ao usuário.
+      _validateBackupCompatibility(decoded);
+
       final tables = [
         'accounts',
         'categories',
@@ -340,6 +348,7 @@ class ImportDataUseCase {
       return {
         'type': 'json',
         'version': decoded['version'],
+        'schema_version': decoded['schema_version'],
         'exported_at': decoded['exported_at'],
         'counts': counts,
       };
@@ -352,6 +361,11 @@ class ImportDataUseCase {
   /// Restores complete database structure from JSON Map
   Future<void> restoreJson(String jsonString) async {
     final decoded = json.decode(jsonString) as Map<String, dynamic>;
+
+    // Revalida a compatibilidade aqui também: restoreJson pode ser chamado sem
+    // passar por previewJson, e esta operação apaga o banco atual antes de
+    // inserir — nunca destrua os dados por um backup incompatível.
+    _validateBackupCompatibility(decoded);
 
     await _db.transaction(() async {
       // 1. Delete in reverse dependency order
@@ -485,6 +499,51 @@ class ImportDataUseCase {
             .insert(HouseholdMember.fromJson(item));
       }
     });
+  }
+
+  // --- Compatibility validation ---
+
+  /// Verifica se um backup JSON decodificado pode ser importado com segurança.
+  ///
+  /// Duas checagens, na ordem de severidade:
+  /// 1. `version` (formato do envelope) precisa estar entre
+  ///    [kMinSupportedBackupFormatVersion] e [kBackupFormatVersion]. Formatos
+  ///    mais novos têm chaves que esta build não sabe ler; mais antigos que o
+  ///    mínimo não são mais suportados.
+  /// 2. `schema_version` dos dados não pode ser maior que o schema desta build
+  ///    ([AppDatabase.schemaVersion]) — seria importar dados de um app mais novo
+  ///    com tabelas/colunas que ainda não existem aqui.
+  ///
+  /// Backups antigos podem não ter `schema_version`; nesse caso a checagem 2 é
+  /// pulada e a importação segue em regime de melhor esforço.
+  void _validateBackupCompatibility(Map<String, dynamic> decoded) {
+    final formatVersion = (decoded['version'] as num?)?.toInt();
+    if (formatVersion == null) {
+      throw const BackupIncompatibleException(
+        'O arquivo de backup não informa sua versão de formato.',
+      );
+    }
+    if (formatVersion > kBackupFormatVersion) {
+      throw BackupIncompatibleException(
+        'Este backup foi gerado por uma versão mais nova do BestFin '
+        '(formato v$formatVersion). Atualize o app para importá-lo.',
+      );
+    }
+    if (formatVersion < kMinSupportedBackupFormatVersion) {
+      throw BackupIncompatibleException(
+        'Este backup está em um formato antigo demais (v$formatVersion) e não '
+        'pode mais ser importado por esta versão do BestFin.',
+      );
+    }
+
+    final schemaVersion = (decoded['schema_version'] as num?)?.toInt();
+    if (schemaVersion != null && schemaVersion > _db.schemaVersion) {
+      throw BackupIncompatibleException(
+        'Este backup contém dados de uma versão mais nova do BestFin '
+        '(schema v$schemaVersion, esta build usa v${_db.schemaVersion}). '
+        'Atualize o app para restaurá-lo.',
+      );
+    }
   }
 
   // --- Utility parsing methods ---

@@ -5,7 +5,10 @@ import 'package:bestfin/core/database/database_provider.dart';
 import 'package:intl/intl.dart';
 
 final exportCsvUseCaseProvider = Provider<ExportCsvUseCase>((ref) {
-  return ExportCsvUseCase(ref.read(databaseProvider));
+  // watch (não read): após um invalidate do databaseProvider (clear-all,
+  // restore), o use case precisa ser reconstruído com a instância nova —
+  // com read ele ficava preso a um banco já fechado.
+  return ExportCsvUseCase(ref.watch(databaseProvider));
 });
 
 class ExportCsvUseCase {

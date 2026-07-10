@@ -46,9 +46,42 @@ class BackupView extends ConsumerStatefulWidget {
 class _BackupViewState extends ConsumerState<BackupView> {
   DateTime? _startDate;
   DateTime? _endDate;
+  String? _selectedPreset;
   String _csvSeparator = ';';
   bool _isLoading = false;
   String _loadingMessage = '';
+
+  static const _periodPresets = [
+    'Este mês',
+    'Mês anterior',
+    'Últimos 3 meses',
+    'Este ano',
+  ];
+
+  void _applyPreset(String preset) {
+    final now = DateTime.now();
+    DateTime? start;
+    DateTime? end;
+    switch (preset) {
+      case 'Este mês':
+        start = DateTime(now.year, now.month, 1);
+        end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+      case 'Mês anterior':
+        start = DateTime(now.year, now.month - 1, 1);
+        end = DateTime(now.year, now.month, 0, 23, 59, 59);
+      case 'Últimos 3 meses':
+        start = DateTime(now.year, now.month - 2, 1);
+        end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+      case 'Este ano':
+        start = DateTime(now.year, 1, 1);
+        end = DateTime(now.year, 12, 31, 23, 59, 59);
+    }
+    setState(() {
+      _selectedPreset = preset;
+      _startDate = start;
+      _endDate = end;
+    });
+  }
 
   void _showLoading(String message) {
     setState(() {
@@ -82,6 +115,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
 
     if (picked != null) {
       setState(() {
+        _selectedPreset = null;
         _startDate = picked.start;
         _endDate = picked.end;
       });
@@ -90,9 +124,34 @@ class _BackupViewState extends ConsumerState<BackupView> {
 
   void _clearDateRange() {
     setState(() {
+      _selectedPreset = null;
       _startDate = null;
       _endDate = null;
     });
+  }
+
+  /// Compartilha o arquivo no Android/iOS; no desktop (Linux/Windows/macOS),
+  /// onde o share_plus não suporta arquivos, abre um diálogo "Salvar como".
+  Future<void> _saveOrShareFile({
+    required List<int> bytes,
+    required String fileName,
+    required String shareSubject,
+  }) async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      final tempDir = await getTemporaryDirectory();
+      final file = File(pJoin(tempDir.path, fileName));
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], subject: shareSubject);
+    } else {
+      final savePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Salvar arquivo',
+        fileName: fileName,
+      );
+      if (savePath == null) return; // usuário cancelou
+      await File(savePath).writeAsBytes(bytes);
+      if (!mounted) return;
+      _showSuccessSnackBar('Arquivo salvo em $savePath');
+    }
   }
 
   Future<void> _handleExportCsv() async {
@@ -100,33 +159,25 @@ class _BackupViewState extends ConsumerState<BackupView> {
     try {
       final exportCsv = ref.read(exportCsvUseCaseProvider);
 
-      // Run heavy string formatting in isolate
-      final csvString = await compute((_) async {
-        return await exportCsv.execute(
-          startDate: _startDate,
-          endDate: _endDate,
-          separator: _csvSeparator,
-        );
-      }, null);
-
-      // Save and share CSV
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        pJoin(
-          tempDir.path,
-          'bestfin_export_${DateTime.now().millisecondsSinceEpoch}.csv',
-        ),
+      // Sem compute(): a closure capturaria o AppDatabase, cujos handles
+      // nativos do SQLite não podem ser enviados a outro isolate.
+      final csvString = await exportCsv.execute(
+        startDate: _startDate,
+        endDate: _endDate,
+        separator: _csvSeparator,
       );
-      await file.writeAsString(csvString, encoding: utf8);
 
       _hideLoading();
 
-      // Trigger native OS share sheet
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], subject: 'Relatório CSV BestFin');
-    } catch (e) {
+      await _saveOrShareFile(
+        bytes: utf8.encode(csvString),
+        fileName:
+            'bestfin_export_${DateTime.now().millisecondsSinceEpoch}.csv',
+        shareSubject: 'Relatório CSV BestFin',
+      );
+    } catch (e, st) {
       _hideLoading();
+      debugPrint('Erro ao exportar CSV: $e\n$st');
       _showErrorSnackBar('Erro ao exportar CSV: $e');
     }
   }
@@ -137,27 +188,22 @@ class _BackupViewState extends ConsumerState<BackupView> {
       final exportJson = ref.read(exportJsonUseCaseProvider);
       final jsonMap = await exportJson.execute();
 
-      // Stringify in isolate
+      // Stringify in isolate (Map de primitivos é enviável entre isolates)
       final jsonString = await compute((Map<String, dynamic> data) {
         return const JsonEncoder.withIndent('  ').convert(data);
       }, jsonMap);
 
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        pJoin(
-          tempDir.path,
-          'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.json',
-        ),
+      _hideLoading();
+
+      await _saveOrShareFile(
+        bytes: utf8.encode(jsonString),
+        fileName:
+            'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.json',
+        shareSubject: 'Backup JSON BestFin',
       );
-      await file.writeAsString(jsonString, encoding: utf8);
-
+    } catch (e, st) {
       _hideLoading();
-
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], subject: 'Backup JSON BestFin');
-    } catch (e) {
-      _hideLoading();
+      debugPrint('Erro ao exportar JSON: $e\n$st');
       _showErrorSnackBar('Erro ao exportar JSON: $e');
     }
   }
@@ -167,30 +213,24 @@ class _BackupViewState extends ConsumerState<BackupView> {
     try {
       final exportPdf = ref.read(exportPdfUseCaseProvider);
 
-      // PDF rendering in isolate
-      final pdfBytes = await compute((Map<String, DateTime?> dates) async {
-        return await exportPdf.execute(
-          startDate: dates['start'],
-          endDate: dates['end'],
-        );
-      }, {'start': _startDate, 'end': _endDate});
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        pJoin(
-          tempDir.path,
-          'bestfin_relatorio_${DateTime.now().millisecondsSinceEpoch}.pdf',
-        ),
+      // Sem compute(): a closure capturaria o AppDatabase, cujos handles
+      // nativos do SQLite não podem ser enviados a outro isolate.
+      final pdfBytes = await exportPdf.execute(
+        startDate: _startDate,
+        endDate: _endDate,
       );
-      await file.writeAsBytes(pdfBytes);
 
       _hideLoading();
 
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], subject: 'Relatório PDF BestFin');
-    } catch (e) {
+      await _saveOrShareFile(
+        bytes: pdfBytes,
+        fileName:
+            'bestfin_relatorio_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        shareSubject: 'Relatório PDF BestFin',
+      );
+    } catch (e, st) {
       _hideLoading();
+      debugPrint('Erro ao exportar PDF: $e\n$st');
       _showErrorSnackBar('Erro ao exportar PDF: $e');
     }
   }
@@ -199,10 +239,24 @@ class _BackupViewState extends ConsumerState<BackupView> {
     _showLoading('Preparando backup do banco de dados...');
     try {
       final backupUseCase = ref.read(backupDatabaseUseCaseProvider);
+      if (Platform.isAndroid || Platform.isIOS) {
+        _hideLoading();
+        await backupUseCase.shareBackup();
+      } else {
+        _hideLoading();
+        final savePath = await FilePicker.platform.saveFile(
+          dialogTitle: 'Salvar backup do banco de dados',
+          fileName:
+              'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.sqlite',
+        );
+        if (savePath == null) return; // usuário cancelou
+        await backupUseCase.saveBackupTo(savePath);
+        if (!mounted) return;
+        _showSuccessSnackBar('Backup salvo em $savePath');
+      }
+    } catch (e, st) {
       _hideLoading();
-      await backupUseCase.shareBackup();
-    } catch (e) {
-      _hideLoading();
+      debugPrint('Erro ao criar backup do banco: $e\n$st');
       _showErrorSnackBar('Erro ao criar backup do banco: $e');
     }
   }
@@ -258,8 +312,9 @@ class _BackupViewState extends ConsumerState<BackupView> {
         _hideLoading();
         _showSuccessSnackBar('$importedCount transações importadas!');
       }
-    } catch (e) {
+    } catch (e, st) {
       _hideLoading();
+      debugPrint('Erro ao importar CSV: $e\n$st');
       _showErrorSnackBar(
         'Erro ao importar CSV: ${e is FormatException ? e.message : e}',
       );
@@ -305,6 +360,11 @@ class _BackupViewState extends ConsumerState<BackupView> {
               'Exportado em:',
               '${_formatIsoString(preview['exported_at'])}',
             ),
+            if (preview['schema_version'] != null)
+              _buildPreviewRow(
+                'Versão dos dados:',
+                'schema v${preview['schema_version']} • formato v${preview['version']}',
+              ),
             const SizedBox(height: 12),
             const Text(
               'Atenção: A restauração de dados irá substituir COMPLETAMENTE todas as informações atuais do banco de dados pelos dados deste backup.',
@@ -341,8 +401,9 @@ class _BackupViewState extends ConsumerState<BackupView> {
         _hideLoading();
         _showSuccessSnackBar('Banco de dados restaurado!');
       }
-    } catch (e) {
+    } catch (e, st) {
       _hideLoading();
+      debugPrint('Erro ao restaurar JSON: $e\n$st');
       _showErrorSnackBar(
         'Erro ao restaurar JSON: ${e is FormatException ? e.message : e}',
       );
@@ -398,8 +459,9 @@ class _BackupViewState extends ConsumerState<BackupView> {
           'Arquivo do banco de dados substituído com sucesso!',
         );
       }
-    } catch (e) {
+    } catch (e, st) {
       _hideLoading();
+      debugPrint('Erro ao substituir banco: $e\n$st');
       _showErrorSnackBar(
         'Erro ao substituir banco: ${e is FormatException ? e.message : e}',
       );
@@ -567,6 +629,19 @@ class _BackupViewState extends ConsumerState<BackupView> {
                           fontWeight: FontWeight.bold,
                           color: cs.onSurface,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          for (final preset in _periodPresets)
+                            ChoiceChip(
+                              label: Text(preset),
+                              selected: _selectedPreset == preset,
+                              onSelected: (_) => _applyPreset(preset),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 12),
                       Row(

@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/core/database/database_provider.dart';
+import 'package:bestfin/features/backup/domain/backup_version.dart';
 
 final exportJsonUseCaseProvider = Provider<ExportJsonUseCase>((ref) {
-  return ExportJsonUseCase(ref.read(databaseProvider));
+  return ExportJsonUseCase(ref.watch(databaseProvider));
 });
 
 class ExportJsonUseCase {
@@ -40,7 +41,11 @@ class ExportJsonUseCase {
     final transactions = await _db.select(_db.transactions).get();
 
     return {
-      'version': 2,
+      // Versão do formato do envelope (estrutura das chaves deste JSON).
+      'version': kBackupFormatVersion,
+      // Versão do schema Drift dos dados — sinal de compatibilidade usado na
+      // importação para rejeitar backups de um app mais novo que esta build.
+      'schema_version': _db.schemaVersion,
       'exported_at': DateTime.now().toIso8601String(),
       'accounts': accounts.map((x) => x.toJson()).toList(),
       'app_settings': appSettings.map((x) => x.toJson()).toList(),

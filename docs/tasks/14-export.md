@@ -3,7 +3,7 @@
 > **Fase:** 2 — Recursos Financeiros
 > **Prioridade:** 🟢 Média
 > **Estimativa:** Média
-> **Última atualização:** 2026-05-27
+> **Última atualização:** 2026-07-09 (versionamento de backups)
 
 ## Descrição
 
@@ -71,6 +71,24 @@ lib/features/backup/
         ├── export_button.dart
         └── import_progress_widget.dart
 ```
+
+## Correções (2026-07-09)
+
+ - [x] Exports falhavam no Linux desktop: `share_plus` não implementa `shareXFiles` fora de Android/iOS. Agora o desktop usa diálogo "Salvar como" (`FilePicker.saveFile`); share permanece no mobile.
+ - [x] CSV/PDF falhavam em qualquer plataforma: `compute()` recebia closure capturando o `AppDatabase` (handles nativos do SQLite não são enviáveis a isolates). Exports CSV/PDF agora executam no isolate principal; o stringify do JSON (dados puros) continua em isolate.
+ - [x] Erros de export/import agora são logados no terminal via `debugPrint` (antes só apareciam no snackbar).
+ - [x] Teste `test/features/backup/export_pdf_test.dart` cobrindo período multi-mês, mês único e período vazio.
+ - [x] `zenity` adicionado ao devShell do `flake.nix`: o `file_picker` no Linux depende dele para os diálogos de abrir/salvar arquivo (afetava exports e imports).
+ - [x] Os 5 providers de use case de backup capturavam o banco com `ref.read(databaseProvider)` — após um `invalidate` (clear-all, restore), ficavam presos a uma instância fechada e o restore/export seguinte falhava ou não persistia. Trocados para `ref.watch` (idioma do restante do projeto). Testes de persistência do ciclo restore→close→reopen em `restore_reopen_test.dart`.
+ - [x] `restoreBackup` era destrutivo: deletava o banco ativo **antes** de copiar o backup — selecionar o próprio `bestfin.sqlite` como origem destruía o banco (delete apagava a origem e o copy falhava). Agora: rejeita o banco ativo como origem (paths canonicalizados), copia para `.restore-tmp` e faz `rename` atômico por cima, cria o diretório pai se faltar e remove journals WAL/SHM órfãos. Testes em `backup_database_test.dart`.
+
+## Versionamento & integridade de backup (2026-07-09)
+
+ - [x] Fonte única `domain/backup_version.dart`: `kBackupFormatVersion`, `kMinSupportedBackupFormatVersion` e `BackupIncompatibleException`.
+ - [x] JSON grava `schema_version` (schema Drift dos dados) além do `version` do formato. `import_data.dart` valida compatibilidade em `previewJson` e `restoreJson` (rejeita formato/schema mais novo que a build; revalida antes de apagar o banco). Diálogo de restauração mostra "Versão dos dados".
+ - [x] Restore SQLite lê `user_version` do header (offset 60) e rejeita backup de schema mais novo (`BackupIncompatibleException`) — evita erro obscuro do Drift ao reabrir.
+ - [x] **Bug corrigido**: backup do banco travava/falhava com `PathNotFoundException` (`bestfin.sqlite` inexistente) após clear-all — no desktop copiava o arquivo sem checar existência. Além disso, copiar em modo WAL sem checkpoint gerava backup desatualizado. `_prepareBackupSource` agora roda `PRAGMA wal_checkpoint(TRUNCATE)` (mescla WAL + força abertura do `LazyDatabase`, criando o arquivo) e valida existência; `shareBackup` e o novo `saveBackupTo` passam por ele.
+ - [x] Testes de compatibilidade (schema novo/antigo, formato novo) em `backup_database_test.dart` e `import_data_test.dart`.
 
 ## Notas e Considerações
 

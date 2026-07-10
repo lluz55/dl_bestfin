@@ -135,6 +135,8 @@
             libepoxy
             libsecret
             libsysprof-capture
+            # Diálogos de arquivo do file_picker no Linux (abrir/salvar)
+            zenity
             llama-cpp-vulkan
             # Rust (required by rust_lib_ndk Flutter plugin)
             cargo

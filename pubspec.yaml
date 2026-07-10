@@ -85,6 +85,9 @@ dev_dependencies:
   drift_dev: ^2.31.0
   build_runner: ^2.15.0
   flutter_launcher_icons: ^0.13.1
+  # Mock de path_provider em testes (backup_database_test.dart)
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
