@@ -260,6 +260,168 @@ class _BackupViewState extends ConsumerState<BackupView> {
     }
   }
 
+  Future<void> _handleEncryptedBackup() async {
+    final password = await _promptPassword(
+      title: 'Definir senha do backup',
+      message:
+          'Escolha uma senha forte. Ela será exigida para restaurar este '
+          'backup — não há como recuperá-la se for esquecida.',
+      confirm: true,
+    );
+    if (password == null) return;
+
+    _showLoading('Criptografando backup...');
+    try {
+      final backupUseCase = ref.read(backupDatabaseUseCaseProvider);
+      final bytes = await backupUseCase.buildEncryptedBackup(password);
+      _hideLoading();
+      await _saveOrShareFile(
+        bytes: bytes,
+        fileName:
+            'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.bfenc',
+        shareSubject: 'Backup criptografado BestFin',
+      );
+    } catch (e, st) {
+      _hideLoading();
+      debugPrint('Erro ao criar backup criptografado: $e\n$st');
+      _showErrorSnackBar('Erro ao criar backup criptografado: $e');
+    }
+  }
+
+  Future<void> _handleEncryptedRestore() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
+      if (result == null || result.files.single.path == null) return;
+      final filePath = result.files.single.path!;
+
+      final password = await _promptPassword(
+        title: 'Restaurar backup criptografado',
+        message:
+            'Digite a senha usada para criptografar este backup. A restauração '
+            'substituirá COMPLETAMENTE todos os dados atuais.',
+        confirm: false,
+      );
+      if (password == null) return;
+
+      _showLoading('Descriptografando e restaurando...');
+      final backupUseCase = ref.read(backupDatabaseUseCaseProvider);
+      await backupUseCase.restoreEncryptedBackup(filePath, password);
+
+      ref.invalidate(databaseProvider);
+      _hideLoading();
+      _showSuccessSnackBar('Backup criptografado restaurado com sucesso!');
+    } catch (e, st) {
+      _hideLoading();
+      debugPrint('Erro ao restaurar backup criptografado: $e\n$st');
+      _showErrorSnackBar(
+        'Erro ao restaurar backup: ${e is FormatException ? e.message : e}',
+      );
+    }
+  }
+
+  /// Prompts for a backup password. Returns the entered password, or null if
+  /// cancelled. When [confirm] is true, requires a matching confirmation field.
+  Future<String?> _promptPassword({
+    required String title,
+    required String message,
+    required bool confirm,
+  }) {
+    final controller = TextEditingController();
+    final confirmController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var obscure = true;
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        final cs = context.colorScheme;
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: controller,
+                      obscureText: obscure,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: 'Senha',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscure
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                          ),
+                          onPressed: () => setLocal(() => obscure = !obscure),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.length < 6)
+                          ? 'A senha deve ter ao menos 6 caracteres'
+                          : null,
+                    ),
+                    if (confirm) ...[
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: confirmController,
+                        obscureText: obscure,
+                        decoration: const InputDecoration(
+                          labelText: 'Confirmar senha',
+                        ),
+                        validator: (v) => v != controller.text
+                            ? 'As senhas não coincidem'
+                            : null,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
+                ),
+                AppButton(
+                  label: 'Confirmar',
+                  size: AppButtonSize.compact,
+                  onPressed: () {
+                    if (formKey.currentState?.validate() ?? false) {
+                      Navigator.pop(context, controller.text);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _handleImportCsv() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -774,17 +936,28 @@ class _BackupViewState extends ConsumerState<BackupView> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Crie um backup físico binário do arquivo .sqlite completo do BestFin. '
-                      'Ideal para arquivar localmente ou compartilhar entre dispositivos.',
+                      'Crie um backup do banco de dados completo do BestFin. '
+                      'O backup criptografado protege seus dados com uma senha '
+                      '(recomendado); o .sqlite puro sai sem proteção e só deve '
+                      'ser guardado em local seguro.',
                       style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
+                        onPressed: _handleEncryptedBackup,
+                        icon: const Icon(Icons.lock_rounded),
+                        label: const Text('Exportar Backup Criptografado'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
                         onPressed: _handleDatabaseBackup,
                         icon: const Icon(Icons.cloud_upload_rounded),
-                        label: const Text('Exportar Banco SQLite'),
+                        label: const Text('Exportar .sqlite (sem senha)'),
                       ),
                     ),
                   ],
@@ -846,6 +1019,15 @@ class _BackupViewState extends ConsumerState<BackupView> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _handleEncryptedRestore,
+                        icon: const Icon(Icons.lock_open_rounded),
+                        label: const Text('Restaurar Backup Criptografado'),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(

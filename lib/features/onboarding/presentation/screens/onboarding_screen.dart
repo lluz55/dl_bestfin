@@ -121,6 +121,54 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  /// Pede a senha de um backup criptografado (.bfenc). Retorna null se o
+  /// usuário cancelar.
+  Future<String?> _promptBackupPassword() {
+    final controller = TextEditingController();
+    var obscure = true;
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        final cs = context.colorScheme;
+        return StatefulBuilder(
+          builder: (context, setLocal) => AlertDialog(
+            title: const Text('Backup criptografado'),
+            content: TextField(
+              controller: controller,
+              obscureText: obscure,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Senha do backup',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscure
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                  ),
+                  onPressed: () => setLocal(() => obscure = !obscure),
+                ),
+              ),
+              onSubmitted: (v) => Navigator.pop(context, v),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancelar',
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: const Text('Restaurar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// Restaura um backup (.sqlite ou .json) exportado pelo BestFin e conclui
   /// o onboarding direto — os dados restaurados já contêm contas/categorias,
   /// então a conta do rascunho do step 2 NÃO é criada (por isso não usa
@@ -129,14 +177,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['sqlite', 'json'],
+        allowedExtensions: ['sqlite', 'json', 'bfenc'],
       );
       if (result == null || result.files.single.path == null) return;
       final path = result.files.single.path!;
+      final lowerPath = path.toLowerCase();
+
+      // Backup criptografado: pede a senha antes de qualquer processamento.
+      String? encryptedPassword;
+      if (lowerPath.endsWith('.bfenc')) {
+        encryptedPassword = await _promptBackupPassword();
+        if (encryptedPassword == null) return; // cancelado
+      }
 
       setState(() => _isRestoring = true);
 
-      if (path.toLowerCase().endsWith('.json')) {
+      if (lowerPath.endsWith('.json')) {
         final jsonString = await File(path).readAsString(encoding: utf8);
         final importUseCase = ref.read(importDataUseCaseProvider);
         await importUseCase.previewJson(jsonString); // valida o formato
@@ -144,6 +200,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         // Fecha a conexão antiga antes de invalidar — evita duas instâncias
         // do AppDatabase abertas ao mesmo tempo sobre o mesmo arquivo.
         await ref.read(databaseProvider).close();
+        ref.invalidate(databaseProvider);
+      } else if (encryptedPassword != null) {
+        // restoreEncryptedBackup decifra, valida o header SQLite e troca o banco.
+        await ref
+            .read(backupDatabaseUseCaseProvider)
+            .restoreEncryptedBackup(path, encryptedPassword);
         ref.invalidate(databaseProvider);
       } else {
         // restoreBackup valida o header SQLite e fecha o banco atual.

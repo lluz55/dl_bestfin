@@ -26,7 +26,6 @@ import 'package:bestfin/features/gamification/presentation/providers/gamificatio
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/tutorial_provider.dart';
 import 'package:bestfin/features/recurring/presentation/providers/recurring_provider.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/core/providers/user_profile_provider.dart';
@@ -48,13 +47,8 @@ void main() async {
     ..initialize()
     ..initializeFlutterToolkit();
 
-  if (Platform.isAndroid) {
-    try {
-      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-    } catch (e) {
-      debugPrint('Failed to apply sqlite3 workaround: $e');
-    }
-  }
+  // O workaround de carregamento do sqlite3/SQLCipher em Android antigo é
+  // aplicado por DbEncryption.openExecutor no momento de abrir o banco.
 
   try {
     await initializeNotifications();

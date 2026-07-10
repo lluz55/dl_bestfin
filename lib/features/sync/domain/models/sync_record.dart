@@ -10,31 +10,68 @@ import 'dart:convert';
 /// local edit — silently wiping those fields for every peer.
 const kSyncSchemaVersion = 1;
 
+// Keys allowed inside an envelope object. Used to tell an envelope apart from
+// a raw pre-envelope entity JSON (which would carry its own domain fields).
+const _envelopeKeys = {'v', 'payload', 't', 'id', 'del'};
+
 /// Wraps a plaintext entity payload in the versioned wire envelope that gets
 /// encrypted into the Nostr event content.
+///
+/// [entityType], [entityId] and [isDeleted] are embedded here — inside the
+/// encrypted content — instead of being published as plaintext Nostr tags, so
+/// a relay/observer can no longer read what kind of entities a user has, their
+/// ids, or when they are deleted. The event's `d` tag carries only an opaque
+/// HMAC of the entity (see E2ECryptoService.deriveEntityTag) for replaceability.
 String encodeSyncEnvelope(
   String payload, {
   int schemaVersion = kSyncSchemaVersion,
-}) => jsonEncode({'v': schemaVersion, 'payload': payload});
+  String? entityType,
+  String? entityId,
+  bool? isDeleted,
+}) => jsonEncode({
+  'v': schemaVersion,
+  'payload': payload,
+  if (entityType != null) 't': entityType,
+  if (entityId != null) 'id': entityId,
+  if (isDeleted != null) 'del': isDeleted,
+});
 
 /// Inverse of [encodeSyncEnvelope]. Events published before the envelope
 /// existed carry the entity JSON directly; those decode as version 1 (the
 /// envelope was introduced while the payload shape was still v1, so the two
-/// forms are equivalent).
-({int schemaVersion, String payload}) decodeSyncEnvelope(String plain) {
+/// forms are equivalent). [entityType]/[entityId]/[isDeleted] are null for
+/// events written by builds that still published them as plaintext tags — the
+/// caller falls back to the event's tags in that case.
+({
+  int schemaVersion,
+  String payload,
+  String? entityType,
+  String? entityId,
+  bool? isDeleted,
+})
+decodeSyncEnvelope(String plain) {
   try {
     final decoded = jsonDecode(plain);
     if (decoded is Map<String, dynamic> &&
-        decoded.length == 2 &&
         decoded['v'] is int &&
-        decoded['payload'] is String) {
+        decoded['payload'] is String &&
+        decoded.keys.every(_envelopeKeys.contains)) {
       return (
         schemaVersion: decoded['v'] as int,
         payload: decoded['payload'] as String,
+        entityType: decoded['t'] as String?,
+        entityId: decoded['id'] as String?,
+        isDeleted: decoded['del'] as bool?,
       );
     }
   } catch (_) {}
-  return (schemaVersion: 1, payload: plain);
+  return (
+    schemaVersion: 1,
+    payload: plain,
+    entityType: null,
+    entityId: null,
+    isDeleted: null,
+  );
 }
 
 class SyncRecord {

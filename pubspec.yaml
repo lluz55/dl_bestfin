@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.6+7
+version: 1.0.7+8
 
 environment:
   sdk: ^3.11.5
@@ -35,7 +35,14 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   drift: ^2.31.0
-  sqlite3_flutter_libs: ^0.5.24
+  # Criptografia do banco em repouso (SQLCipher) — aplicada apenas no
+  # Android/iOS (ver lib/core/database/db_encryption.dart). NÃO adicionar
+  # sqlite3_flutter_libs junto: ambos trazem a mesma classe do plugin nativo
+  # (eu.simonbinder.sqlite3_flutter_libs.Sqlite3FlutterLibsPlugin) e o R8 falha
+  # com "defined multiple times". sqlcipher_flutter_libs já provê o sqlite3
+  # nativo (com SQLCipher) para todas as plataformas mobile.
+  sqlcipher_flutter_libs: ^0.6.5
+  sqlite3: ^2.9.0
   flutter_riverpod: ^3.3.1
   riverpod_annotation: ^4.0.2
   go_router: ^17.2.3

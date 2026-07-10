@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../constants/default_categories.dart';
+import 'db_encryption.dart';
 
 // Tables
 import 'tables/accounts.dart';
@@ -597,6 +597,7 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'bestfin.sqlite'));
-    return NativeDatabase.createInBackground(file);
+    // Cifrado com SQLCipher no mobile; texto claro no desktop (ver DbEncryption).
+    return DbEncryption.openExecutor(file);
   });
 }

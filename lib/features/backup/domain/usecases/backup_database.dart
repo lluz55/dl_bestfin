@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:bestfin/features/backup/domain/backup_version.dart';
+import 'package:bestfin/features/backup/domain/backup_crypto.dart';
+import 'package:bestfin/core/database/db_encryption.dart';
 
 final backupDatabaseUseCaseProvider = Provider<BackupDatabaseUseCase>((ref) {
   return BackupDatabaseUseCase(ref.watch(databaseProvider));
@@ -22,7 +24,7 @@ class BackupDatabaseUseCase {
     return File(p.join(dbFolder.path, 'bestfin.sqlite'));
   }
 
-  /// Prepares the active SQLite file for a byte-for-byte copy and returns it.
+  /// Returns a **plaintext** SQLite file suitable for export/backup.
   ///
   /// Dois problemas que isto resolve, ambos essenciais para um backup íntegro:
   /// 1. O banco roda em `journal_mode = WAL`, então dados já commitados podem
@@ -33,7 +35,13 @@ class BackupDatabaseUseCase {
   ///    (ex.: logo após um `invalidate` no clear-all), o arquivo pode nem
   ///    existir no disco. O próprio `customStatement` força a abertura e cria o
   ///    arquivo antes de checarmos sua existência.
-  Future<File> _prepareBackupSource() async {
+  ///
+  /// No mobile o banco está cifrado em repouso (SQLCipher), então o arquivo
+  /// físico não é um SQLite legível: decifra-se para uma cópia temporária via
+  /// `sqlcipher_export` (chave vazia = sem criptografia). No desktop o próprio
+  /// arquivo já é texto claro e é usado diretamente. Chame [_disposeExportSource]
+  /// no arquivo retornado quando terminar, para remover a cópia temporária.
+  Future<File> _plaintextExportSource() async {
     await _db.customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
     final dbFile = await getDatabaseFile();
     if (!await dbFile.exists()) {
@@ -41,34 +49,126 @@ class BackupDatabaseUseCase {
         'Arquivo de banco de dados não encontrado no dispositivo.',
       );
     }
-    return dbFile;
+    if (!DbEncryption.isSupported) return dbFile;
+
+    final tempDir = await getTemporaryDirectory();
+    final plain = File(
+      p.join(
+        tempDir.path,
+        'bestfin_plain_${DateTime.now().millisecondsSinceEpoch}.sqlite',
+      ),
+    );
+    if (await plain.exists()) await plain.delete();
+    final escaped = plain.path.replaceAll("'", "''");
+    await _db.customStatement("ATTACH DATABASE '$escaped' AS plaintext KEY '';");
+    await _db.customStatement("SELECT sqlcipher_export('plaintext');");
+    await _db.customStatement('DETACH DATABASE plaintext;');
+    return plain;
+  }
+
+  /// Removes the temporary plaintext copy produced by [_plaintextExportSource]
+  /// (no-op for the live database file used directly on desktop).
+  Future<void> _disposeExportSource(File source) async {
+    final dbFile = await getDatabaseFile();
+    if (p.canonicalize(source.path) == p.canonicalize(dbFile.path)) return;
+    try {
+      await source.delete();
+    } catch (_) {}
   }
 
   /// Copies the active SQLite file to a temporary location and triggers the native OS Share dialog
   Future<void> shareBackup() async {
-    final dbFile = await _prepareBackupSource();
-    final tempDir = await getTemporaryDirectory();
-    final backupCopy = File(
-      p.join(
-        tempDir.path,
-        'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.sqlite',
-      ),
-    );
-
-    // Copy current DB file (WAL já mesclado por _prepareBackupSource)
-    await dbFile.copy(backupCopy.path);
-
-    // Open native Share dialog
-    await Share.shareXFiles([
-      XFile(backupCopy.path),
-    ], subject: 'Backup do Banco de Dados BestFin');
+    final source = await _plaintextExportSource();
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final backupCopy = File(
+        p.join(
+          tempDir.path,
+          'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.sqlite',
+        ),
+      );
+      await source.copy(backupCopy.path);
+      await Share.shareXFiles([
+        XFile(backupCopy.path),
+      ], subject: 'Backup do Banco de Dados BestFin');
+    } finally {
+      await _disposeExportSource(source);
+    }
   }
 
   /// Copies the active SQLite file to [destinationPath] (used on desktop, where
   /// the user picks the destination via "Salvar como" instead of OS Share).
   Future<void> saveBackupTo(String destinationPath) async {
-    final dbFile = await _prepareBackupSource();
-    await dbFile.copy(destinationPath);
+    final source = await _plaintextExportSource();
+    try {
+      await source.copy(destinationPath);
+    } finally {
+      await _disposeExportSource(source);
+    }
+  }
+
+  /// Builds a password-encrypted backup of the active database (AES-256-GCM,
+  /// see [BackupCrypto]). The returned bytes carry no readable financial data
+  /// without the password — safe to store in the cloud or share by e-mail.
+  Future<List<int>> buildEncryptedBackup(String password) async {
+    final source = await _plaintextExportSource();
+    try {
+      final bytes = await source.readAsBytes();
+      return await BackupCrypto.encrypt(bytes, password);
+    } finally {
+      await _disposeExportSource(source);
+    }
+  }
+
+  /// Shares an encrypted backup through the native OS Share dialog (mobile).
+  Future<void> shareEncryptedBackup(String password) async {
+    final blob = await buildEncryptedBackup(password);
+    final tempDir = await getTemporaryDirectory();
+    final backupCopy = File(
+      p.join(
+        tempDir.path,
+        'bestfin_backup_${DateTime.now().millisecondsSinceEpoch}.bfenc',
+      ),
+    );
+    await backupCopy.writeAsBytes(blob, flush: true);
+    await Share.shareXFiles([
+      XFile(backupCopy.path),
+    ], subject: 'Backup criptografado BestFin');
+  }
+
+  /// Writes an encrypted backup to [destinationPath] (desktop "Salvar como").
+  Future<void> saveEncryptedBackupTo(
+    String destinationPath,
+    String password,
+  ) async {
+    final blob = await buildEncryptedBackup(password);
+    await File(destinationPath).writeAsBytes(blob, flush: true);
+  }
+
+  /// Restores from a password-encrypted backup: decrypts to a temporary SQLite
+  /// file, then reuses [restoreBackup] (which validates the SQLite header and
+  /// schema version) before swapping it over the live database.
+  Future<void> restoreEncryptedBackup(
+    String selectedFilePath,
+    String password,
+  ) async {
+    final blob = await File(selectedFilePath).readAsBytes();
+    final plain = await BackupCrypto.decrypt(blob, password);
+    final tempDir = await getTemporaryDirectory();
+    final tmp = File(
+      p.join(
+        tempDir.path,
+        'bestfin_restore_${DateTime.now().millisecondsSinceEpoch}.sqlite',
+      ),
+    );
+    await tmp.writeAsBytes(plain, flush: true);
+    try {
+      await restoreBackup(tmp.path);
+    } finally {
+      try {
+        await tmp.delete();
+      } catch (_) {}
+    }
   }
 
   /// Restores database by replacing the local sqlite file with the selected file.

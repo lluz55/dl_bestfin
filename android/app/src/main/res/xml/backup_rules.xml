@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Regras de backup para Android < 12 (android:fullBackupContent).
+  Com android:allowBackup="false" no manifest, nenhum backup automático
+  ocorre; estas regras são uma segunda barreira que exclui explicitamente
+  os dados financeiros (SQLite) e as chaves, caso o backup seja reativado.
+-->
+<full-backup-content>
+    <exclude domain="database" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>

@@ -19,6 +19,27 @@ void main() {
       expect(decoded.schemaVersion, kSyncSchemaVersion);
     });
 
+    test('metadados (type/id/deleted) fazem roundtrip pelo envelope', () {
+      final wire = encodeSyncEnvelope(
+        '{"id":"tx-1"}',
+        entityType: 'transaction',
+        entityId: 'tx-1',
+        isDeleted: true,
+      );
+      final decoded = decodeSyncEnvelope(wire);
+      expect(decoded.entityType, 'transaction');
+      expect(decoded.entityId, 'tx-1');
+      expect(decoded.isDeleted, true);
+      expect(decoded.payload, '{"id":"tx-1"}');
+    });
+
+    test('envelope sem metadados retorna type/id/deleted nulos', () {
+      final decoded = decodeSyncEnvelope(encodeSyncEnvelope('{"id":"a"}'));
+      expect(decoded.entityType, isNull);
+      expect(decoded.entityId, isNull);
+      expect(decoded.isDeleted, isNull);
+    });
+
     test('payload legado (sem envelope) decodifica como v1', () {
       final legacy = jsonEncode({
         'id': 'tx-1',

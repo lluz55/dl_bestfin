@@ -63,6 +63,23 @@ class E2ECryptoService {
     return Uint8List.fromList(plaintext);
   }
 
+  // HMAC-SHA256(masterKey, "<entityType>:<entityId>") → hex string.
+  // Used as the Nostr `d` tag so successive versions of one entity still
+  // replace each other on the relay (deterministic per entity), while
+  // revealing nothing about the entity's type or id to an observer.
+  static Future<String> deriveEntityTag(
+    List<int> masterKey,
+    String entityType,
+    String entityId,
+  ) async {
+    final hmac = Hmac.sha256();
+    final mac = await hmac.calculateMac(
+      utf8.encode('$entityType:$entityId'),
+      secretKey: SecretKey(masterKey),
+    );
+    return mac.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
   // Encrypt a sync payload string with the master key → base64url blob
   static Future<String> encryptPayload(
     List<int> masterKey,

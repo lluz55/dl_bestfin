@@ -15,6 +15,16 @@ const _encMasterKeyKey = 'nostr_encrypted_master_key';
 const _kdfSaltKey = 'nostr_kdf_salt';
 const _localDeviceIdKey = 'sync_local_device_id';
 
+// Random per-device KDF password (base64) used to wrap the master key at rest.
+// Replaces the pre-1.0.6 hardcoded '_legacyKekPassword' constant, so the
+// wrapping now depends on a real secret instead of a public string. The blob,
+// this secret and the salt all live in the OS secure storage (Keystore/
+// Keychain), which remains the actual gate — this just removes the false
+// sense of security of a fixed password.
+const _kekSecretKey = 'nostr_kek_secret';
+// Only kept to decrypt (and then migrate) identities stored by older builds.
+const _legacyKekPassword = 'device-local';
+
 // kind:30078 — NIP-78 "application-specific data", replaceable by d-tag
 const _nostrKind = 30078;
 
@@ -136,8 +146,21 @@ class NostrSyncService implements SyncTransport {
         );
         return null;
       }
-      final kek = await E2ECryptoService.deriveKEK('device-local', kdfSalt);
+      final kekSecret = await _storage.read(key: _kekSecretKey);
+      final kek = await E2ECryptoService.deriveKEK(
+        kekSecret ?? _legacyKekPassword,
+        kdfSalt,
+      );
       final masterKey = await E2ECryptoService.decryptMasterKey(kek, encMK);
+      // Legacy install wrapped with the old fixed password: re-wrap with a
+      // fresh random per-device secret now that we could open it.
+      if (kekSecret == null) {
+        try {
+          await _persistEncryptedMasterKey(masterKey);
+        } catch (e) {
+          debugPrint('[Sync] Migração da KEK legada falhou (não fatal): $e');
+        }
+      }
       return _restoreIdentity(masterKey);
     } on Exception catch (e, st) {
       // Storage failure (e.g. keyring unavailable on Linux) — log but do not
@@ -179,6 +202,7 @@ class NostrSyncService implements SyncTransport {
     _seenDeviceIds.clear();
     await _storage.delete(key: _encMasterKeyKey);
     await _storage.delete(key: _kdfSaltKey);
+    await _storage.delete(key: _kekSecretKey);
     _identityController.add(null);
   }
 
@@ -229,6 +253,7 @@ class NostrSyncService implements SyncTransport {
       try {
         await _storage.delete(key: _encMasterKeyKey);
         await _storage.delete(key: _kdfSaltKey);
+        await _storage.delete(key: _kekSecretKey);
       } catch (e) {
         debugPrint('[Sync] delete storage em segundo plano falhou: $e');
       }
@@ -249,7 +274,21 @@ class NostrSyncService implements SyncTransport {
     for (final record in records) {
       final encPayload = await E2ECryptoService.encryptPayload(
         _masterKey!,
-        encodeSyncEnvelope(record.payload, schemaVersion: record.schemaVersion),
+        encodeSyncEnvelope(
+          record.payload,
+          schemaVersion: record.schemaVersion,
+          entityType: record.entityType,
+          entityId: record.entityId,
+          isDeleted: record.isDeleted,
+        ),
+      );
+      // Opaque, deterministic `d` tag: keeps NIP-33 replaceability without
+      // exposing the entity id/type in plaintext (those now live encrypted
+      // inside the envelope above).
+      final dTag = await E2ECryptoService.deriveEntityTag(
+        _masterKey!,
+        record.entityType,
+        record.entityId,
       );
       final publishedAt = DateTime.fromMillisecondsSinceEpoch(
         (DateTime.now().millisecondsSinceEpoch ~/ 1000) * 1000,
@@ -260,9 +299,7 @@ class NostrSyncService implements SyncTransport {
         content: encPayload,
         keyPairs: _keyPair!,
         tags: [
-          ['d', record.entityId],
-          ['t', record.entityType],
-          if (record.isDeleted) ['deleted', 'true'],
+          ['d', dTag],
         ],
         createdAt: publishedAt,
       );
@@ -385,21 +422,28 @@ class NostrSyncService implements SyncTransport {
         );
         final envelope = decodeSyncEnvelope(plainPayload);
         final tags = event.tags ?? [];
-        final dTag = tags.firstWhere(
-          (t) => t.isNotEmpty && t[0] == 'd',
-          orElse: () => [],
-        );
+
+        // Current events carry entity metadata encrypted inside the envelope;
+        // events from older builds carry it as plaintext `t`/`d`/`deleted`
+        // tags. Prefer the envelope, fall back to the tags for old events.
         final tTag = tags.firstWhere(
           (t) => t.isNotEmpty && t[0] == 't',
           orElse: () => [],
         );
-        final isDeleted = tags.any(
-          (t) => t.length >= 2 && t[0] == 'deleted' && t[1] == 'true',
+        final dTag = tags.firstWhere(
+          (t) => t.isNotEmpty && t[0] == 'd',
+          orElse: () => [],
         );
-        if (dTag.length < 2 || tTag.length < 2) continue;
-
-        final entityId = dTag[1];
-        final entityType = tTag[1];
+        final entityType =
+            envelope.entityType ?? (tTag.length >= 2 ? tTag[1] : null);
+        final entityId =
+            envelope.entityId ?? (dTag.length >= 2 ? dTag[1] : null);
+        final isDeleted =
+            envelope.isDeleted ??
+            tags.any(
+              (t) => t.length >= 2 && t[0] == 'deleted' && t[1] == 'true',
+            );
+        if (entityType == null || entityId == null) continue;
 
         if (entityType == 'device_presence') {
           if (entityId != localDeviceId && !_seenDeviceIds.contains(entityId)) {
@@ -516,15 +560,37 @@ class NostrSyncService implements SyncTransport {
 
     for (final item in pending) {
       try {
+        // Rebuild the event in the current format (entity metadata encrypted
+        // inside the envelope, opaque `d` tag) by re-encrypting the stored
+        // content. This keeps replays from leaking the entity via plaintext
+        // tags even for events that were queued by an older build.
+        final plain = await E2ECryptoService.decryptPayload(
+          _masterKey!,
+          item.payload,
+        );
+        final inner = decodeSyncEnvelope(plain);
+        final encPayload = await E2ECryptoService.encryptPayload(
+          _masterKey!,
+          encodeSyncEnvelope(
+            inner.payload,
+            schemaVersion: inner.schemaVersion,
+            entityType: item.entityType,
+            entityId: item.entityId,
+            isDeleted: item.isDeleted,
+          ),
+        );
+        final dTag = await E2ECryptoService.deriveEntityTag(
+          _masterKey!,
+          item.entityType,
+          item.entityId,
+        );
         // Use current time so relays don't filter out this event with `since`.
         final event = NostrEvent.fromPartialData(
           kind: _nostrKind,
-          content: item.payload,
+          content: encPayload,
           keyPairs: _keyPair!,
           tags: [
-            ['d', item.entityId],
-            ['t', item.entityType],
-            if (item.isDeleted) ['deleted', 'true'],
+            ['d', dTag],
           ],
           createdAt: DateTime.now(),
         );
@@ -607,9 +673,19 @@ class NostrSyncService implements SyncTransport {
       schemaVersion: kSyncSchemaVersion,
     );
 
+    const presenceType = 'device_presence';
     final encPayload = await E2ECryptoService.encryptPayload(
       _masterKey!,
-      encodeSyncEnvelope(jsonEncode(info.toJson())),
+      encodeSyncEnvelope(
+        jsonEncode(info.toJson()),
+        entityType: presenceType,
+        entityId: deviceId,
+      ),
+    );
+    final dTag = await E2ECryptoService.deriveEntityTag(
+      _masterKey!,
+      presenceType,
+      deviceId,
     );
 
     final event = NostrEvent.fromPartialData(
@@ -617,8 +693,7 @@ class NostrSyncService implements SyncTransport {
       content: encPayload,
       keyPairs: _keyPair!,
       tags: [
-        ['d', deviceId],
-        ['t', 'device_presence'],
+        ['d', dTag],
       ],
       createdAt: DateTime.now(),
     );
@@ -654,13 +729,33 @@ class NostrSyncService implements SyncTransport {
     final identity = await _restoreIdentity(masterKey);
 
     // Persist encrypted masterKey for recovery without mnemonic re-entry.
-    final salt = _generateHexSalt();
-    final kek = await E2ECryptoService.deriveKEK('device-local', salt);
-    final encMK = await E2ECryptoService.encryptMasterKey(kek, masterKey);
-    await _storage.write(key: _encMasterKeyKey, value: encMK);
-    await _storage.write(key: _kdfSaltKey, value: salt);
+    await _persistEncryptedMasterKey(masterKey);
 
     return identity;
+  }
+
+  /// Wraps [masterKey] with a KEK derived from a fresh random per-device secret
+  /// and stores the blob, secret and salt in secure storage. Used both when a
+  /// new identity is activated and when migrating an identity wrapped by an
+  /// older build's fixed password.
+  Future<void> _persistEncryptedMasterKey(List<int> masterKey) async {
+    final secret = _generateKekSecret();
+    final salt = _generateHexSalt();
+    final kek = await E2ECryptoService.deriveKEK(secret, salt);
+    final encMK = await E2ECryptoService.encryptMasterKey(kek, masterKey);
+    await _storage.write(key: _kekSecretKey, value: secret);
+    await _storage.write(key: _kdfSaltKey, value: salt);
+    await _storage.write(key: _encMasterKeyKey, value: encMK);
+  }
+
+  // 32 random bytes, base64 — the KDF password for wrapping the master key.
+  static String _generateKekSecret() {
+    final rng = Random.secure();
+    final bytes = Uint8List(32);
+    for (var i = 0; i < 32; i++) {
+      bytes[i] = rng.nextInt(256);
+    }
+    return base64Url.encode(bytes);
   }
 
   // Backoff bookkeeping — see [_relayBackoffBase]. A rate-limit NOTICE counts
