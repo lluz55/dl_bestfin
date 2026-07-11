@@ -1,7 +1,7 @@
 /// Publica um evento de notificação de nova versão nos relays Nostr.
 ///
 /// Uso:
-///   BESTFIN_DEV_NOSTR_PRIVKEY=<hex> dart run scripts/publish_update.dart \
+///   BESTFIN_DEV_NOSTR_PRIVKEY=<hex|nsec> dart run scripts/publish_update.dart \
 ///     --version 1.2.0 \
 ///     [--changelog "Descrição das mudanças"] \
 ///     [--download-url "https://github.com/user/bestfin/releases/tag/v1.2.0"] \
@@ -9,7 +9,11 @@
 ///
 /// A chave privada do desenvolvedor deve ser fornecida via variável de ambiente
 /// BESTFIN_DEV_NOSTR_PRIVKEY (nunca commite a chave no repositório).
-/// Pubkey correspondente: df0e05800998ec8159e052491107294b2f85d6594ea9d45ebc9765c98a2d8c70
+/// Aceita hex (64 chars), nsec (bech32) ou caminho de arquivo.
+///
+/// Modo utilitário:
+///   dart run scripts/publish_update.dart --to-hex <npub|nsec|hex>
+///   Converte qualquer formato de chave para hex e imprime na stdout.
 ///
 /// Evento kind:30078, d-tag 'app_update' (NIP-33, replaceable).
 /// Conteúdo em JSON plain-text — sem cifragem: são anúncios públicos.
@@ -33,7 +37,31 @@ const _defaultRelays = [
   'wss://offchain.pub',
 ];
 
+/// Converte bech32 (nsec/npub) para hex, se necessário.
+/// Retorna o próprio input se já for hex (64 chars).
+String _toHex(String key) {
+  if (key.length == 64 && RegExp(r'^[0-9a-f]+$').hasMatch(key)) {
+    return key;
+  }
+  final n = Nostr()..disableLogs();
+  if (key.startsWith('nsec1')) {
+    return n.bech32.decodeNsecKeyToPrivateKey(key);
+  }
+  if (key.startsWith('npub1')) {
+    return n.bech32.decodeNpubKeyToPublicKey(key);
+  }
+  throw ArgumentError('Formato de chave inválido: $key');
+}
+
 Future<void> main(List<String> args) async {
+  // ── Modo utilitário: --to-hex converte qualquer chave para hex ──
+  for (var i = 0; i < args.length; i++) {
+    if (args[i] == '--to-hex' && i + 1 < args.length) {
+      print(_toHex(args[i + 1]));
+      return;
+    }
+  }
+
   String? version;
   String? changelog;
   String? downloadUrl;
@@ -57,10 +85,16 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
-  final privkeyHex = Platform.environment['BESTFIN_DEV_NOSTR_PRIVKEY'];
-  if (privkeyHex == null || privkeyHex.isEmpty) {
+  final privkeyRaw = Platform.environment['BESTFIN_DEV_NOSTR_PRIVKEY'];
+  if (privkeyRaw == null || privkeyRaw.isEmpty) {
     stderr.writeln('Erro: variável BESTFIN_DEV_NOSTR_PRIVKEY não definida.');
     exit(1);
+  }
+
+  final privkeyHex = _toHex(privkeyRaw);
+  // Se veio como nsec, avisa que foi convertido
+  if (privkeyRaw != privkeyHex) {
+    stdout.writeln('Chave privada convertida de bech32 para hex.');
   }
 
   final payload = jsonEncode({

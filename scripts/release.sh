@@ -15,17 +15,30 @@
 #
 # Argumentos:
 #   <versão>              Versão no formato X.Y.Z (obrigatório)
+#                         Ou use "patch", "minor" ou "major" para bump incremental
+#                         (lê a versão atual de pubspec.yaml)
 #
 # Opções:
-#   --changelog <texto>      Notas de release (padrão: "Release vX.Y.Z")
+#   --changelog <texto>      Notas de release (sobrepõe o CHANGELOG.md)
+#   --changelog-file <path>  Lê notas de release de um arquivo (sobrepõe o CHANGELOG.md)
+#
+#   Sem essas opções, as notas são extraídas automaticamente do CHANGELOG.md:
+#     1. Da seção "## vX.Y.Z", se existir; senão
+#     2. Da seção "## Unreleased" — nesse caso o cabeçalho é renomeado para
+#        "## vX.Y.Z (data)" e o CHANGELOG.md entra no commit de bump.
+#   O release falha se nenhuma das duas seções existir, então escreva as
+#   notas no CHANGELOG.md (e faça commit) antes de rodar o script.
+#   A seção Unreleased combina bem com --auto-bump: escreva as notas sem
+#   se preocupar com o número da versão.
 #   --critical               Marca como atualização crítica (banner vermelho no app)
 #   --nostr-key-file <path>  Lê a chave Nostr (hex) do arquivo em vez da env var
 #   --skip-build             Pula a compilação (útil se os binários já existem)
 #   --skip-nostr             Pula a publicação Nostr
 #   --dry-run                Imprime os passos sem executar nada destrutivo
+#   --auto-bump              Se a versão for "patch|minor|major", faz bump automático
 #
 # Pré-requisitos:
-#   - BESTFIN_DEV_NOSTR_PRIVKEY exportada no ambiente (valor hex ou caminho de
+#   - BESTFIN_DEV_NOSTR_PRIVKEY exportada no ambiente (hex, nsec ou caminho de
 #     arquivo contendo a chave), ou use --nostr-key-file / --skip-nostr
 #   - android/key.properties e android/bestfin-release.jks presentes (APK assinado)
 #   - gh CLI autenticado (gh auth login)
@@ -34,11 +47,29 @@
 # Exemplo:
 #   BESTFIN_DEV_NOSTR_PRIVKEY=abc123 ./scripts/release.sh 1.1.0 \
 #     --changelog "Melhoria de performance e correções de bugs"
+#
+# Ou usando um arquivo de changelog:
+#   BESTFIN_DEV_NOSTR_PRIVKEY=abc123 ./scripts/release.sh 1.1.0 \
+#     --changelog-file RELEASE_NOTES.md
+#
+# Ou bump automático de versão (patch, minor, major):
+#   BESTFIN_DEV_NOSTR_PRIVKEY=abc123 ./scripts/release.sh minor \
+#     --auto-bump --changelog "Novas funcionalidades menores"
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# ── Load .env (secrets, nunca commitado) ──────────────────────────────────────
+# Se existir, carrega as variáveis exportando-as automaticamente.
+if [[ -f "$PROJECT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$PROJECT_DIR/.env"
+  set +a
+  info "Variáveis carregadas de .env"
+fi
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +79,7 @@ err()   { echo "[release] ✗ $*" >&2; exit 1; }
 step()  { echo; echo "══ $* ══"; }
 
 dry_run=false
+auto_bump=false
 run() {
   if $dry_run; then
     echo "  [dry-run] $*"
@@ -56,23 +88,46 @@ run() {
   fi
 }
 
+# Função para bump automático de versão
+# Se VERSION for "patch", "minor" ou "major", calcula a nova versão
+compute_auto_bump() {
+  local current_version
+  current_version=$(grep '^version:' pubspec.yaml | grep -oP '\d+\.\d+\.\d+' || echo "0.0.0")
+  
+  local major minor patch
+  IFS='.' read -r major minor patch <<< "$current_version"
+  
+  case "$VERSION" in
+    patch) patch=$((patch + 1)) ;;
+    minor) minor=$((minor + 1)); patch=0 ;;
+    major) major=$((major + 1)); minor=0; patch=0 ;;
+    *) return 1 ;;
+  esac
+  
+  echo "${major}.${minor}.${patch}"
+}
+
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
 VERSION=""
 CHANGELOG=""
+CHANGELOG_FILE=""
 CRITICAL=false
 SKIP_BUILD=false
 SKIP_NOSTR=false
 NOSTR_KEY_FILE=""
+AUTO_BUMP=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --changelog)      CHANGELOG="$2";      shift 2 ;;
+    --changelog-file) CHANGELOG_FILE="$2"; shift 2 ;;
     --critical)       CRITICAL=true;       shift ;;
     --nostr-key-file) NOSTR_KEY_FILE="$2"; shift 2 ;;
     --skip-build)     SKIP_BUILD=true;     shift ;;
     --skip-nostr)     SKIP_NOSTR=true;     shift ;;
     --dry-run)        dry_run=true;        shift ;;
+    --auto-bump)      AUTO_BUMP=true;      shift ;;
     -*)            err "Opção desconhecida: $1" ;;
     *)
       if [[ -z "$VERSION" ]]; then
@@ -84,12 +139,58 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Processa bump automático se habilitado
+if $AUTO_BUMP && [[ "$VERSION" =~ ^(patch|minor|major)$ ]]; then
+  NEW_VERSION=$(compute_auto_bump)
+  if [[ $? -ne 0 ]]; then
+    err "Falha ao calcular bump automático para '$VERSION'"
+  fi
+  VERSION="$NEW_VERSION"
+  info "Bump automático: versão → $VERSION"
+fi
+
 [[ -n "$VERSION" ]] || err "Uso: $0 <versão> [opções]  (ex: $0 1.1.0 --changelog 'Novas funcionalidades')"
 
 # Valida formato X.Y.Z
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || err "Versão inválida '$VERSION'. Use o formato X.Y.Z"
 
-[[ -z "$CHANGELOG" ]] && CHANGELOG="Release v${VERSION}"
+# Extrai uma seção do CHANGELOG.md (do cabeçalho "## <token>" até a próxima
+# seção "## "), sem os cabeçalhos e sem linhas em branco nas pontas.
+# O token é comparado com o segundo campo do cabeçalho, então funciona para
+# "## v1.2.3", "## v1.2.3 (data)" e "## Unreleased".
+extract_changelog_section() {
+  local file="$1" target="$2"
+  awk -v target="$target" '
+    /^## / {
+      if (found) exit
+      if ($2 == target) { found = 1; next }
+    }
+    found { print }
+  ' "$file" | sed -e '/./,$!d' | sed -e ':a' -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
+}
+
+# Processa changelog: prioridade --changelog > --changelog-file > CHANGELOG.md
+RENAME_UNRELEASED=false
+if [[ -n "$CHANGELOG" ]]; then
+  : # já está em CHANGELOG
+elif [[ -n "$CHANGELOG_FILE" ]]; then
+  [[ -f "$CHANGELOG_FILE" ]] \
+    || err "Arquivo de changelog não encontrado: $CHANGELOG_FILE"
+  CHANGELOG="$(cat "$CHANGELOG_FILE")"
+else
+  CHANGELOG_MD="$PROJECT_DIR/CHANGELOG.md"
+  [[ -f "$CHANGELOG_MD" ]] || err "CHANGELOG.md não encontrado em $PROJECT_DIR"
+  CHANGELOG="$(extract_changelog_section "$CHANGELOG_MD" "v${VERSION}")"
+  if [[ -n "$CHANGELOG" ]]; then
+    info "Notas de release extraídas do CHANGELOG.md (seção v${VERSION})"
+  else
+    CHANGELOG="$(extract_changelog_section "$CHANGELOG_MD" "Unreleased")"
+    [[ -n "$CHANGELOG" ]] \
+      || err "Nenhuma seção '## v${VERSION}' nem '## Unreleased' com conteúdo no CHANGELOG.md. Escreva as notas da versão antes do release, ou use --changelog/--changelog-file."
+    RENAME_UNRELEASED=true
+    info "Notas de release extraídas do CHANGELOG.md (seção Unreleased → v${VERSION})"
+  fi
+fi
 
 DOWNLOAD_URL="https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo 'owner/bestfin')/releases/tag/v${VERSION}"
 
@@ -153,13 +254,42 @@ info "app_info.dart: kAppVersion → '${VERSION}'"
 run sed -i "s/const String kAppVersion = '.*'/const String kAppVersion = '${VERSION}'/" \
   lib/core/constants/app_info.dart
 
+# Se a env var BESTFIN_DEV_NOSTR_PUBKEY foi definida (via .env ou ambiente),
+# atualiza a pubkey embutida no app para bater com a chave usada no release.
+CURRENT_PUBKEY=$(grep -oP "kDeveloperNostrPubkey = '\\K[^']+" lib/core/constants/app_info.dart)
+PUBKEY="${BESTFIN_DEV_NOSTR_PUBKEY:-}"
+if [[ -n "$PUBKEY" && "$CURRENT_PUBKEY" != "$PUBKEY" ]]; then
+  # Se for caminho de arquivo, lê o conteúdo
+  if [[ -f "$PUBKEY" ]]; then
+    info "Lendo pubkey do arquivo: $PUBKEY"
+    PUBKEY=$(tr -d '[:space:]' < "$PUBKEY")
+  fi
+  # Converte npub → hex automaticamente
+  if [[ "$PUBKEY" == npub1* ]]; then
+    info "Convertendo npub → hex..."
+    PUBKEY=$(nix develop -c dart run scripts/publish_update.dart --to-hex "$PUBKEY" 2>/dev/null)
+  fi
+  info "app_info.dart: kDeveloperNostrPubkey → '${PUBKEY}'"
+  run sed -i "s/const String kDeveloperNostrPubkey = '.*'/const String kDeveloperNostrPubkey = '${PUBKEY}'/" \
+    lib/core/constants/app_info.dart
+fi
+
+BUMP_FILES=(pubspec.yaml lib/core/constants/app_info.dart)
+
+if $RENAME_UNRELEASED; then
+  RELEASE_DATE="$(date +%F)"
+  info "CHANGELOG.md: ## Unreleased → ## v${VERSION} (${RELEASE_DATE})"
+  run sed -i "0,/^## Unreleased.*/s//## v${VERSION} (${RELEASE_DATE})/" CHANGELOG.md
+  BUMP_FILES+=(CHANGELOG.md)
+fi
+
 ok "Versão atualizada"
 
 # ── Commit + tag ──────────────────────────────────────────────────────────────
 
 step "Commit e tag v${VERSION}"
 
-run git add pubspec.yaml lib/core/constants/app_info.dart
+run git add "${BUMP_FILES[@]}"
 run git commit -m "chore(release): bump version para v${VERSION}"
 run git tag "v${VERSION}"
 run git push origin HEAD "v${VERSION}"
