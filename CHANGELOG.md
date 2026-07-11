@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.11 (2026-07-11)
 
 ### Corrigido
 - Erro de encoding com caracteres UTF-8 (═, ─) no script de release
