@@ -236,7 +236,7 @@ class _CategorySelector extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                selected?.name ?? 'Toque para selecionar',
+                selected?.displayName ?? 'Toque para selecionar',
                 style: tt.bodyMedium?.copyWith(
                   color: selected != null ? cs.onSurface : cs.onSurfaceVariant,
                 ),

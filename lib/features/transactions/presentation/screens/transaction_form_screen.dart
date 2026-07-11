@@ -169,7 +169,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedCreditCardId = tx?.creditCardId;
 
     _categoryId = tx?.categoryId ?? draft?.categoryId;
-    _categoryName = tx?.category?.name;
+    _categoryName = tx?.category?.displayName;
     _categoryColor = tx?.category?.color;
     _categoryIcon = tx?.category?.icon;
 
@@ -186,7 +186,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (_categoryId != null && _categoryName == null) {
       for (final c in ref.read(allFlatCategoriesProvider)) {
         if (c.id == _categoryId) {
-          _categoryName = c.name;
+          _categoryName = c.displayName;
           _categoryColor = c.color;
           _categoryIcon = c.icon;
           break;

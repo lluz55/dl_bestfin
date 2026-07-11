@@ -139,10 +139,14 @@ class _TileRow extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          category.name,
-                          style: tt.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
+                        Flexible(
+                          child: Text(
+                            category.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -256,9 +260,13 @@ class _SubcategoryTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      category.name,
-                      style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                    Flexible(
+                      child: Text(
+                        category.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                      ),
                     ),
                     const SizedBox(width: 6),
                     _TypeBadge(

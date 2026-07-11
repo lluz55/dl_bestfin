@@ -272,11 +272,15 @@ class TransactionTile extends ConsumerWidget {
       subtitleWidget = Row(
         children: [
           if (transaction.entity != null) ...[
-            Text(
-              transaction.entity!.name,
-              style: tt.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                transaction.entity!.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const SizedBox(width: 5),
@@ -290,11 +294,15 @@ class TransactionTile extends ConsumerWidget {
             ),
             const SizedBox(width: 5),
           ],
-          Text(
-            DateFormatter.formatRelativeDate(transaction.date),
-            style: AppTypography.monospace.copyWith(
-              fontSize: 10,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+          Flexible(
+            child: Text(
+              DateFormatter.formatRelativeDate(transaction.date),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.monospace.copyWith(
+                fontSize: 10,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
             ),
           ),
         ],

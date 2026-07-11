@@ -320,7 +320,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
                       ),
                       for (var category in categories)
                         ListTile(
-                          title: Text(category.name),
+                          title: Text(category.displayName),
                           leading: Container(
                             width: 36,
                             height: 36,
@@ -405,7 +405,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
         (c) => c.id == filters.categoryId,
         orElse: () => categories.first,
       );
-      categoryLabel = cat.name;
+      categoryLabel = cat.displayName;
     }
 
     String dateLabel = 'Período';

@@ -24,13 +24,20 @@ class BudgetRepositoryImpl implements BudgetRepository {
     Budget budget, {
     required int spent,
     int pending = 0,
+    Map<String, String>? parentIdByChild,
   }) async {
     String? name, color, icon;
     try {
       final cat = await _db.categoriesDao.getCategoryById(budget.categoryId);
-      name = cat.name;
       color = cat.color;
       icon = cat.icon;
+      final parentId = parentIdByChild?[cat.id];
+      if (parentId != null) {
+        final parent = await _db.categoriesDao.getCategoryById(parentId);
+        name = '${parent.name}/${cat.name}';
+      } else {
+        name = cat.name;
+      }
     } catch (_) {}
     return BudgetModel.fromDbWithSpending(
       budget,
@@ -42,15 +49,28 @@ class BudgetRepositoryImpl implements BudgetRepository {
     );
   }
 
+  /// childCategoryId → parentCategoryId (primeiro pai encontrado), usado para
+  /// exibir o nome como "Pai/Filho" nos envelopes.
+  Future<Map<String, String>> _parentIdByChild() async {
+    final rels = await _db.categoriesDao.getAllRelationships();
+    return {for (final r in rels) r.childCategoryId: r.parentCategoryId};
+  }
+
   @override
   Stream<List<BudgetModel>> watchBudgetsForPeriod(int year, int month) {
     return _db.budgetsDao.watchBudgetsWithSpending(year, month).asyncMap((
       items,
     ) async {
+      final parents = await _parentIdByChild();
       final result = <BudgetModel>[];
       for (final item in items) {
         result.add(
-          await _enrich(item.budget, spent: item.spent, pending: item.pending),
+          await _enrich(
+            item.budget,
+            spent: item.spent,
+            pending: item.pending,
+            parentIdByChild: parents,
+          ),
         );
       }
       return result;
@@ -60,10 +80,16 @@ class BudgetRepositoryImpl implements BudgetRepository {
   @override
   Future<List<BudgetModel>> getBudgetsForPeriod(int year, int month) async {
     final items = await _db.budgetsDao.getBudgetsWithSpending(year, month);
+    final parents = await _parentIdByChild();
     final result = <BudgetModel>[];
     for (final item in items) {
       result.add(
-        await _enrich(item.budget, spent: item.spent, pending: item.pending),
+        await _enrich(
+          item.budget,
+          spent: item.spent,
+          pending: item.pending,
+          parentIdByChild: parents,
+        ),
       );
     }
     return result;

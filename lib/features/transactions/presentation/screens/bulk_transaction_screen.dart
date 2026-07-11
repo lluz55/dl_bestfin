@@ -180,7 +180,7 @@ class _BulkTransactionScreenState extends ConsumerState<BulkTransactionScreen> {
       row.amountInCents = tx.amount;
       row.categoryId = tx.categoryId;
       if (tx.category != null) {
-        row.categoryName = tx.category!.name;
+        row.categoryName = tx.category!.displayName;
         row.categoryColor = tx.category!.color;
         row.categoryIcon = tx.category!.icon;
       }

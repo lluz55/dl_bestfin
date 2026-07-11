@@ -111,10 +111,22 @@ class RecurringRepositoryImpl implements RecurringRepository {
         .toSet()
         .toList();
     final categoriesById = <String, db.Category>{};
+    // childCategoryId → parentCategoryId, para exibir "Pai/Filho".
+    final parentIdByChild = <String, String>{};
     if (categoryIds.isNotEmpty) {
+      final rels = await _database.categoriesDao.getAllRelationships();
+      for (final r in rels) {
+        if (categoryIds.contains(r.childCategoryId)) {
+          parentIdByChild.putIfAbsent(
+            r.childCategoryId,
+            () => r.parentCategoryId,
+          );
+        }
+      }
+      final neededIds = {...categoryIds, ...parentIdByChild.values}.toList();
       final categories = await (_database.select(
         _database.categories,
-      )..where((c) => c.id.isIn(categoryIds))).get();
+      )..where((c) => c.id.isIn(neededIds))).get();
       for (final cat in categories) {
         categoriesById[cat.id] = cat;
       }
@@ -134,6 +146,12 @@ class RecurringRepositoryImpl implements RecurringRepository {
       final cat = baseTx?.categoryId != null
           ? categoriesById[baseTx!.categoryId!]
           : null;
+      final parent = cat != null
+          ? categoriesById[parentIdByChild[cat.id]]
+          : null;
+      final categoryName = cat == null
+          ? null
+          : (parent != null ? '${parent.name}/${cat.name}' : cat.name);
       final entry = baseTx != null ? firstEntryByTxId[baseTx.id] : null;
 
       return RecurringRuleModel.fromDb(
@@ -142,7 +160,7 @@ class RecurringRepositoryImpl implements RecurringRepository {
         type: baseTx?.type,
         amountInCents: entry?.amount,
         categoryId: baseTx?.categoryId,
-        categoryName: cat?.name,
+        categoryName: categoryName,
         categoryColor: cat?.color,
         categoryIcon: cat?.icon,
         accountId: entry?.accountId,

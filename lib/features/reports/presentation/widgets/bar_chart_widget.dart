@@ -202,10 +202,15 @@ class CategoryBarChartWidget extends StatefulWidget {
   final List<({String label, int amount, Color color})> items;
   final int maxAmount;
 
+  /// Toque numa barra (por índice). Quando nulo, as barras não são tocáveis —
+  /// preservando o comportamento das telas de relatório.
+  final void Function(int index)? onBarTap;
+
   const CategoryBarChartWidget({
     super.key,
     required this.items,
     required this.maxAmount,
+    this.onBarTap,
   });
 
   @override
@@ -256,7 +261,7 @@ class _CategoryBarChartWidgetState extends State<CategoryBarChartWidget>
                 ? (item.amount / widget.maxAmount) * staggerT
                 : 0.0;
 
-            return Padding(
+            final row = Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
@@ -309,6 +314,13 @@ class _CategoryBarChartWidgetState extends State<CategoryBarChartWidget>
                   ),
                 ],
               ),
+            );
+
+            if (widget.onBarTap == null) return row;
+            return InkWell(
+              onTap: () => widget.onBarTap!(i),
+              borderRadius: BorderRadius.circular(8),
+              child: row,
             );
           }),
         );

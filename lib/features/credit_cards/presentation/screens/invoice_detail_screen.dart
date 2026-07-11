@@ -272,7 +272,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
           return TransactionItem(
             title: tx.description,
-            category: tx.category?.name ?? 'Sem Categoria',
+            category: tx.category?.displayName ?? 'Sem Categoria',
             amountInCents: amountInCents,
             date: dateStr,
             icon: tx.category?.iconData ?? Icons.receipt_long_outlined,
