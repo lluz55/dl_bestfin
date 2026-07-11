@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.10 (2026-07-11)
 
 ### Adicionado
 - Orçamento mensal com múltiplas categorias e rollover automático (Task 29)
