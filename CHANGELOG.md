@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Adicionado
+- Orçamento mensal com múltiplas categorias e rollover automático (Task 29)
+- Modelo renovado de insights financeiros e sistema de badges (gamificação)
+- Painel de detalhe de categoria com visão aprofundada
+- Widget visual de conta e reformulação completa das telas de contas
+- Modal informativo centralizado para páginas (info modal)
+- ReportCardPair: widget que coloca cards lado a lado em telas largas
+- Geração de par de chaves Nostr (scripts/generate_keypair.dart)
+- Suporte a chaves bech32 (nsec/npub) nos scripts de release e notificação
+- Script release.sh com auto-bump de versão (patch/minor/major)
+
+### Melhorado
+- Layouts adaptativos e refinamentos em telas grandes (tablet/desktop)
+- Padronização do chrome dos modais bottom sheet em todo o app
+- Refatoração dos widgets de gráfico para responsividade (bar, donut, line, heatmap, treemap, sankey, waterfall)
+- Fluxo de release automatizado com extração de notas do CHANGELOG.md
+
+### Documentação
+- Protocolo OKF para agentes de IA (docs/okf/)
+- Guia de performance e otimização no AGENTS.md
+
 ## v1.0.9 (2026-07-11)
 
 ### Adicionado
