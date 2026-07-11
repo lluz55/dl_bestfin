@@ -61,6 +61,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+info()  { echo "[release] $*"; }
+ok()    { echo "[release] ✓ $*"; }
+err()   { echo "[release] ✗ $*" >&2; exit 1; }
+step()  { echo; echo "══ $* ══"; }
+
 # ── Load .env (secrets, nunca commitado) ──────────────────────────────────────
 # Se existir, carrega as variáveis exportando-as automaticamente.
 if [[ -f "$PROJECT_DIR/.env" ]]; then
@@ -70,13 +77,6 @@ if [[ -f "$PROJECT_DIR/.env" ]]; then
   set +a
   info "Variáveis carregadas de .env"
 fi
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-info()  { echo "[release] $*"; }
-ok()    { echo "[release] ✓ $*"; }
-err()   { echo "[release] ✗ $*" >&2; exit 1; }
-step()  { echo; echo "══ $* ══"; }
 
 dry_run=false
 auto_bump=false
