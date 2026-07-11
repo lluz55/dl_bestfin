@@ -48,3 +48,73 @@
 ### Melhorado
 - Período global na Home
 - Otimizações na camada de dados (Tasks 44, 45)
+
+## v1.0.5 (2026-07-10)
+
+### Adicionado
+- Restauração de backup direto do onboarding (Task 41)
+- Tutorial ampliado e atalhos na sidebar (Task 42)
+- Agrupamento de lançamentos e exclusão em massa na lista de transações (ext. Task 38)
+- Relatório em PDF com gráficos e insights (Tasks 14, 40, 43)
+
+### Corrigido
+- Correções de exportação e versionamento de backup
+- Limpeza do header
+
+## v1.0.4 (2026-07-09)
+
+### Adicionado
+- Lançamento em massa de transações (Task 38)
+- Perfil de usuário (Task 39)
+
+## v1.0.3 (2026-07-08)
+
+### Corrigido
+- "Apagar todos os dados" deixou de bloquear a interface (spinner infinito)
+
+## v1.0.2 (2026-07-07)
+
+### Adicionado
+- Fluxo de onboarding e seleção de tema (Tasks 35-37)
+
+### Corrigido
+- Correções de UX em relatórios e no lançamento de transações
+
+## v1.0.1 (2026-07-06)
+
+### Adicionado
+- Status pendente/confirmado em transações, com orçamento e fluxo de caixa projetados
+- Valores pendentes exibidos nos gráficos de categoria, mensal e da dashboard
+- Notificações locais e lembretes agendados
+- Predição de categoria ao lançar transações
+- Tutorial guiado no onboarding
+- Fluxo de recuperação de cliente com criptografia
+
+### Melhorado
+- Padronização dos estilos visuais de botão em todo o app (Task 34)
+- Agregação do fluxo de caixa e do gráfico de barras sem ordenar todo o histórico de transações
+- Debounce e autodispose no autocomplete e na predição de categoria
+- Layouts responsivos e modais adaptativos
+
+### Alterado
+- Sincronização migrada do backend Go para transporte serverless via Nostr
+
+### Removido
+- Funcionalidades de IA/LLM local
+- Servidor backend em Go
+
+## v1.0.0 (2026-06-04)
+
+Primeira versão pública.
+
+### Destaques
+- Lançamentos com recorrência, parcelamento, transferências, duplicação e sugestões
+- Cartões de crédito com faturas e planos de parcelamento
+- Categorias hierárquicas (pai/filho com aninhamento arbitrário) e ícones personalizáveis
+- Metas de economia com progresso, contribuições e metas recorrentes
+- Investimentos (acompanhamento de carteira) e financiamentos (amortização SAC/Price)
+- Relatórios com gráficos financeiros e importação de extratos em PDF
+- Backup e restauração locais
+- Gamificação: streaks, badges e sistema de XP
+- Widgets personalizáveis na Home e atalhos configuráveis
+- Sincronização entre dispositivos com fila offline

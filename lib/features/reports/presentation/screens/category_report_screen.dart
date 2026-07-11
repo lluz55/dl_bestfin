@@ -5,6 +5,7 @@ import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/donut_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/bar_chart_widget.dart';
+import 'package:bestfin/features/reports/presentation/widgets/report_card_pair.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -64,44 +65,86 @@ class _CategoryReportContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Total card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Total gasto',
-                  style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  CurrencyFormatter.formatCents(report.totalExpense),
-                  style: tt.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+        ReportCardPair(
+          first: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total gasto',
+                    style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    CurrencyFormatter.formatCents(report.totalExpense),
+                    style: tt.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _InfoRow(
+                    icon: Icons.category_outlined,
+                    label: 'Categorias',
+                    value: '${report.items.length}',
+                    tt: tt,
+                    cs: cs,
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.trending_flat_rounded,
+                    label: 'Média por categoria',
+                    value: CurrencyFormatter.formatCents(
+                      report.totalExpense ~/ report.items.length,
+                    ),
+                    tt: tt,
+                    cs: cs,
+                  ),
+                  if (report.items
+                          .fold<int>(0, (s, e) => s + e.pendingAmountInCents) >
+                      0) ...[
+                    const SizedBox(height: 8),
+                    _InfoRow(
+                      icon: Icons.schedule_outlined,
+                      label: 'Pendente',
+                      value: CurrencyFormatter.formatCents(
+                        report.items.fold<int>(
+                          0,
+                          (s, e) => s + e.pendingAmountInCents,
+                        ),
+                      ),
+                      tt: tt,
+                      cs: cs,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'Período',
+                    value:
+                        '${report.startDate.day}/${report.startDate.month} — ${report.endDate.day}/${report.endDate.month}',
+                    tt: tt,
+                    cs: cs,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-
-        // Donut chart
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Gastos por categoria', style: tt.titleMedium),
-                const SizedBox(height: 16),
-                DonutChartWidget(
-                  items: report.items,
-                  totalInCents: report.totalExpense,
-                ),
-              ],
+          second: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Gastos por categoria', style: tt.titleMedium),
+                  const SizedBox(height: 16),
+                  DonutChartWidget(
+                    items: report.items,
+                    totalInCents: report.totalExpense,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -120,6 +163,41 @@ class _CategoryReportContent extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final TextTheme tt;
+  final ColorScheme cs;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tt,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: tt.labelMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );

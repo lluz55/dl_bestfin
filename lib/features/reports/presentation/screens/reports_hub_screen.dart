@@ -11,6 +11,7 @@ import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/heatmap_widget.dart';
+import 'package:bestfin/features/reports/presentation/widgets/report_card_pair.dart';
 import 'package:bestfin/features/reports/presentation/widgets/report_filters_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/treemap_widget.dart';
 import 'package:bestfin/features/reports/presentation/screens/screens.dart';
@@ -258,7 +259,7 @@ class _ReportHubCardState extends State<_ReportHubCard> {
 
 // ─── Largura máxima padronizada para gráficos em telas largas ────────────────
 // Impede que cards e gráficos se alarguem horizontalmente de forma ilimitada.
-const _kReportContentMaxWidth = 720.0;
+const _kReportContentMaxWidth = 960.0;
 
 // ─── Master-detail (telas expandidas) ────────────────────────────────────────
 
@@ -486,53 +487,54 @@ class _MapaContent extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Quando você gasta', style: tt.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Dia da semana × hora do dia',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+            ReportCardPair(
+              first: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Quando você gasta', style: tt.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Dia da semana × hora do dia',
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (heatCells.isEmpty)
-                      const _EmptyMessage(message: 'Nenhuma despesa no período')
-                    else
-                      SpendingHeatmapWidget(cells: heatCells.values.toList()),
-                  ],
+                      const SizedBox(height: 16),
+                      if (heatCells.isEmpty)
+                        const _EmptyMessage(message: 'Nenhuma despesa no período')
+                      else
+                        SpendingHeatmapWidget(cells: heatCells.values.toList()),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Treemap de categorias', style: tt.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Área proporcional ao gasto',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+              second: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Treemap de categorias', style: tt.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Área proporcional ao gasto',
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (treemapNodes.isEmpty)
-                      const _EmptyMessage(message: 'Nenhuma despesa no período')
-                    else
-                      SizedBox(
-                        height: 280,
-                        child: TreemapWidget(nodes: treemapNodes),
-                      ),
-                  ],
+                      const SizedBox(height: 16),
+                      if (treemapNodes.isEmpty)
+                        const _EmptyMessage(message: 'Nenhuma despesa no período')
+                      else
+                        SizedBox(
+                          height: 280,
+                          child: TreemapWidget(nodes: treemapNodes),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

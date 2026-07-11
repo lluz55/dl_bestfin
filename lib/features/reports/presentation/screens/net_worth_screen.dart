@@ -5,6 +5,7 @@ import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/line_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/comparison_indicator.dart';
+import 'package:bestfin/features/reports/presentation/widgets/report_card_pair.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -37,45 +38,44 @@ class _NetWorthContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Current net worth hero
-        Card(
-          color: cs.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Patrimônio Líquido',
-                  style: tt.labelLarge?.copyWith(color: cs.onPrimaryContainer),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  CurrencyFormatter.formatCents(report.currentNetWorth),
-                  style: tt.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: cs.onPrimaryContainer,
+        // Hero card + Line chart lado a lado em telas expandidas
+        ReportCardPair(
+          first: Card(
+            color: cs.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Patrimônio Líquido',
+                    style: tt.labelLarge?.copyWith(color: cs.onPrimaryContainer),
                   ),
-                ),
-                const SizedBox(height: 8),
-                ComparisonIndicator(changePercent: report.changePercent),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    CurrencyFormatter.formatCents(report.currentNetWorth),
+                    style: tt.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ComparisonIndicator(changePercent: report.changePercent),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-
-        // Line chart
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Evolução do patrimônio', style: tt.titleMedium),
-                const SizedBox(height: 16),
-                NetWorthLineChartWidget(points: report.points),
-              ],
+          second: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Evolução do patrimônio', style: tt.titleMedium),
+                  const SizedBox(height: 16),
+                  NetWorthLineChartWidget(points: report.points),
+                ],
+              ),
             ),
           ),
         ),

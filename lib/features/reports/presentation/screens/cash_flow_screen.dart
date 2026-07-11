@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
 import 'package:bestfin/features/reports/presentation/widgets/line_chart_widget.dart';
+import 'package:bestfin/features/reports/presentation/widgets/report_card_pair.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -79,76 +80,77 @@ class _CashFlowContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Saldo acumulado', style: tt.titleMedium),
-                const SizedBox(height: 16),
-                CashFlowLineChartWidget(points: report.points),
-              ],
+        ReportCardPair(
+          first: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Saldo acumulado', style: tt.titleMedium),
+                  const SizedBox(height: 16),
+                  CashFlowLineChartWidget(points: report.points),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Movimentações diárias', style: tt.titleMedium),
-                const SizedBox(height: 12),
-                ...report.points.map((p) {
-                  final net = p.income - p.expense;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 60,
-                          child: Text(
-                            '${p.date.day.toString().padLeft(2, '0')}/${p.date.month.toString().padLeft(2, '0')}',
-                            style: tt.labelSmall,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            '+ ${CurrencyFormatter.formatCents(p.income)}',
-                            style: tt.labelSmall?.copyWith(color: cs.primary),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            '- ${CurrencyFormatter.formatCents(p.expense)}',
-                            style: tt.labelSmall?.copyWith(color: cs.error),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        SizedBox(
-                          width: 90,
-                          child: Text(
-                            '${net >= 0 ? '+' : ''}${CurrencyFormatter.formatCents(net)}',
-                            style: tt.labelSmall?.copyWith(
-                              color: net >= 0 ? cs.tertiary : cs.error,
-                              fontWeight: FontWeight.w600,
+          second: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Movimentações diárias', style: tt.titleMedium),
+                  const SizedBox(height: 12),
+                  ...report.points.map((p) {
+                    final net = p.income - p.expense;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 60,
+                            child: Text(
+                              '${p.date.day.toString().padLeft(2, '0')}/${p.date.month.toString().padLeft(2, '0')}',
+                              style: tt.labelSmall,
                             ),
-                            textAlign: TextAlign.right,
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
+                          Expanded(
+                            child: Text(
+                              '+ ${CurrencyFormatter.formatCents(p.income)}',
+                              style: tt.labelSmall?.copyWith(color: cs.primary),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              '- ${CurrencyFormatter.formatCents(p.expense)}',
+                              style: tt.labelSmall?.copyWith(color: cs.error),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: 90,
+                            child: Text(
+                              '${net >= 0 ? '+' : ''}${CurrencyFormatter.formatCents(net)}',
+                              style: tt.labelSmall?.copyWith(
+                                color: net >= 0 ? cs.tertiary : cs.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
-        ),
+        ), // ReportCardPair
       ],
     );
   }

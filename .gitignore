@@ -62,6 +62,9 @@ data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 
+# Release artifacts
+bestfin-*.tar.gz
+
 # Local agent/tooling state
 .mcp.json
 .mimocode/

@@ -6,6 +6,7 @@ import 'package:bestfin/features/reports/presentation/providers/reports_provider
 import 'package:bestfin/features/reports/presentation/widgets/bar_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/waterfall_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/comparison_indicator.dart';
+import 'package:bestfin/features/reports/presentation/widgets/report_card_pair.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 
@@ -148,51 +149,51 @@ class _MonthlyReportContent extends StatelessWidget {
           const SizedBox(height: 16),
         ],
 
-        // Bar chart: receita vs despesa por mês
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Receita vs Despesa', style: tt.titleMedium),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _Legend(color: cs.primary, label: 'Receita'),
-                    const SizedBox(width: 12),
-                    _Legend(color: cs.error, label: 'Despesa'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                MonthlyBarChartWidget(bars: bars),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Waterfall para mês atual
-        if (currentBar != null)
-          Card(
+        // Bar chart + Waterfall lado a lado em telas expandidas
+        ReportCardPair(
+          first: Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Balanço do Mês (${currentBar.label})',
-                    style: tt.titleMedium,
+                  Text('Receita vs Despesa', style: tt.titleMedium),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _Legend(color: cs.primary, label: 'Receita'),
+                      const SizedBox(width: 12),
+                      _Legend(color: cs.error, label: 'Despesa'),
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  WaterfallChartWidget(
-                    income: currentBar.income,
-                    expense: currentBar.expense,
-                  ),
+                  MonthlyBarChartWidget(bars: bars),
                 ],
               ),
             ),
           ),
+          second: currentBar != null
+              ? Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Balanço do Mês (${currentBar.label})',
+                          style: tt.titleMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        WaterfallChartWidget(
+                          income: currentBar.income,
+                          expense: currentBar.expense,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
