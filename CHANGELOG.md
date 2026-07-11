@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Corrigido
+- Erro de encoding com caracteres UTF-8 (═, ─) no script de release
+- Avisos de pacotes desatualizados suprimidos durante o build
+
+### Melhorado
+- Script release.sh mais robusto: validações pós-sed, trap de erro, dry-run confiável
+- Build logs filtrados para remover ruído de versões de pacotes
+
 ## v1.0.10 (2026-07-11)
 
 ### Adicionado
