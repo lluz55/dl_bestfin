@@ -7,8 +7,31 @@ Um app de finanças pessoais focado em produtividade e automação, construído 
 - **Framework:** Flutter (Android, Linux, Web)
 - **Environment:** Nix Flake
 - **State Management:** Riverpod 3
-- **Local Database:** Drift (SQLite)
+- **Local Database:** Drift (SQLite) com SQLCipher (criptografia em repouso)
 - **Design:** Material Design 3 Expressive
+- **Sync:** Nostr (NIP-78) — E2E AES-256-GCM, serverless, sem backend próprio
+
+## Sincronização entre Dispositivos
+
+O sync é serverless: os dados são cifrados com AES-256-GCM na chave mestra do usuário antes de serem publicados em relays [Nostr](https://github.com/nostr-protocol) públicos. Nenhum relay vê dados em texto claro.
+
+Para sincronizar em outro dispositivo, basta importar o mesmo mnemônico BIP39 de 24 palavras — não há conta nem servidor de autenticação.
+
+## Notificações de Nova Versão
+
+Quando uma nova versão é publicada, todos os dispositivos com o app instalado recebem uma notificação automática via Nostr. O mecanismo usa um keypair fixo do desenvolvedor (a chave pública está embutida no app); quando o relay entrega o evento, o app exibe um banner no topo da tela.
+
+Para publicar uma notificação de atualização após um release:
+
+```bash
+BESTFIN_DEV_NOSTR_PRIVKEY=<privkey> \
+  nix develop -c dart run scripts/publish_update.dart \
+    --version X.Y.Z \
+    --changelog "Descrição das mudanças" \
+    --download-url "https://github.com/user/bestfin/releases/tag/vX.Y.Z"
+```
+
+> A chave privada do desenvolvedor deve ser mantida como secret `BESTFIN_DEV_NOSTR_PRIVKEY` no CI e nunca commitada no repositório. A chave pública correspondente já está embutida em `lib/core/constants/app_info.dart`.
 
 ## Pré-requisitos
 

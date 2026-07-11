@@ -53,15 +53,17 @@ Não existe servidor próprio. `backend/` (Go + SQLite) foi removido — a sincr
 | `presentation/screens/mnemonic_display_screen.dart` / `mnemonic_recovery_screen.dart` | Exibe o mnemônico gerado / recupera identidade a partir dele — "recovery" no modelo Nostr é reimportar o mnemônico, pois ele **é** a identidade |
 | `presentation/screens/identity_qr_screen.dart` / `qr_scanner_screen.dart` | Pareamento de outro dispositivo via QR code do mnemônico |
 | `presentation/screens/household_screen.dart` | Gestão do household |
-| `presentation/screens/sync_settings_screen.dart` | Status de conexão por relay (`relay_status_section.dart`) |
-| `presentation/providers/sync_provider.dart` | `SyncStateNotifier` — auto-sync periódico (1min ativo / 10min background, com jitter), live sync, presença de peers |
+| `presentation/screens/sync_settings_screen.dart` | Status de conexão + gestão de relays (`relay_status_section.dart` / `relay_manager_section.dart`) |
+| `presentation/widgets/relay_manager_section.dart` | UI para adicionar/remover relays e restaurar os padrões (usa `relayListProvider`) |
+| `presentation/providers/sync_provider.dart` | `SyncStateNotifier` (auto-sync); `relayListProvider`/`RelayListNotifier` (lista de relays configurável) |
 
 ## Modelo de Dados (Nostr)
 
 - **Kind 30078** (NIP-78, "application-specific data", replaceable por `d`-tag).
 - Tags: `['d', entityId]` (chave de replace), `['t', entityType]` (ex.: `transaction`, `account`, `device_presence`), `['deleted', 'true']` opcional para tombstones.
 - `content`: payload JSON do registro, cifrado com AES-256-GCM usando a masterKey (nunca a chave privada Nostr).
-- `defaultRelays` (`nostr_sync_service.dart`): lista fixa de ~10 relays públicos verificados (sem paywall de escrita). Redundância: a sync segue funcionando enquanto ao menos 1 relay responder.
+- `defaultRelays` (`nostr_sync_service.dart`): lista padrão de ~10 relays públicos verificados (sem paywall de escrita). Redundância: a sync segue funcionando enquanto ao menos 1 relay responder.
+- **Relays configuráveis pelo usuário:** a lista pode ser personalizada (adicionar/remover) na tela de sync. É persistida por dispositivo em `SharedPreferences` (`nostr_custom_relays`), independente da identidade (sobrevive ao sign-out). `NostrSyncService.updateRelays`/`resetRelaysToDefaults` persistem e reconectam; `normalizeRelayUrl` valida/normaliza (prefixa `wss://`, tira barra final). Remover o último relay não é permitido; lista vazia cai para os padrões.
 
 ## Resiliência
 
@@ -69,6 +71,33 @@ Não existe servidor próprio. `backend/` (Go + SQLite) foi removido — a sincr
 - **Log local de eventos não confirmados** (`nostrEventLogDao`): todo evento é persistido localmente *antes* de publicar; `replayUnpublished()` reenvia o que não foi confirmado por nenhum relay.
 - **Paginação no pull**: relays limitam resultados por query (~500), então o pull pagina com `until` decrescente até uma página vazia.
 - **Live subscription**: assinatura Nostr mantida aberta (não fecha no EOSE) para reagir a mudanças remotas em segundos, com o poll periódico como rede de segurança.
+
+## Notificações de Atualização do App (Developer Broadcast)
+
+Além do sync de dados do usuário, o app assina um segundo canal Nostr controlado exclusivamente pelo desenvolvedor para receber notificações de nova versão.
+
+```
+Developer keypair (privkey no CI, pubkey embutida em kDeveloperNostrPubkey)
+  → evento kind:30078  d-tag:'app_update'
+     content: { version, changelog?, download_url?, published_at, is_critical }
+     conteúdo em JSON plain-text — SEM cifração (anúncio público)
+
+Cada instância do app:
+  startUpdateListener() → assinatura live authors:[kDeveloperNostrPubkey]
+  → _isNewerVersion(info.version, kAppVersion)
+  → emite em appUpdateEvents → appUpdateProvider
+  → banner _UpdateBanner no main.dart (persistente, dismissível, no topo)
+```
+
+| Item | Detalhe |
+|---|---|
+| Pubkey dev | `df0e05800998ec8159e052491107294b2f85d6594ea9d45ebc9765c98a2d8c70` |
+| Privkey dev | Secret `BESTFIN_DEV_NOSTR_PRIVKEY` no CI (nunca no repositório) |
+| Script de publicação | `scripts/publish_update.dart` |
+| Modelo | `domain/models/app_update_info.dart` |
+| Provider | `appUpdateProvider` em `sync_provider.dart` |
+
+O canal de atualização é independente da identidade do usuário — funciona mesmo sem sync ativo, desde que haja pelo menos um relay acessível.
 
 ## Dependências
 

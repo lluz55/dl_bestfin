@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bestfin/core/constants/app_info.dart';
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/features/sync/data/repositories/household_repository.dart';
 import 'package:bestfin/features/sync/data/services/nostr_sync_service.dart';
 import 'package:bestfin/features/sync/data/services/sync_service.dart';
 import 'package:bestfin/features/sync/data/services/sync_transport.dart';
+import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 import 'package:bestfin/features/sync/domain/models/household.dart';
 
 // ── Nostr transport (singleton) ───────────────────────────────────────────────
@@ -48,6 +52,55 @@ final relayStatusesProvider = StreamProvider<Map<String, RelayConnectionInfo>>((
 ) {
   return ref.watch(nostrSyncServiceProvider).relayStatusChanges;
 });
+
+// ── Relay list (user-configurable) ───────────────────────────────────────────
+
+/// Configured relay URLs (custom list or defaults). Mutations persist and
+/// reconnect through the NostrSyncService.
+final relayListProvider =
+    AsyncNotifierProvider<RelayListNotifier, List<String>>(
+      RelayListNotifier.new,
+    );
+
+class RelayListNotifier extends AsyncNotifier<List<String>> {
+  NostrSyncService get _service => ref.read(nostrSyncServiceProvider);
+
+  @override
+  Future<List<String>> build() => _service.loadConfiguredRelays();
+
+  /// Adds a relay. Returns null on success, or an error message to show.
+  Future<String?> addRelay(String rawUrl) async {
+    final url = NostrSyncService.normalizeRelayUrl(rawUrl);
+    if (url == null) {
+      return 'URL inválida. Use o formato wss://seu-relay.com';
+    }
+    final current = state.value ?? await _service.loadConfiguredRelays();
+    if (current.contains(url)) return 'Esse relay já está na lista';
+    await _apply([...current, url]);
+    return null;
+  }
+
+  /// Removes a relay. Returns null on success, or an error message to show.
+  Future<String?> removeRelay(String url) async {
+    final current = state.value ?? await _service.loadConfiguredRelays();
+    if (current.length <= 1) {
+      return 'Mantenha ao menos um relay para sincronizar';
+    }
+    await _apply(current.where((r) => r != url).toList());
+    return null;
+  }
+
+  Future<void> resetToDefaults() async {
+    state = const AsyncLoading();
+    await _service.resetRelaysToDefaults();
+    state = AsyncData(await _service.loadConfiguredRelays());
+  }
+
+  Future<void> _apply(List<String> next) async {
+    state = AsyncData(next);
+    await _service.updateRelays(next);
+  }
+}
 
 // Read isReady directly from the service — don't use a Provider<bool> wrapper
 // because Provider caches the value and won't recompute when internal mutable
@@ -505,3 +558,73 @@ final pendingSyncCountProvider = StreamProvider<int>((ref) {
 final syncBackgroundErrorsProvider = StreamProvider<String>((ref) {
   return ref.watch(syncStateProvider.notifier).backgroundErrors;
 });
+
+// ── App update notifications ──────────────────────────────────────────────────
+
+/// Persists and exposes the latest available app update.
+///
+/// On build, loads any previously received update from SharedPreferences so
+/// the banner and the Settings tile survive app restarts. When the Nostr
+/// listener delivers a newer version it is saved automatically. The update
+/// stays stored until the user explicitly dismisses it (via [clearUpdate])
+/// or until the installed version already matches or exceeds it (stale on
+/// next load).
+final appUpdateProvider =
+    AsyncNotifierProvider<AppUpdateNotifier, AppUpdateInfo?>(
+      AppUpdateNotifier.new,
+    );
+
+class AppUpdateNotifier extends AsyncNotifier<AppUpdateInfo?> {
+  static const _prefKey = 'bestfin_pending_update';
+
+  @override
+  Future<AppUpdateInfo?> build() async {
+    // Load persisted update first so the UI shows it before Nostr connects.
+    final persisted = await _loadPersisted();
+
+    // Start the Nostr listener and wire up incoming events.
+    final service = ref.read(nostrSyncServiceProvider);
+    unawaited(Future.microtask(service.startUpdateListener));
+    final sub = service.appUpdateEvents.listen(_onUpdateReceived);
+    ref.onDispose(sub.cancel);
+
+    return persisted;
+  }
+
+  Future<AppUpdateInfo?> _loadPersisted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefKey);
+      if (raw == null) return null;
+      final info = AppUpdateInfo.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      if (!info.isNewerThan(kAppVersion)) {
+        // Already on this version or newer — clean up stale entry.
+        await prefs.remove(_prefKey);
+        return null;
+      }
+      return info;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _onUpdateReceived(AppUpdateInfo info) async {
+    if (!info.isNewerThan(kAppVersion)) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKey, jsonEncode(info.toJson()));
+    } catch (_) {}
+    state = AsyncData(info);
+  }
+
+  /// Permanently removes the stored update (user chose to download or ignore).
+  Future<void> clearUpdate() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKey);
+    } catch (_) {}
+    state = const AsyncData(null);
+  }
+}

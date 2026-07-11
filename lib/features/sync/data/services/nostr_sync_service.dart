@@ -7,13 +7,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:bestfin/core/constants/app_info.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/features/sync/data/services/e2e_crypto_service.dart';
 import 'package:bestfin/features/sync/data/services/sync_transport.dart';
+import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 
 const _encMasterKeyKey = 'nostr_encrypted_master_key';
 const _kdfSaltKey = 'nostr_kdf_salt';
 const _localDeviceIdKey = 'sync_local_device_id';
+
+// SharedPreferences key holding the user's custom relay list (List<String>).
+// Absent/empty means "use defaultRelays". Persisted independently of the
+// identity, so it survives sign-out and identity re-import.
+const _customRelaysKey = 'nostr_custom_relays';
 
 // Random per-device KDF password (base64) used to wrap the master key at rest.
 // Replaces the pre-1.0.6 hardcoded '_legacyKekPassword' constant, so the
@@ -95,8 +102,20 @@ class NostrSyncService implements SyncTransport {
   final _liveEventController = StreamController<void>.broadcast();
   NostrEventsStream? _liveSubscription;
 
+  // Developer broadcast subscription: watches for app_update events published
+  // by the developer keypair (kDeveloperNostrPubkey). Events carry plain JSON
+  // content — no per-user masterKey encryption, since these are public
+  // announcements meant to reach every instance of the app.
+  final _appUpdateController = StreamController<AppUpdateInfo>.broadcast();
+  NostrEventsStream? _updateSubscription;
+
+  // When relays are passed explicitly (tests), skip loading the persisted list.
+  final bool _relaysExplicit;
+  bool _relaysLoaded = false;
+
   NostrSyncService(this._db, {List<String>? relays})
-    : relays = relays ?? defaultRelays;
+    : relays = relays ?? defaultRelays,
+      _relaysExplicit = relays != null;
 
   // ── SyncTransport interface ───────────────────────────────────────────────
 
@@ -647,6 +666,78 @@ class NostrSyncService implements SyncTransport {
   /// normal push/pull pipeline to keep merge logic in one place.
   Stream<void> get liveEvents => _liveEventController.stream;
 
+  /// Emits whenever the developer publishes a new version that is strictly
+  /// newer than the current [kAppVersion]. The subscription is kept open so
+  /// updates are delivered in real time without waiting for the next periodic
+  /// sync. Safe to call repeatedly — no-op once the subscription is open.
+  Stream<AppUpdateInfo> get appUpdateEvents => _appUpdateController.stream;
+
+  /// Opens a long-lived subscription for app_update events published by the
+  /// developer Nostr keypair. Requires at least one relay to be reachable;
+  /// silently no-ops when there is no relay connection yet.
+  Future<void> startUpdateListener() async {
+    if (_updateSubscription != null) return;
+    try {
+      final nostr = await _ensureConnected();
+      final filter = const NostrFilter(
+        authors: [kDeveloperNostrPubkey],
+        kinds: [_nostrKind],
+        // Replaceable events use the d-tag 'app_update', so only the most
+        // recent event per d-tag survives on NIP-33-compliant relays.
+        limit: 5,
+      );
+      final sub = nostr.relays.startEventsSubscription(
+        request: NostrRequest(filters: [filter]),
+      );
+      _updateSubscription = sub;
+      sub.stream.listen((event) {
+        // Extra client-side authorship check — some relays don't honour the
+        // authors filter strictly.
+        if (event.pubkey != kDeveloperNostrPubkey) return;
+        try {
+          final info = AppUpdateInfo.fromJson(
+            jsonDecode(event.content!) as Map<String, dynamic>,
+          );
+          if (_isNewerVersion(info.version, kAppVersion)) {
+            _appUpdateController.add(info);
+          }
+        } catch (e) {
+          debugPrint('[Sync] Falha ao parsear evento de atualização: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('[Sync] Falha ao iniciar listener de atualização: $e');
+    }
+  }
+
+  /// Returns true when [candidate] is strictly newer than [current], using
+  /// semver major.minor.patch ordering. Non-numeric segments are treated as 0.
+  static bool _isNewerVersion(String candidate, String current) {
+    List<int> parse(String v) => v
+        .split('.')
+        .map((s) => int.tryParse(s) ?? 0)
+        .toList();
+    final c = parse(candidate);
+    final r = parse(current);
+    for (var i = 0; i < 3; i++) {
+      final cv = i < c.length ? c[i] : 0;
+      final rv = i < r.length ? r[i] : 0;
+      if (cv > rv) return true;
+      if (cv < rv) return false;
+    }
+    return false;
+  }
+
+  Future<void> _stopUpdateListener() async {
+    final sub = _updateSubscription;
+    _updateSubscription = null;
+    if (sub != null) {
+      try {
+        sub.close();
+      } catch (_) {}
+    }
+  }
+
   Future<void> _stopLiveSync() async {
     final sub = _liveSubscription;
     _liveSubscription = null;
@@ -851,7 +942,99 @@ class NostrSyncService implements SyncTransport {
   /// Returns the Nostr instance with relays initialized, initializing them
   /// on first call. Lazy: relay connections are not established until the
   /// first push or pull so that loadIdentity() is non-blocking.
+  // ── Relay list management ─────────────────────────────────────────────────
+
+  /// Loads the persisted custom relay list into [relays] on first use. No-op
+  /// when relays were injected explicitly (tests) or already loaded.
+  Future<void> _ensureRelaysLoaded() async {
+    if (_relaysLoaded || _relaysExplicit) return;
+    _relaysLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(_customRelaysKey);
+      if (stored != null && stored.isNotEmpty) relays = stored;
+    } catch (e) {
+      debugPrint('[Sync] Falha ao carregar relays customizados: $e');
+    }
+  }
+
+  /// Returns the currently configured relays (persisted custom list, or the
+  /// defaults). Ensures the persisted list is loaded first.
+  Future<List<String>> loadConfiguredRelays() async {
+    await _ensureRelaysLoaded();
+    return List.unmodifiable(relays);
+  }
+
+  /// Replaces the relay list, persists it, and reconnects so the next sync
+  /// (and the live UI status) uses the new set. Invalid/duplicate URLs are
+  /// dropped; if nothing valid remains, falls back to [defaultRelays].
+  Future<void> updateRelays(List<String> urls) async {
+    final cleaned = <String>[];
+    for (final u in urls) {
+      final n = normalizeRelayUrl(u);
+      if (n != null && !cleaned.contains(n)) cleaned.add(n);
+    }
+    final next = cleaned.isEmpty ? List<String>.from(defaultRelays) : cleaned;
+
+    _relaysLoaded = true;
+    relays = next;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_customRelaysKey, next);
+    } catch (e) {
+      debugPrint('[Sync] Falha ao persistir relays customizados: $e');
+    }
+    await _reconnectWithNewRelays();
+  }
+
+  /// Clears the custom relay list and reverts to [defaultRelays].
+  Future<void> resetRelaysToDefaults() async {
+    _relaysLoaded = true;
+    relays = List<String>.from(defaultRelays);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_customRelaysKey);
+    } catch (e) {
+      debugPrint('[Sync] Falha ao limpar relays customizados: $e');
+    }
+    await _reconnectWithNewRelays();
+  }
+
+  // Drops current sockets/statuses so the new relay set takes effect, then
+  // eagerly re-opens (when an identity is loaded) so the UI shows fresh
+  // per-relay statuses without waiting for the next periodic sync.
+  Future<void> _reconnectWithNewRelays() async {
+    await _closeNostr();
+    _relayStatuses.clear();
+    _emitRelayStatuses();
+    if (isReady) {
+      try {
+        await _ensureConnected();
+      } catch (e) {
+        debugPrint('[Sync] Reconexão após troca de relays falhou: $e');
+      }
+    }
+  }
+
+  /// Validates and normalizes a relay URL. Returns null when invalid. Accepts
+  /// `ws://`/`wss://`; a bare host gets `wss://` prefixed. Strips trailing `/`.
+  static String? normalizeRelayUrl(String raw) {
+    var s = raw.trim();
+    if (s.isEmpty) return null;
+    if (!s.contains('://')) s = 'wss://$s';
+    final uri = Uri.tryParse(s);
+    if (uri == null) return null;
+    if (uri.scheme != 'ws' && uri.scheme != 'wss') return null;
+    if (uri.host.isEmpty) return null;
+    // Normalize: keep scheme + authority + path without a trailing slash.
+    final path = uri.path.endsWith('/')
+        ? uri.path.substring(0, uri.path.length - 1)
+        : uri.path;
+    return '${uri.scheme}://${uri.authority}$path';
+  }
+
   Future<Nostr> _ensureConnected() async {
+    await _ensureRelaysLoaded();
     _nostr ??= Nostr()..disableLogs();
     _syncActiveRelayList();
     if (!_relaysInitialized) {
@@ -953,6 +1136,7 @@ class NostrSyncService implements SyncTransport {
 
   Future<void> _closeNostr() async {
     await _stopLiveSync();
+    await _stopUpdateListener();
     final stale = _nostr;
     _nostr = null;
     _relaysInitialized = false;
@@ -993,5 +1177,6 @@ class NostrSyncService implements SyncTransport {
     await _peerConnectionsController.close();
     await _relayStatusController.close();
     await _liveEventController.close();
+    await _appUpdateController.close();
   }
 }

@@ -11,7 +11,7 @@ import 'package:bestfin/features/sync/data/services/sync_service.dart'
     show SyncPhaseKind;
 import 'package:bestfin/features/sync/domain/models/sync_identity.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
-import 'package:bestfin/features/sync/presentation/widgets/relay_status_section.dart';
+import 'package:bestfin/features/sync/presentation/widgets/relay_manager_section.dart';
 
 class SyncSettingsScreen extends ConsumerWidget {
   const SyncSettingsScreen({super.key});
@@ -23,8 +23,6 @@ class SyncSettingsScreen extends ConsumerWidget {
     final identityAsync = ref.watch(currentIdentityProvider);
     final syncState = ref.watch(syncStateProvider);
     final pendingAsync = ref.watch(pendingSyncCountProvider);
-    final hasRelayStatuses =
-        ref.watch(relayStatusesProvider).value?.isNotEmpty ?? false;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -89,11 +87,15 @@ class SyncSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // ── Relays ─────────────────────────────────────────────────────────
-          if (hasRelayStatuses) ...[
-            _SectionHeader(title: 'Relays', cs: cs, tt: tt),
-            const RelayStatusSection(),
-            const SizedBox(height: 16),
-          ],
+          _SectionHeader(title: 'Relays', cs: cs, tt: tt),
+          Text(
+            'Servidores Nostr usados para sincronizar. São redundantes: basta '
+            'um funcionando. Adicione os seus ou remova os que não quiser usar.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          const RelayManagerSection(),
+          const SizedBox(height: 16),
 
           // ── Households ─────────────────────────────────────────────────────
           _SectionHeader(title: 'Colaboração', cs: cs, tt: tt),

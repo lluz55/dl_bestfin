@@ -37,6 +37,8 @@ import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/notifications/reminder_scheduler.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:bestfin/features/security/presentation/widgets/lock_overlay.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:mcp_toolkit/mcp_toolkit.dart';
@@ -182,6 +184,11 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
   Timer? _syncBannerTimer;
   _SyncBannerData? _syncBanner;
 
+  // True after the user taps [×] on the update banner — hides it for this
+  // session but leaves the info stored in SharedPreferences so it reappears
+  // on next launch and remains accessible in Settings › Sobre.
+  bool _updateBannerDismissedForSession = false;
+
   void _showSyncBanner({
     required IconData icon,
     required String message,
@@ -255,6 +262,16 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
       });
     });
 
+    // Reset session-dismiss when a *new* (different) version arrives so the
+    // banner reappears automatically for the new version even in the same session.
+    ref.listen(appUpdateProvider, (prev, next) {
+      final prevVersion = prev?.value?.version;
+      final nextVersion = next.value?.version;
+      if (nextVersion != null && nextVersion != prevVersion) {
+        if (mounted) setState(() => _updateBannerDismissedForSession = false);
+      }
+    });
+
     final themeState = ref.watch(themeProvider);
     final customSeed = ref.watch(customSeedProvider);
     final router = ref.watch(appRouterProvider);
@@ -292,6 +309,24 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
               child: Stack(
                 children: [
                   child ?? const SizedBox(),
+                  if (!_updateBannerDismissedForSession)
+                    if (ref.watch(appUpdateProvider).value case final update?)
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        top: MediaQuery.paddingOf(context).top + 8,
+                        child: _UpdateBanner(
+                          info: update,
+                          onDismiss: () => setState(
+                            () => _updateBannerDismissedForSession = true,
+                          ),
+                          onDownload: () {
+                            ref
+                                .read(appUpdateProvider.notifier)
+                                .clearUpdate();
+                          },
+                        ),
+                      ),
                   if (_syncBanner case final banner?)
                     Positioned(
                       left: 16,
@@ -365,6 +400,86 @@ class _SyncBanner extends StatelessWidget {
           duration: 250.ms,
           curve: Curves.easeOutCubic,
         );
+  }
+}
+
+class _UpdateBanner extends StatelessWidget {
+  const _UpdateBanner({
+    required this.info,
+    required this.onDismiss,
+    required this.onDownload,
+  });
+
+  final AppUpdateInfo info;
+  final VoidCallback onDismiss;
+  final VoidCallback onDownload;
+
+  Future<void> _launch(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final bg = info.isCritical ? cs.errorContainer : cs.tertiaryContainer;
+    final fg = info.isCritical ? cs.onErrorContainer : cs.onTertiaryContainer;
+    return Material(
+          color: bg,
+          elevation: 6,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+            child: Row(
+              children: [
+                Icon(Icons.system_update_rounded, size: 18, color: fg),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Nova versão ${info.version} disponível',
+                        style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+                      ),
+                      if (info.changelog case final log?)
+                        Text(
+                          log,
+                          style: TextStyle(
+                            color: fg.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                if (info.downloadUrl case final url?)
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: fg),
+                    onPressed: () {
+                      onDownload();
+                      _launch(url);
+                    },
+                    child: const Text('Baixar'),
+                  ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, size: 18, color: fg),
+                  onPressed: onDismiss,
+                  tooltip: 'Ver depois em Configurações › Sobre',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ],
+            ),
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 200.ms)
+        .slideY(begin: -0.3, end: 0, duration: 250.ms, curve: Curves.easeOutCubic);
   }
 }
 

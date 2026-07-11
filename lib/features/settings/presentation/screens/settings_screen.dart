@@ -34,6 +34,8 @@ import 'package:bestfin/features/accounts/presentation/providers/accounts_provid
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 final _androidNotificationsEnabledProvider = FutureProvider.autoDispose<bool>((
@@ -577,6 +579,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             cs: cs,
             tt: tt,
           ),
+          if (ref.watch(appUpdateProvider).value case final update?)
+            _UpdateAvailableTile(update: update, cs: cs, tt: tt),
           _SettingsTile(
             icon: Icons.privacy_tip_outlined,
             title: 'Política de Privacidade',
@@ -1163,6 +1167,78 @@ class _SettingsTile extends StatelessWidget {
           (onTap != null ? const Icon(Icons.chevron_right_rounded) : null),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+}
+
+class _UpdateAvailableTile extends ConsumerWidget {
+  const _UpdateAvailableTile({
+    required this.update,
+    required this.cs,
+    required this.tt,
+  });
+
+  final AppUpdateInfo update;
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  Future<void> _launch(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bg = update.isCritical
+        ? cs.errorContainer
+        : cs.tertiaryContainer;
+    final fg = update.isCritical
+        ? cs.onErrorContainer
+        : cs.onTertiaryContainer;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Icon(Icons.system_update_rounded, color: fg),
+        title: Text(
+          'Versão ${update.version} disponível',
+          style: tt.bodyMedium?.copyWith(
+            color: fg,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          update.changelog ?? 'Nova versão disponível para download',
+          style: tt.bodySmall?.copyWith(color: fg.withValues(alpha: 0.8)),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (update.downloadUrl case final url?)
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: fg),
+                onPressed: () {
+                  ref.read(appUpdateProvider.notifier).clearUpdate();
+                  _launch(url);
+                },
+                child: const Text('Baixar'),
+              ),
+            IconButton(
+              icon: Icon(Icons.close_rounded, size: 18, color: fg),
+              tooltip: 'Ignorar esta versão',
+              onPressed: () =>
+                  ref.read(appUpdateProvider.notifier).clearUpdate(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

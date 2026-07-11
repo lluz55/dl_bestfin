@@ -63,6 +63,10 @@ Sendo o BestFin um aplicativo de finanças pessoais multiplataforma, a seguranç
 ### 2.4 Vazamento de Credenciais
 *   **NUNCA** adicione chaves de API, senhas, tokens de build ou credenciais no repositório Git. Use arquivos `.env` ignorados no `.gitignore` ou injete-os na compilação usando `--dart-define`.
 
+### 2.5 Arquivos que os Agentes NUNCA Devem Ler
+*   **NUNCA** leia o conteúdo de `$HOME/.ssh` (chaves privadas, `known_hosts`, `config`, etc.).
+*   **NUNCA** leia arquivos `.env`.
+
 ---
 
 ## 🧼 3. Código Limpo e Compartilhável (Clean & Shareable)
@@ -170,6 +174,60 @@ Ao receber uma tarefa de codificação no BestFin, siga este fluxo passo a passo
     ```
     *   Para releases já existentes, anexe com `gh release upload vX.Y.Z <arquivos>`.
 
-### 6.2 Observações
+### 6.2 Publicar Notificação de Atualização via Nostr
+
+Após criar o release no GitHub, publique o evento de atualização para que todos os dispositivos com o app instalado recebam o banner de nova versão automaticamente:
+
+```bash
+BESTFIN_DEV_NOSTR_PRIVKEY=<privkey> \
+  nix develop -c dart run scripts/publish_update.dart \
+    --version X.Y.Z \
+    --changelog "Descrição resumida das mudanças" \
+    --download-url "https://github.com/user/bestfin/releases/tag/vX.Y.Z"
+```
+
+Adicione `--critical` quando o release contiver uma quebra de compatibilidade de schema (ex: migração de banco que builds mais antigos não conseguem ler) — o banner será exibido em vermelho nos dispositivos.
+
+> [!IMPORTANT]
+> A chave privada (`BESTFIN_DEV_NOSTR_PRIVKEY`) é um secret de CI e **nunca deve ser commitada no repositório**. A chave pública correspondente está embutida em `lib/core/constants/app_info.dart` (`kDeveloperNostrPubkey`). Para uso local, exporte a variável no shell antes de rodar o script.
+
+O script publica um evento `kind:30078 d-tag:app_update` (NIP-33, replaceable) em plain JSON nos relays Nostr padrão. O evento substitui automaticamente o anterior nos relays compatíveis com NIP-33, portanto o app sempre lê apenas a versão mais recente.
+
+### 6.3 Script de Release Automatizado
+
+O script `scripts/release.sh` executa todos os passos acima em sequência. Uso:
+
+```bash
+BESTFIN_DEV_NOSTR_PRIVKEY=<privkey> ./scripts/release.sh X.Y.Z \
+  --changelog "Descrição das mudanças"
+```
+
+Flags opcionais:
+
+| Flag | Efeito |
+|---|---|
+| `--critical` | Marca como atualização crítica (banner vermelho no app) |
+| `--nostr-key-file <path>` | Lê a chave Nostr (hex) de um arquivo em vez da env var |
+| `--skip-build` | Pula compilação (usa binários já gerados) |
+| `--skip-nostr` | Pula publicação Nostr |
+| `--dry-run` | Imprime os passos sem executar nada |
+
+> A env var `BESTFIN_DEV_NOSTR_PRIVKEY` aceita tanto o valor hex literal quanto um **caminho de arquivo** contendo a chave — o script detecta automaticamente se o valor é um arquivo existente e lê o conteúdo dele.
+
+O script cuida de: bump de versão nos dois arquivos (`pubspec.yaml` + `app_info.dart`), commit + tag + push, build Android + Linux, empacotamento do bundle Linux, criação do GitHub Release com binários e publicação da notificação Nostr.
+
+### 6.4 Checklist Manual (quando não usar o script)
+
+1. [ ] Bumpar `version` em `pubspec.yaml` (X.Y.Z+build)
+2. [ ] Atualizar `kAppVersion` em `lib/core/constants/app_info.dart`
+3. [ ] Commit + tag `vX.Y.Z` + push do commit e da tag
+4. [ ] `nix develop -c flutter build apk --release`
+5. [ ] `nix develop -c flutter build linux --release`
+6. [ ] `tar -czf bestfin-vX.Y.Z-linux-x64.tar.gz -C build/linux/x64/release/bundle .`
+7. [ ] `gh release create vX.Y.Z ...` com APK e `.tar.gz` anexados
+8. [ ] Publicar notificação Nostr via `scripts/publish_update.dart`
+
+### 6.5 Observações
 *   O APK de release é assinado com `android/bestfin-release.jks` via `android/key.properties` (ambos fora do Git). Garanta que essas credenciais existam localmente antes de compilar.
-*   Nomeie os artefatos com a versão e a plataforma (ex: `bestfin-v1.0.6-android.apk`, `bestfin-v1.0.6-linux-x64.tar.gz`) para facilitar a identificação.
+*   Nomeie os artefatos com a versão e a plataforma (ex: `bestfin-v1.0.6-android.apk`, `bestfin-v1.0.6-linux-x64.tar.gz`) — o script cuida disso automaticamente.
+*   A chave privada Nostr (`BESTFIN_DEV_NOSTR_PRIVKEY`) nunca deve ser commitada; guarde-a como secret no CI (GitHub Actions) e exporte localmente antes de rodar o script.
