@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/providers/accounts_provider.dart';
@@ -269,7 +270,7 @@ class _AccountSelectorState extends ConsumerState<AccountSelector> {
   ) {
     final theme = context.theme;
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (context) {
         return Container(
@@ -277,15 +278,6 @@ class _AccountSelectorState extends ConsumerState<AccountSelector> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
               const SizedBox(height: 16),
               Text(
                 'Selecione uma Conta',

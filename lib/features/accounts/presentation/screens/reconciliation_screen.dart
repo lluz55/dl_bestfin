@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/database/app_database.dart' as db_pkg;
 import 'package:bestfin/core/database/database_provider.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/accounts/presentation/widgets/reconciliation_entry_tile.dart';
@@ -143,6 +144,7 @@ class _ReconciliationScreenState extends ConsumerState<ReconciliationScreen> {
       backgroundColor: cs.surface,
       appBar: AppBar(
         title: const Text('Reconciliar Conta'),
+        automaticallyImplyLeading: Breakpoints.isCompact(context),
         backgroundColor: cs.surface,
         surfaceTintColor: Colors.transparent,
       ),

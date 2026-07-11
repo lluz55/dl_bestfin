@@ -116,6 +116,14 @@ class AccountDetailScreen extends ConsumerWidget {
       appBar: AppPageAppBar(
         title: 'Detalhes da Conta',
         showVisibilityToggle: true,
+        infoDescription: 'Visualize o extrato detalhado da conta, acompanhe o saldo, movimentações recentes e a evolução do saldo ao longo do tempo.',
+        infoFeatures: [
+          'Saldo atual e extrato detalhado',
+          'Evolução do saldo em gráfico',
+          'Filtro por período',
+          'Conciliação bancária',
+          'Editar ou excluir a conta',
+        ],
         actions: [
           accountAsync.when(
             data: (account) => MenuAnchor(
@@ -243,105 +251,110 @@ class AccountDetailScreen extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          SizedBox(
-                            height: 180,
-                            child: chartSpotsAsync.when(
-                              data: (spots) {
-                                if (spots.length < 2) {
-                                  return Center(
-                                    child: Text(
-                                      'Registros insuficientes para exibir o gráfico.',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 650),
+                              child: SizedBox(
+                                height: 180,
+                                child: chartSpotsAsync.when(
+                                  data: (spots) {
+                                    if (spots.length < 2) {
+                                      return Center(
+                                        child: Text(
+                                          'Registros insuficientes para exibir o gráfico.',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                      );
+                                    }
+
+                                    final accountColor = hexToColor(account.color);
+
+                                    return LineChart(
+                                      LineChartData(
+                                        gridData: const FlGridData(show: false),
+                                        titlesData: const FlTitlesData(
+                                          leftTitles: AxisTitles(
+                                            sideTitles: SideTitles(
+                                              showTitles: false,
+                                            ),
                                           ),
-                                    ),
-                                  );
-                                }
-
-                                final accountColor = hexToColor(account.color);
-
-                                return LineChart(
-                                  LineChartData(
-                                    gridData: const FlGridData(show: false),
-                                    titlesData: const FlTitlesData(
-                                      leftTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: false,
+                                          rightTitles: AxisTitles(
+                                            sideTitles: SideTitles(
+                                              showTitles: false,
+                                            ),
+                                          ),
+                                          topTitles: AxisTitles(
+                                            sideTitles: SideTitles(
+                                              showTitles: false,
+                                            ),
+                                          ),
+                                          bottomTitles: AxisTitles(
+                                            sideTitles: SideTitles(
+                                              showTitles: false,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      rightTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: false,
+                                        borderData: FlBorderData(show: false),
+                                        lineTouchData: LineTouchData(
+                                          touchTooltipData: LineTouchTooltipData(
+                                            getTooltipItems: (touchedSpots) {
+                                              return touchedSpots.map((spot) {
+                                                final val = spot.y;
+                                                final formatted =
+                                                    CurrencyFormatter.valuesHidden
+                                                    ? 'R\$ •••••'
+                                                    : 'R\$ ${val.abs().toStringAsFixed(2).replaceAll('.', ',')}';
+                                                return LineTooltipItem(
+                                                  formatted,
+                                                  theme.textTheme.bodySmall!
+                                                      .copyWith(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                );
+                                              }).toList();
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                      topTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: false,
-                                        ),
-                                      ),
-                                      bottomTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: false,
-                                        ),
-                                      ),
-                                    ),
-                                    borderData: FlBorderData(show: false),
-                                    lineTouchData: LineTouchData(
-                                      touchTooltipData: LineTouchTooltipData(
-                                        getTooltipItems: (touchedSpots) {
-                                          return touchedSpots.map((spot) {
-                                            final val = spot.y;
-                                            final formatted =
-                                                CurrencyFormatter.valuesHidden
-                                                ? 'R\$ •••••'
-                                                : 'R\$ ${val.abs().toStringAsFixed(2).replaceAll('.', ',')}';
-                                            return LineTooltipItem(
-                                              formatted,
-                                              theme.textTheme.bodySmall!
-                                                  .copyWith(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.w700,
+                                        lineBarsData: [
+                                          LineChartBarData(
+                                            spots: spots,
+                                            isCurved: false,
+                                            color: accountColor,
+                                            barWidth: 3,
+                                            isStrokeCapRound: true,
+                                            dotData: const FlDotData(show: false),
+                                            belowBarData: BarAreaData(
+                                              show: true,
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  accountColor.withValues(
+                                                    alpha: 0.3,
                                                   ),
-                                            );
-                                          }).toList();
-                                        },
-                                      ),
-                                    ),
-                                    lineBarsData: [
-                                      LineChartBarData(
-                                        spots: spots,
-                                        isCurved: false,
-                                        color: accountColor,
-                                        barWidth: 3,
-                                        isStrokeCapRound: true,
-                                        dotData: const FlDotData(show: false),
-                                        belowBarData: BarAreaData(
-                                          show: true,
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                            colors: [
-                                              accountColor.withValues(
-                                                alpha: 0.3,
+                                                  accountColor.withValues(
+                                                    alpha: 0.0,
+                                                  ),
+                                                ],
                                               ),
-                                              accountColor.withValues(
-                                                alpha: 0.0,
-                                              ),
-                                            ],
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              loading: () =>
-                                  const Center(child: AppLoadingIndicator()),
-                              error: (err, _) =>
-                                  Center(child: Text('Erro no gráfico: $err')),
+                                    );
+                                  },
+                                  loading: () =>
+                                      const Center(child: AppLoadingIndicator()),
+                                  error: (err, _) =>
+                                      Center(child: Text('Erro no gráfico: $err')),
+                                ),
+                              ),
                             ),
                           ),
                         ],
