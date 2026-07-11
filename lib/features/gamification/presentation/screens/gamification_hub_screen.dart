@@ -20,7 +20,16 @@ class GamificationHubScreen extends ConsumerWidget {
     final badgesAsync = ref.watch(allBadgesStreamProvider);
 
     return Scaffold(
-      appBar: const AppPageAppBar(title: 'Conquistas e Sequências'),
+      appBar: const AppPageAppBar(
+        title: 'Conquistas e Sequências',
+        infoDescription: 'Acompanhe suas conquistas, sequências (streaks) e badges no BestFin. A consistência nos seus registros financeiros é recompensada!',
+        infoFeatures: [
+          'Sequência de dias consecutivos',
+          'Badges por conquistas',
+          'Nível de engajamento',
+          'Metas de consistência',
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -202,6 +211,42 @@ class _BadgeTile extends StatelessWidget {
         return Icons.show_chart;
       case 'installment_completed':
         return Icons.task_alt;
+      case 'first_account':
+        return Icons.account_balance;
+      case 'category_explorer':
+        return Icons.category;
+      case 'month_saver':
+        return Icons.savings;
+      case 'consistency_king':
+        return Icons.emoji_events_outlined;
+      case 'budget_streak_7':
+        return Icons.speed;
+      case 'diversified_portfolio':
+        return Icons.donut_large;
+      case 'credit_card_discipline':
+        return Icons.credit_card;
+      // Médio prazo
+      case 'hundred_transactions':
+        return Icons.format_list_numbered;
+      case 'three_months_streak':
+        return Icons.local_fire_department;
+      case 'ten_goals_reached':
+        return Icons.gps_fixed;
+      case 'budget_master_90':
+        return Icons.speed;
+      case 'savings_milestone':
+        return Icons.account_balance_wallet;
+      // Longo prazo
+      case 'year_streak':
+        return Icons.calendar_today;
+      case 'all_goals_completed':
+        return Icons.stars;
+      case 'investment_gains':
+        return Icons.trending_up;
+      case 'financial_freedom':
+        return Icons.flag;
+      case 'consistent_saver':
+        return Icons.savings_outlined;
       default:
         return Icons.help_outline;
     }
