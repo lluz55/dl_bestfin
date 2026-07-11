@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh — Automatiza o fluxo completo de release do BestFin.
+# release.sh -- Automatiza o fluxo completo de release do BestFin.
 #
 # O que faz:
 #   1. Valida pré-condições (git limpo, env vars presentes)
@@ -24,7 +24,7 @@
 #
 #   Sem essas opções, as notas são extraídas automaticamente do CHANGELOG.md:
 #     1. Da seção "## vX.Y.Z", se existir; senão
-#     2. Da seção "## Unreleased" — nesse caso o cabeçalho é renomeado para
+#     2. Da seção "## Unreleased" -- nesse caso o cabeçalho é renomeado para
 #        "## vX.Y.Z (data)" e o CHANGELOG.md entra no commit de bump.
 #   O release falha se nenhuma das duas seções existir, então escreva as
 #   notas no CHANGELOG.md (e faça commit) antes de rodar o script.
@@ -61,12 +61,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 info()  { echo "[release] $*"; }
 ok()    { echo "[release] ✓ $*"; }
 err()   { echo "[release] ✗ $*" >&2; exit 1; }
-step()  { echo; echo "══ $* ══"; }
+step()  { echo; echo "== $* =="; }
 
 # Filtra linhas de aviso de pacotes desatualizados do output do Flutter
 filter_flutter() {
@@ -79,7 +79,7 @@ flutter_build() {
     echo "  [dry-run] nix develop -c flutter $*"
     return 0
   fi
-  echo "  → nix develop -c flutter $*"
+  echo "  -> nix develop -c flutter $*"
   nix develop -c flutter "$@" 2>&1 | filter_flutter
   local exit_code="${PIPESTATUS[0]}"
   return "$exit_code"
@@ -91,7 +91,7 @@ dart_run() {
     echo "  [dry-run] nix develop -c dart run $*"
     return 0
   fi
-  echo "  → nix develop -c dart run $*"
+  echo "  -> nix develop -c dart run $*"
   nix develop -c dart run "$@" 2>&1 | filter_flutter
   local exit_code="${PIPESTATUS[0]}"
   return "$exit_code"
@@ -105,7 +105,7 @@ error_trap() {
 }
 trap 'error_trap $LINENO' ERR
 
-# ── Load .env (secrets, nunca commitado) ──────────────────────────────────────
+# -- Load .env (secrets, nunca commitado) --------------------------------------
 if [[ -f "$PROJECT_DIR/.env" ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -120,7 +120,7 @@ run() {
   if $dry_run; then
     echo "  [dry-run] $*"
   else
-    echo "  → $*"
+    echo "  -> $*"
     "$@"
   fi
 }
@@ -155,7 +155,7 @@ extract_changelog_section() {
   ' "$file" | sed -e '/./,$!d' | sed -e ':a' -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
 }
 
-# ── Parse arguments ───────────────────────────────────────────────────────────
+# -- Parse arguments -----------------------------------------------------------
 
 VERSION=""
 CHANGELOG=""
@@ -190,7 +190,7 @@ done
 if $auto_bump && [[ "$VERSION" =~ ^(patch|minor|major)$ ]]; then
   NEW_VERSION=$(compute_auto_bump)
   VERSION="$NEW_VERSION"
-  info "Bump automático: versão → $VERSION"
+  info "Bump automático: versão -> $VERSION"
 fi
 
 [[ -n "$VERSION" ]] || err "Uso: $0 <versão> [opções]  (ex: $0 1.1.0 --changelog 'Novas funcionalidades')"
@@ -215,7 +215,7 @@ else
     [[ -n "$CHANGELOG" ]] \
       || err "Nenhuma seção '## v${VERSION}' nem '## Unreleased' com conteúdo no CHANGELOG.md. Escreva as notas da versão antes do release, ou use --changelog/--changelog-file."
     RENAME_UNRELEASED=true
-    info "Notas de release extraídas do CHANGELOG.md (seção Unreleased → v${VERSION})"
+    info "Notas de release extraídas do CHANGELOG.md (seção Unreleased -> v${VERSION})"
   fi
 fi
 
@@ -231,7 +231,7 @@ APK_NAME="bestfin-v${VERSION}-android.apk"
 LINUX_ARCHIVE="bestfin-v${VERSION}-linux-x64.tar.gz"
 APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
 
-# ── Validações ────────────────────────────────────────────────────────────────
+# -- Validações ----------------------------------------------------------------
 
 step "Validando pré-condições"
 
@@ -284,14 +284,14 @@ ok "Remote origin configurado"
 
 ok "Pré-condições OK"
 
-# ── Bump de versão ────────────────────────────────────────────────────────────
+# -- Bump de versão ------------------------------------------------------------
 
 step "Atualizando versão para ${VERSION}"
 
 CURRENT_BUILD=$(grep '^version:' pubspec.yaml | grep -oP '\+\K[0-9]+' || echo "0")
 NEW_BUILD=$((CURRENT_BUILD + 1))
 
-info "pubspec.yaml: version → ${VERSION}+${NEW_BUILD}"
+info "pubspec.yaml: version -> ${VERSION}+${NEW_BUILD}"
 run sed -i "s/^version:.*/version: ${VERSION}+${NEW_BUILD}/" pubspec.yaml
 
 info "app_info.dart: kAppVersion = '${VERSION}'"
@@ -311,7 +311,7 @@ if [[ -n "$PUBKEY" && "$CURRENT_PUBKEY" != "$PUBKEY" ]]; then
     PUBKEY=$(tr -d '[:space:]' < "$PUBKEY")
   fi
   if [[ "$PUBKEY" == npub1* ]]; then
-    info "Convertendo npub → hex..."
+    info "Convertendo npub -> hex..."
     PUBKEY=$(nix develop -c dart run scripts/publish_update.dart --to-hex "$PUBKEY" 2>/dev/null)
   fi
   info "app_info.dart: kDeveloperNostrPubkey = '${PUBKEY}'"
@@ -330,7 +330,7 @@ BUMP_FILES=(pubspec.yaml lib/core/constants/app_info.dart)
 
 if $RENAME_UNRELEASED; then
   RELEASE_DATE="$(date +%F)"
-  info "CHANGELOG.md: ## Unreleased → ## v${VERSION} (${RELEASE_DATE})"
+  info "CHANGELOG.md: ## Unreleased -> ## v${VERSION} (${RELEASE_DATE})"
   run sed -i "0,/^## Unreleased.*/s//## v${VERSION} (${RELEASE_DATE})/" CHANGELOG.md
   $dry_run || grep -q "^## v${VERSION}" CHANGELOG.md \
     || err "Falha ao renomear Unreleased para v${VERSION} no CHANGELOG.md"
@@ -339,7 +339,7 @@ fi
 
 ok "Versão atualizada"
 
-# ── Commit + tag ──────────────────────────────────────────────────────────────
+# -- Commit + tag --------------------------------------------------------------
 
 step "Commit e tag v${VERSION}"
 
@@ -352,7 +352,7 @@ GIT_TERMINAL_PROMPT=0 run git push origin HEAD "v${VERSION}"
 
 ok "Commit e tag publicados (v${VERSION})"
 
-# ── Build ─────────────────────────────────────────────────────────────────────
+# -- Build ---------------------------------------------------------------------
 
 if $SKIP_BUILD; then
   info "Build pulado (--skip-build)"
@@ -369,14 +369,14 @@ else
   ok "Bundle Linux gerado"
 fi
 
-# ── Empacotar Linux ───────────────────────────────────────────────────────────
+# -- Empacotar Linux -----------------------------------------------------------
 
 step "Empacotando bundle Linux"
 run tar -czf "$LINUX_ARCHIVE" -C build/linux/x64/release/bundle .
 $dry_run || [[ -f "$LINUX_ARCHIVE" ]] || err "Arquivo $LINUX_ARCHIVE não foi criado"
 ok "Arquivo: $LINUX_ARCHIVE"
 
-# ── GitHub Release ───────────────────────────────────────────────────────────
+# -- GitHub Release -----------------------------------------------------------
 
 step "Criando GitHub Release v${VERSION}"
 
@@ -391,7 +391,7 @@ run gh release create "v${VERSION}" \
 
 ok "Release criado: ${DOWNLOAD_URL}"
 
-# ── Publicar no Nostr ─────────────────────────────────────────────────────────
+# -- Publicar no Nostr ---------------------------------------------------------
 
 if $SKIP_NOSTR; then
   info "Publicação Nostr pulada (--skip-nostr)"
@@ -410,10 +410,10 @@ else
   ok "Notificação Nostr publicada"
 fi
 
-# ── Concluído ─────────────────────────────────────────────────────────────────
+# -- Concluído -----------------------------------------------------------------
 
 echo
-echo "══════════════════════════════════════════"
+echo "=========================================="
 echo "  Release v${VERSION} concluído com sucesso!"
-$dry_run && echo "  (simulação — nenhuma ação foi executada)"
-echo "══════════════════════════════════════════"
+$dry_run && echo "  (simulação -- nenhuma ação foi executada)"
+echo "=========================================="
