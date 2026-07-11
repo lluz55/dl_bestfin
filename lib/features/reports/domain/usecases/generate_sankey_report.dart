@@ -36,7 +36,7 @@ class GenerateSankeyReport {
             final g =
                 incomeGroups[key] ??
                 _Group(
-                  tx.category?.name ?? 'Outras receitas',
+                  tx.category?.displayName ?? 'Outras receitas',
                   tx.category?.color ?? '66BB6A',
                 );
             incomeGroups[key] = g.add(tx.amount);
@@ -49,7 +49,7 @@ class GenerateSankeyReport {
             final g =
                 expenseGroups[key] ??
                 _Group(
-                  tx.category?.name ?? 'Sem categoria',
+                  tx.category?.displayName ?? 'Sem categoria',
                   tx.category?.color ?? '9E9E9E',
                 );
             expenseGroups[key] = g.add(tx.amount);

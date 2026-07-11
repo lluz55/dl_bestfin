@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:bestfin/core/constants/app_info.dart';
 import 'package:bestfin/core/constants/default_categories.dart';
 import 'package:bestfin/core/database/app_database.dart' hide Account;
 import 'package:bestfin/core/database/database_provider.dart';
@@ -572,7 +573,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             title: 'Versão',
-            subtitle: '1.0.0',
+            subtitle: kAppVersion,
             cs: cs,
             tt: tt,
           ),

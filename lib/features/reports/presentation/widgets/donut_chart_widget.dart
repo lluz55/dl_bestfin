@@ -184,7 +184,7 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.category?.name ?? 'Sem categoria',
+                          item.category?.displayName ?? 'Sem categoria',
                           style: tt.titleSmall?.copyWith(
                             fontWeight: isSelected
                                 ? FontWeight.w800

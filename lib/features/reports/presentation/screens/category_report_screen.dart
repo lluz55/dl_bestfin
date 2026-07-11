@@ -51,7 +51,7 @@ class _CategoryReportContent extends StatelessWidget {
         color = cs.primary;
       }
       return (
-        label: item.category?.name ?? 'Sem categoria',
+        label: item.category?.displayName ?? 'Sem categoria',
         amount: item.amountInCents,
         color: color,
       );

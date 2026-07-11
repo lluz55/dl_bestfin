@@ -310,7 +310,7 @@ class _MapaContent extends ConsumerWidget {
             catGroups[catId] = _CatGroup(g.name, g.color, g.total + tx.amount);
           } else {
             catGroups[catId] = _CatGroup(
-              tx.category?.name ?? 'Sem categoria',
+              tx.category?.displayName ?? 'Sem categoria',
               tx.category?.color ?? '9E9E9E',
               tx.amount,
             );

@@ -14,7 +14,9 @@ class DashboardCategorySpending {
     required this.percentage,
   });
 
-  String get categoryName => category?.name ?? 'Sem Categoria';
+  // Usa displayName ('Pai/Filho' quando é subcategoria) para desambiguar
+  // categorias comparadas nos gráficos.
+  String get categoryName => category?.displayName ?? 'Sem Categoria';
 }
 
 class CategoryRankingItem {

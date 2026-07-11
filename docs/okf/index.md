@@ -21,6 +21,7 @@ BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) 
 * [Ambiente Nix](development/environment.md) - Comandos obrigatórios via `nix develop -c`
 * [Geração de Código](development/code-generation.md) - build_runner, Drift e Riverpod
 * [Convenções de Código](development/conventions.md) - Estilo Dart, imports, segurança
+* [Releases e Versão no App](development/releases.md) - Versão (`kAppVersion`) exibida e atualizada a cada release; fluxo de binários
 
 # Domínio Financeiro
 

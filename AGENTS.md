@@ -151,6 +151,7 @@ Ao receber uma tarefa de codificação no BestFin, siga este fluxo passo a passo
 
 ### 6.1 Fluxo de Release
 1.  **Bump de versão** em `pubspec.yaml` (`version: X.Y.Z+build`, incrementando também o `build`).
+1b. **Versão dentro do app:** atualize `kAppVersion` em `lib/core/constants/app_info.dart` para o mesmo `X.Y.Z`. **Todo release DEVE expor a versão no app** (Configurações › Sobre › Versão lê essa constante). Um release sem a versão visível/atualizada no app é considerado incompleto.
 2.  **Commit + tag** (`vX.Y.Z`) e `git push` do commit e da tag.
 3.  **Compilar os binários** (sempre via `nix develop -c`):
     ```bash
