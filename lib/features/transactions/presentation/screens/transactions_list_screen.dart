@@ -134,7 +134,6 @@ class _TransactionsListScreenState
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
-    final shapes = context.shapes;
     final colors = context.customColors;
     ref.watch(valuesHiddenProvider);
     final groupedDataAsync = ref.watch(groupedTransactionsProvider);
@@ -211,141 +210,23 @@ class _TransactionsListScreenState
                     final totalIncomes = groupedData.totalIncomes;
                     final totalExpenses = groupedData.totalExpenses;
 
-                    return CustomScrollView(
+                    // Em telas expandidas o resumo sai da rolagem e vira um
+                    // painel lateral fixo; a lista ganha largura máxima.
+                    final sidePanelLayout = Breakpoints.isExpanded(context);
+
+                    final list = CustomScrollView(
                       slivers: [
-                        // Resumo consolidado do período
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Card(
-                              elevation: 0,
-                              color: cs.surfaceContainerHigh,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: shapes.card,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.arrow_downward_rounded,
-                                                  size: 12,
-                                                  color: colors.income,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Receitas',
-                                                  style: tt.labelMedium
-                                                      ?.copyWith(
-                                                        color:
-                                                            cs.onSurfaceVariant,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            AmountDisplay(
-                                              amountInCents: totalIncomes,
-                                              color: colors.income,
-                                              style: tt.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              showSign: false,
-                                            ),
-                                          ],
-                                        ),
-                                        Container(
-                                          height: 32,
-                                          width: 1,
-                                          color: cs.outlineVariant,
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.arrow_upward_rounded,
-                                                  size: 12,
-                                                  color: colors.expense,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Despesas',
-                                                  style: tt.labelMedium
-                                                      ?.copyWith(
-                                                        color:
-                                                            cs.onSurfaceVariant,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            AmountDisplay(
-                                              amountInCents: totalExpenses,
-                                              color: colors.expense,
-                                              style: tt.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              showSign: false,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: Divider(
-                                        height: 24,
-                                        thickness: 1,
-                                        color: cs.outlineVariant.withValues(
-                                          alpha: 0.4,
-                                        ),
-                                      ),
-                                    ),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Saldo do Período',
-                                          style: tt.labelSmall?.copyWith(
-                                            color: cs.onSurfaceVariant,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        AmountDisplay(
-                                          amountInCents:
-                                              totalIncomes - totalExpenses,
-                                          style: tt.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                        // Resumo consolidado do período (inline no mobile)
+                        if (!sidePanelLayout)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: _PeriodSummaryCard(
+                                totalIncomes: totalIncomes,
+                                totalExpenses: totalExpenses,
                               ),
                             ),
                           ),
-                        ),
 
                         // Listagem agrupada
                         SliverList(
@@ -445,6 +326,43 @@ class _TransactionsListScreenState
                         const SliverToBoxAdapter(child: SizedBox(height: 100)),
                       ],
                     );
+
+                    if (!sidePanelLayout) {
+                      if (Breakpoints.isMedium(context)) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: list,
+                          ),
+                        );
+                      }
+                      return list;
+                    }
+
+                    // Resumo do período à esquerda; logo após, a lista de
+                    // transações — tudo alinhado à esquerda.
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 340,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
+                            child: _PeriodSummaryCard(
+                              totalIncomes: totalIncomes,
+                              totalExpenses: totalExpenses,
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: list,
+                          ),
+                        ),
+                      ],
+                    );
                   },
                   loading: () => const Center(child: AppLoadingIndicator()),
                   error: (err, stack) => Center(
@@ -528,6 +446,133 @@ class _TransactionsListScreenState
         ),
         const SizedBox(width: 4),
       ],
+    );
+  }
+}
+
+/// Resumo consolidado do período (Receitas | Despesas | Saldo).
+///
+/// Inline no topo da lista em telas compactas; painel lateral fixo em telas
+/// expandidas.
+class _PeriodSummaryCard extends StatelessWidget {
+  const _PeriodSummaryCard({
+    required this.totalIncomes,
+    required this.totalExpenses,
+  });
+
+  final int totalIncomes;
+  final int totalExpenses;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final shapes = context.shapes;
+    final colors = context.customColors;
+
+    return Card(
+      elevation: 0,
+      color: cs.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(borderRadius: shapes.card),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.arrow_downward_rounded,
+                          size: 12,
+                          color: colors.income,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Receitas',
+                          style: tt.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    AmountDisplay(
+                      amountInCents: totalIncomes,
+                      color: colors.income,
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      showSign: false,
+                    ),
+                  ],
+                ),
+                Container(height: 32, width: 1, color: cs.outlineVariant),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.arrow_upward_rounded,
+                          size: 12,
+                          color: colors.expense,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Despesas',
+                          style: tt.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    AmountDisplay(
+                      amountInCents: totalExpenses,
+                      color: colors.expense,
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      showSign: false,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Divider(
+                height: 24,
+                thickness: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Saldo do Período',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                AmountDisplay(
+                  amountInCents: totalIncomes - totalExpenses,
+                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

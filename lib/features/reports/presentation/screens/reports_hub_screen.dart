@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
@@ -95,6 +96,19 @@ class ReportsHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
+
+    // Em telas expandidas o hub vira master-detail: lista de relatórios à
+    // esquerda e o relatório aberto à direita, sem push de página.
+    if (Breakpoints.isExpanded(context)) {
+      return Scaffold(
+        backgroundColor: cs.surface,
+        appBar: const AppPageAppBar(
+          title: 'Relatórios',
+          showVisibilityToggle: true,
+        ),
+        body: _ReportsMasterDetail(entries: _entries),
+      );
+    }
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -223,6 +237,135 @@ class _ReportHubCardState extends State<_ReportHubCard> {
           curve: Curves.easeOutCubic,
           duration: motion.mediumDuration,
         );
+  }
+}
+
+// ─── Master-detail (telas expandidas) ────────────────────────────────────────
+
+class _ReportsMasterDetail extends StatefulWidget {
+  const _ReportsMasterDetail({required this.entries});
+
+  final List<_ReportEntry> entries;
+
+  @override
+  State<_ReportsMasterDetail> createState() => _ReportsMasterDetailState();
+}
+
+class _ReportsMasterDetailState extends State<_ReportsMasterDetail> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.entries[_selectedIndex];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 300,
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: widget.entries.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, i) => _ReportNavTile(
+              entry: widget.entries[i],
+              selected: i == _selectedIndex,
+              onTap: () => setState(() => _selectedIndex = i),
+            ),
+          ),
+        ),
+        const VerticalDivider(width: 1, thickness: 0.5),
+        Expanded(
+          child: Column(
+            children: [
+              const ReportFiltersWidget(),
+              const Divider(height: 1, thickness: 0.5),
+              Expanded(
+                // KeyedSubtree força a troca de estado ao mudar de relatório.
+                child: KeyedSubtree(
+                  key: ValueKey(_selectedIndex),
+                  child: selected.buildContent(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportNavTile extends StatelessWidget {
+  const _ReportNavTile({
+    required this.entry,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ReportEntry entry;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final shapes = context.shapes;
+    final color = entry.colorFn(cs);
+
+    return Material(
+      color: selected ? cs.secondaryContainer : cs.surfaceContainerLow,
+      borderRadius: shapes.card,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(entry.icon, size: 20, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.title,
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: selected
+                            ? cs.onSecondaryContainer
+                            : cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(
+                        color: selected
+                            ? cs.onSecondaryContainer.withValues(alpha: 0.8)
+                            : cs.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
