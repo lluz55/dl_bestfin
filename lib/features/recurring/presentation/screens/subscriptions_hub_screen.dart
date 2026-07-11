@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
-import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -180,13 +179,6 @@ class SubscriptionsHubScreen extends ConsumerWidget {
 
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
-      ),
-      floatingActionButton: ExpressiveFAB.extended(
-        onPressed: () => ref
-            .read(transactionFormModalProvider.notifier)
-            .open(openRecurringWizard: true),
-        icon: Icons.add_rounded,
-        label: 'Nova recorrência',
       ),
     );
   }

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
-import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/budgets/domain/models/budget_model.dart';
 import 'package:bestfin/features/budgets/presentation/providers/budgets_provider.dart';
@@ -144,13 +143,13 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
             tooltip: 'Aplicar rollover',
             onPressed: _applyRollover,
           ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Novo envelope',
+            onPressed: () =>
+                showBudgetFormSheet(context, year: _year, month: _month),
+          ),
         ],
-      ),
-      floatingActionButton: ExpressiveFAB.extended(
-        onPressed: () =>
-            showBudgetFormSheet(context, year: _year, month: _month),
-        icon: Icons.add_rounded,
-        label: 'Novo envelope',
       ),
       body: Column(
         children: [

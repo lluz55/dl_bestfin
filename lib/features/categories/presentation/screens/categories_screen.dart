@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
-import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/domain/usecases/delete_category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -41,12 +40,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               });
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Nova categoria',
+            onPressed: () => _openForm(context, ref),
+          ),
         ],
-      ),
-      floatingActionButton: ExpressiveFAB.extended(
-        onPressed: () => _openForm(context, ref),
-        icon: Icons.add,
-        label: 'Nova Categoria',
       ),
       body: CategoryTree(
         isReorderMode: _isReorderMode,

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
-import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/modal_overlay_wrapper.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -31,15 +30,17 @@ class PortfolioScreen extends ConsumerWidget {
       overlay: const InvestmentFormModalOverlay(),
       child: Scaffold(
         backgroundColor: cs.surface,
-        appBar: const AppPageAppBar(
+        appBar: AppPageAppBar(
           title: 'Meus Investimentos',
           showVisibilityToggle: true,
-        ),
-        floatingActionButton: ExpressiveFAB.extended(
-          onPressed: () =>
-              ref.read(investmentFormModalProvider.notifier).open(),
-          icon: Icons.add_chart_rounded,
-          label: 'Novo Ativo',
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add_rounded),
+              tooltip: 'Novo ativo',
+              onPressed: () =>
+                  ref.read(investmentFormModalProvider.notifier).open(),
+            ),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: () async {

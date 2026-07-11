@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
-import 'package:bestfin/core/widgets/expressive_fab.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
@@ -102,14 +101,14 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
             tooltip: 'Hub de Assinaturas',
             onPressed: () => context.push('/recurring/subscriptions'),
           ),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Nova recorrência',
+            onPressed: () => ref
+                .read(transactionFormModalProvider.notifier)
+                .open(openRecurringWizard: true),
+          ),
         ],
-      ),
-      floatingActionButton: ExpressiveFAB.extended(
-        onPressed: () => ref
-            .read(transactionFormModalProvider.notifier)
-            .open(openRecurringWizard: true),
-        icon: Icons.add_rounded,
-        label: 'Nova',
       ),
       body: Column(
         children: [
