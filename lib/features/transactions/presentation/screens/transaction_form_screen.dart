@@ -5,6 +5,7 @@ import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/constants/sentiment_types.dart';
 import 'package:bestfin/core/constants/transaction_status.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/providers/default_account_provider.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
@@ -324,7 +325,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
-    final result = await showModalBottomSheet<InstallmentWizardResult>(
+    final result = await showAdaptiveModal<InstallmentWizardResult>(
       context: context,
       builder: (context) => InstallmentWizardSheet(
         totalAmountInCents: _amountInCents,
@@ -355,7 +356,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Future<void> _openRecurringForm() async {
-    final result = await showModalBottomSheet<RecurringWizardResult>(
+    final result = await showAdaptiveModal<RecurringWizardResult>(
       context: context,
       builder: (context) => RecurringWizardSheet(
         initialFrequency: _recurringFrequency ?? RecurringFrequency.monthly,
@@ -927,10 +928,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   // ── Split ──────────────────────────────────────────────────────────────────
 
   Future<void> _openSplitEditor() async {
-    final result = await showModalBottomSheet<List<SplitEntry>?>(
+    final result = await showAdaptiveModal<List<SplitEntry>?>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => SplitEditorSheet(totalAmount: _amountInCents),
     );
     if (result != null && mounted) {

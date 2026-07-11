@@ -160,6 +160,13 @@ class _TransactionsListScreenState
             : const AppPageAppBar(
                 title: 'Transações',
                 showVisibilityToggle: true,
+                infoDescription: 'Visualize, filtre e gerencie todas as suas transações financeiras. Use os filtros por período, tipo e categoria para encontrar rapidamente o que precisa.',
+                infoFeatures: [
+                  'Filtros por período, tipo e categoria',
+                  'Modo de seleção múltipla para ações em lote',
+                  'Visualização agrupada por dia',
+                  'Toque longo para editar ou excluir',
+                ],
               ),
         body: Column(
           children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
@@ -9,10 +10,8 @@ class PeriodCalendarPicker extends ConsumerStatefulWidget {
   const PeriodCalendarPicker({super.key});
 
   static Future<void> show(BuildContext context) async {
-    await showModalBottomSheet<void>(
+    await showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: context.colorScheme.surface,
       builder: (_) => const PeriodCalendarPicker(),
     );
   }

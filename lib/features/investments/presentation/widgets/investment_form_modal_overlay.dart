@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/adaptive_modal_panel.dart';
 import 'package:bestfin/features/investments/presentation/providers/investment_form_modal_provider.dart';
 import 'package:bestfin/features/investments/presentation/screens/investment_form_screen.dart';
@@ -34,23 +35,12 @@ class _InvestmentFormModalOverlayState
           final current = ref.read(investmentFormModalProvider);
           if (!current.isOpen) return;
           ref.read(investmentFormModalProvider.notifier).close();
-          showModalBottomSheet(
+          showAppBottomSheet<void>(
             context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.65,
-                ),
-                child: InvestmentFormScreen(
-                  existingInvestment: current.investment,
-                  onClose: () => Navigator.of(context).pop(),
-                ),
-              ),
+            useSafeArea: false,
+            builder: (sheetContext) => InvestmentFormScreen(
+              existingInvestment: current.investment,
+              onClose: () => Navigator.of(sheetContext).pop(),
             ),
           );
         });

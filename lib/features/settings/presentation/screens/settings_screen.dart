@@ -15,6 +15,7 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/notifications/notification_service.dart';
 import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
@@ -319,7 +320,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Configurações'),
+      appBar: const AppPageAppBar(
+        title: 'Configurações',
+        infoDescription: 'Personalize o BestFin: tema, moeda, segurança com biometria/PIN, perfil do usuário, preferências do app e muito mais.',
+        infoFeatures: [
+          'Tema claro/escuro e cores dinâmicas',
+          'Moeda e formato regional',
+          'Segurança com PIN e biometria',
+          'Perfil do usuário com nome e foto',
+          'Informações do app e versão',
+        ],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           // Em telas largas (tablet/iPad, desktop) usamos um layout
@@ -674,10 +685,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showProfileSheet(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (ctx) {
         final tt = ctx.textTheme;
         return Padding(
@@ -714,7 +723,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showLeadTimePicker(BuildContext context, WidgetRef ref) {
     final current = ref.read(reminderLeadTimeProvider);
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (context) {
         final cs = context.colorScheme;
@@ -854,7 +863,7 @@ class _DefaultAccountTile extends ConsumerWidget {
     List<Account> accounts,
     String? currentDefaultId,
   ) {
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
@@ -1189,12 +1198,8 @@ class _UpdateAvailableTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bg = update.isCritical
-        ? cs.errorContainer
-        : cs.tertiaryContainer;
-    final fg = update.isCritical
-        ? cs.onErrorContainer
-        : cs.onTertiaryContainer;
+    final bg = update.isCritical ? cs.errorContainer : cs.tertiaryContainer;
+    final fg = update.isCritical ? cs.onErrorContainer : cs.onTertiaryContainer;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),

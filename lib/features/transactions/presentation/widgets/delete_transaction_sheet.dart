@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
@@ -76,7 +77,7 @@ Future<bool> _showInstallmentSheet(
   final total = deleteContext.totalInstallments ?? currentNumber;
   final remaining = total - currentNumber + 1;
 
-  final selected = await showModalBottomSheet<int>(
+  final selected = await showAdaptiveModal<int>(
     context: context,
     builder: (ctx) => _DeleteOptionSheet(
       title: 'Excluir parcela?',
@@ -119,7 +120,7 @@ Future<bool> _showRecurringBaseSheet(
 ) async {
   final ruleId = deleteContext.recurringRuleId!;
 
-  final selected = await showModalBottomSheet<int>(
+  final selected = await showAdaptiveModal<int>(
     context: context,
     builder: (ctx) => _DeleteOptionSheet(
       title: 'Excluir transação recorrente?',
@@ -167,7 +168,7 @@ Future<bool> _showRecurringCloneSheet(
 ) async {
   final ruleId = deleteContext.recurringRuleId!;
 
-  final selected = await showModalBottomSheet<int>(
+  final selected = await showAdaptiveModal<int>(
     context: context,
     builder: (ctx) => _DeleteOptionSheet(
       title: 'Excluir ocorrência?',

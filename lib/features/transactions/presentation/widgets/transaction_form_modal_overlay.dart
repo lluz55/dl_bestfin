@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/adaptive_modal_panel.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
 import 'package:bestfin/features/transactions/presentation/screens/transaction_form_screen.dart';
@@ -14,21 +15,11 @@ Future<T?> showLimitedTransactionSheet<T>({
   required Widget Function(BuildContext sheetContext) builder,
 }) {
   final isMobile = Breakpoints.isCompact(context);
-  return showModalBottomSheet<T>(
+  return showAppBottomSheet<T>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) => ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: isMobile
-          ? ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.65,
-              ),
-              child: builder(sheetContext),
-            )
-          : builder(sheetContext),
-    ),
+    useSafeArea: false,
+    maxHeightFraction: isMobile ? kAppSheetMaxHeightFraction : null,
+    builder: builder,
   );
 }
 

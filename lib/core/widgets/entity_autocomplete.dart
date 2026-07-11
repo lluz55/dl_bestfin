@@ -127,16 +127,12 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
     final nameController = TextEditingController();
     String selectedIconKey = 'person';
 
-    return showModalBottomSheet<EntityCategory>(
+    return showAdaptiveModal<EntityCategory>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
+            return SingleChildScrollView(
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
@@ -280,134 +276,113 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
     return showAdaptiveModal<String>(
       context: context,
       builder: (context) {
-        final cs = context.colorScheme;
         final tt = context.textTheme;
         final isCompact = Breakpoints.isCompact(context);
         return Consumer(
           builder: (context, ref, child) {
             final categories = ref.watch(entityCategoriesProvider);
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                // Mesma altura máxima do modal de nova transação.
-                maxHeight: MediaQuery.of(context).size.height * 0.65,
-              ),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isCompact)
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 12, bottom: 4),
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        isCompact ? 8 : 20,
-                        16,
-                        12,
-                      ),
-                      child: Text(
-                        'Selecione a Categoria',
-                        style: tt.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+            return SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      isCompact ? 8 : 20,
+                      16,
+                      12,
+                    ),
+                    child: Text(
+                      'Selecione a Categoria',
+                      style: tt.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Flexible(
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              childAspectRatio: 1,
-                              mainAxisSpacing: 8,
-                              crossAxisSpacing: 8,
-                            ),
-                        itemCount: categories.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == categories.length) {
-                            return InkWell(
-                              onTap: () async {
-                                final newCat = await _showCreateCategorySheet();
-                                if (newCat != null && context.mounted) {
-                                  Navigator.pop(context, newCat.id);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
+                  ),
+                  Flexible(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 1,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
+                      itemCount: categories.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == categories.length) {
+                          return InkWell(
+                            onTap: () async {
+                              final newCat = await _showCreateCategorySheet();
+                              if (newCat != null && context.mounted) {
+                                Navigator.pop(context, newCat.id);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  style: BorderStyle.solid,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    size: 32,
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.primary,
-                                    style: BorderStyle.solid,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.add_circle_outline,
-                                      size: 32,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Incluir Nova',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.primary,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Incluir Nova',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }
-
-                          final cat = categories[index];
-                          return InkWell(
-                            onTap: () => Navigator.pop(context, cat.id),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  cat.icon,
-                                  size: 32,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  cat.label,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 10),
-                                ),
-                              ],
                             ),
                           );
-                        },
-                      ),
+                        }
+
+                        final cat = categories[index];
+                        return InkWell(
+                          onTap: () => Navigator.pop(context, cat.id),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                cat.icon,
+                                size: 32,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                cat.label,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },

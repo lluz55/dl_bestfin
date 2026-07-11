@@ -3,6 +3,7 @@ import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
@@ -18,7 +19,7 @@ class ReportFiltersWidget extends ConsumerWidget {
     final filters = ref.read(reportFiltersProvider);
     final notifier = ref.read(reportFiltersProvider.notifier);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (context) {
         return SafeArea(
@@ -116,114 +117,80 @@ class ReportFiltersWidget extends ConsumerWidget {
   void _showAccountFilter(BuildContext context, WidgetRef ref) {
     final activeAccounts = ref.read(activeAccountsProvider);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
-            child: Consumer(
-              builder: (context, ref, child) {
-                final currentFilters = ref.watch(reportFiltersProvider);
-                final selectedIds = currentFilters.accountIds;
-                final accountIdSet = activeAccounts.map((a) => a.id).toSet();
+        return Consumer(
+          builder: (context, ref, child) {
+            final currentFilters = ref.watch(reportFiltersProvider);
+            final selectedIds = currentFilters.accountIds;
+            final accountIdSet = activeAccounts.map((a) => a.id).toSet();
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 12, bottom: 4),
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                      Text(
+                        'Filtrar Contas',
+                        style: context.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Filtrar Contas',
-                              style: context.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                ref.read(reportFiltersProvider.notifier).update(
-                                  (state) {
-                                    final updated = state.accountIds
-                                        .where(
-                                          (id) => !accountIdSet.contains(id),
-                                        )
-                                        .toList();
-                                    return state.copyWith(accountIds: updated);
-                                  },
-                                );
-                              },
-                              child: const Text('Limpar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Flexible(
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: [
-                            for (var account in activeAccounts)
-                              _AccountFilterTile(
-                                name: account.name,
-                                icon: IconMapper.fromCodePoint(
-                                  int.parse(account.icon),
-                                ),
-                                color: Color(
-                                  int.parse(
-                                    'FF${account.color.replaceFirst('#', '')}',
-                                    radix: 16,
-                                  ),
-                                ),
-                                isSelected: selectedIds.contains(account.id),
-                                onTap: () => _toggleAccount(ref, account.id),
-                              ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                        child: AppButton(
-                          label: 'APLICAR',
-                          expanded: true,
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                      TextButton(
+                        onPressed: () {
+                          ref.read(reportFiltersProvider.notifier).update((
+                            state,
+                          ) {
+                            final updated = state.accountIds
+                                .where((id) => !accountIdSet.contains(id))
+                                .toList();
+                            return state.copyWith(accountIds: updated);
+                          });
+                        },
+                        child: const Text('Limpar'),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (var account in activeAccounts)
+                        _AccountFilterTile(
+                          name: account.name,
+                          icon: IconMapper.fromCodePoint(
+                            int.parse(account.icon),
+                          ),
+                          color: Color(
+                            int.parse(
+                              'FF${account.color.replaceFirst('#', '')}',
+                              radix: 16,
+                            ),
+                          ),
+                          isSelected: selectedIds.contains(account.id),
+                          onTap: () => _toggleAccount(ref, account.id),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: AppButton(
+                    label: 'APLICAR',
+                    expanded: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -232,112 +199,78 @@ class ReportFiltersWidget extends ConsumerWidget {
   void _showCreditCardFilter(BuildContext context, WidgetRef ref) {
     final creditCards = ref.read(creditCardsStreamProvider).value ?? [];
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
-            child: Consumer(
-              builder: (context, ref, child) {
-                final currentFilters = ref.watch(reportFiltersProvider);
-                final selectedIds = currentFilters.creditCardIds;
-                final cardIdSet = creditCards.map((c) => c.id).toSet();
+        return Consumer(
+          builder: (context, ref, child) {
+            final currentFilters = ref.watch(reportFiltersProvider);
+            final selectedIds = currentFilters.creditCardIds;
+            final cardIdSet = creditCards.map((c) => c.id).toSet();
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 12, bottom: 4),
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                      Text(
+                        'Filtrar Cartões',
+                        style: context.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Filtrar Cartões',
-                              style: context.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                ref.read(reportFiltersProvider.notifier).update(
-                                  (state) {
-                                    final updated = state.creditCardIds
-                                        .where((id) => !cardIdSet.contains(id))
-                                        .toList();
-                                    return state.copyWith(
-                                      creditCardIds: updated,
-                                    );
-                                  },
-                                );
-                              },
-                              child: const Text('Limpar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Flexible(
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: [
-                            for (var card in creditCards)
-                              _AccountFilterTile(
-                                name: card.name,
-                                icon: Icons.credit_card_rounded,
-                                color: Color(
-                                  int.parse(
-                                    'FF${(card.color ?? "#2196F3").replaceFirst('#', '')}',
-                                    radix: 16,
-                                  ),
-                                ),
-                                isSelected: selectedIds.contains(card.id),
-                                onTap: () => _toggleCreditCard(ref, card.id),
-                              ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                        child: AppButton(
-                          label: 'APLICAR',
-                          expanded: true,
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                      TextButton(
+                        onPressed: () {
+                          ref.read(reportFiltersProvider.notifier).update((
+                            state,
+                          ) {
+                            final updated = state.creditCardIds
+                                .where((id) => !cardIdSet.contains(id))
+                                .toList();
+                            return state.copyWith(creditCardIds: updated);
+                          });
+                        },
+                        child: const Text('Limpar'),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (var card in creditCards)
+                        _AccountFilterTile(
+                          name: card.name,
+                          icon: Icons.credit_card_rounded,
+                          color: Color(
+                            int.parse(
+                              'FF${(card.color ?? "#2196F3").replaceFirst('#', '')}',
+                              radix: 16,
+                            ),
+                          ),
+                          isSelected: selectedIds.contains(card.id),
+                          onTap: () => _toggleCreditCard(ref, card.id),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: AppButton(
+                    label: 'APLICAR',
+                    expanded: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -371,7 +304,7 @@ class ReportFiltersWidget extends ConsumerWidget {
     final filters = ref.read(reportFiltersProvider);
     final notifier = ref.read(reportFiltersProvider.notifier);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (context) {
         return SafeArea(
@@ -426,99 +359,67 @@ class ReportFiltersWidget extends ConsumerWidget {
     final notifier = ref.read(reportFiltersProvider.notifier);
     final categories = ref.read(allFlatCategoriesProvider);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Filtrar por Categoria',
+                  style: context.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
                     children: [
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant
-                                .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
+                      ListTile(
+                        title: const Text('Todas as Categorias'),
+                        leading: const Icon(Icons.category_outlined),
+                        selected: filters.categoryId == null,
+                        onTap: () {
+                          notifier.update(
+                            (f) => f.copyWith(clearCategory: true),
+                          );
+                          Navigator.of(context).pop();
+                        },
                       ),
-                      Text(
-                        'Filtrar por Categoria',
-                        style: context.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Flexible(
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: [
-                            ListTile(
-                              title: const Text('Todas as Categorias'),
-                              leading: const Icon(Icons.category_outlined),
-                              selected: filters.categoryId == null,
-                              onTap: () {
-                                notifier.update(
-                                  (f) => f.copyWith(clearCategory: true),
-                                );
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                            for (var category in categories)
-                              ListTile(
-                                title: Text(category.displayName),
-                                leading: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: category.parsedColor.withValues(
-                                      alpha: 0.15,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    category.iconData,
-                                    color: category.parsedColor,
-                                  ),
-                                ),
-                                selected: filters.categoryId == category.id,
-                                onTap: () {
-                                  notifier.update(
-                                    (f) => f.copyWith(categoryId: category.id),
-                                  );
-                                  Navigator.of(context).pop();
-                                },
+                      for (var category in categories)
+                        ListTile(
+                          title: Text(category.displayName),
+                          leading: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: category.parsedColor.withValues(
+                                alpha: 0.15,
                               ),
-                          ],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              category.iconData,
+                              color: category.parsedColor,
+                            ),
+                          ),
+                          selected: filters.categoryId == category.id,
+                          onTap: () {
+                            notifier.update(
+                              (f) => f.copyWith(categoryId: category.id),
+                            );
+                            Navigator.of(context).pop();
+                          },
                         ),
-                      ),
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         );

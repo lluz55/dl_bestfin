@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/adaptive_modal_panel.dart';
 import 'package:bestfin/features/financing/presentation/providers/financing_form_modal_provider.dart';
 import 'package:bestfin/features/financing/presentation/screens/financing_form_screen.dart';
@@ -34,22 +35,11 @@ class _FinancingFormModalOverlayState
           final current = ref.read(financingFormModalProvider);
           if (!current.isOpen) return;
           ref.read(financingFormModalProvider.notifier).close();
-          showModalBottomSheet(
+          showAppBottomSheet<void>(
             context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.65,
-                ),
-                child: FinancingFormScreen(
-                  onClose: () => Navigator.of(context).pop(),
-                ),
-              ),
+            useSafeArea: false,
+            builder: (sheetContext) => FinancingFormScreen(
+              onClose: () => Navigator.of(sheetContext).pop(),
             ),
           );
         });

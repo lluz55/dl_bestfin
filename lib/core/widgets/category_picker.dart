@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
@@ -11,10 +12,8 @@ Future<CategoryModel?> showCategoryPicker(
   String? typeFilter,
   String? selectedCategoryId,
 }) {
-  return showModalBottomSheet<CategoryModel>(
+  return showAdaptiveModal<CategoryModel>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (_) => _CategoryPickerSheet(
       typeFilter: typeFilter,
       selectedCategoryId: selectedCategoryId,
@@ -58,10 +57,8 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
     BuildContext context,
     CategoryModel parent,
   ) async {
-    final selected = await showModalBottomSheet<CategoryModel>(
+    final selected = await showAdaptiveModal<CategoryModel>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => SubcategoryPickerSheet(
         parent: parent,
         selectedCategoryId: widget.selectedCategoryId,
@@ -76,113 +73,82 @@ class _CategoryPickerSheetState extends ConsumerState<_CategoryPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
-    final shapes = context.shapes;
     final tt = context.textTheme;
 
     final asyncTree = widget.typeFilter != null
         ? ref.watch(categoriesByTypeProvider(widget.typeFilter!))
         : ref.watch(categoriesTreeProvider);
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: shapes.bottomSheet,
-          ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 4),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              Text(
+                'Categoria',
+                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Categoria',
-                      style: tt.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SearchBar(
-                      hintText: 'Buscar categoria...',
-                      leading: const Icon(Icons.search),
-                      onChanged: (v) => setState(() => _query = v),
-                      elevation: const WidgetStatePropertyAll(0),
-                      backgroundColor: WidgetStatePropertyAll(
-                        cs.surfaceContainerHighest,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Flexible(
-                child: asyncTree.when(
-                  loading: () => const Center(child: AppLoadingIndicator()),
-                  error: (e, _) => Center(child: Text('Erro: $e')),
-                  data: (roots) {
-                    final items = _buildItems(roots);
-
-                    if (items.isEmpty) {
-                      return const Center(
-                        child: Text('Nenhuma categoria encontrada'),
-                      );
-                    }
-
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Flexible(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                            itemCount: items.length,
-                            itemBuilder: (context, i) {
-                              final category = items[i];
-                              final isSelected =
-                                  category.id == widget.selectedCategoryId;
-
-                              return _CategoryPickerTile(
-                                category: category,
-                                isSelected: isSelected,
-                                onTap: category.hasChildren
-                                    ? () => _openSubcategoryPicker(
-                                        context,
-                                        category,
-                                      )
-                                    : () => Navigator.of(context).pop(category),
-                                cs: cs,
-                                tt: tt,
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+              const SizedBox(height: 12),
+              SearchBar(
+                hintText: 'Buscar categoria...',
+                leading: const Icon(Icons.search),
+                onChanged: (v) => setState(() => _query = v),
+                elevation: const WidgetStatePropertyAll(0),
+                backgroundColor: WidgetStatePropertyAll(
+                  cs.surfaceContainerHighest,
                 ),
               ),
             ],
           ),
         ),
-      ),
+        Flexible(
+          child: asyncTree.when(
+            loading: () => const Center(child: AppLoadingIndicator()),
+            error: (e, _) => Center(child: Text('Erro: $e')),
+            data: (roots) {
+              final items = _buildItems(roots);
+
+              if (items.isEmpty) {
+                return const Center(
+                  child: Text('Nenhuma categoria encontrada'),
+                );
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: items.length,
+                      itemBuilder: (context, i) {
+                        final category = items[i];
+                        final isSelected =
+                            category.id == widget.selectedCategoryId;
+
+                        return _CategoryPickerTile(
+                          category: category,
+                          isSelected: isSelected,
+                          onTap: category.hasChildren
+                              ? () => _openSubcategoryPicker(context, category)
+                              : () => Navigator.of(context).pop(category),
+                          cs: cs,
+                          tt: tt,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -262,94 +228,63 @@ class SubcategoryPickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
-    final shapes = context.shapes;
     final tt = context.textTheme;
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: shapes.bottomSheet,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
             children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 4),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        parent.name,
-                        style: tt.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  itemCount: parent.children.length,
-                  itemBuilder: (context, i) {
-                    final child = parent.children[i];
-                    final isSelected = child.id == selectedCategoryId;
-
-                    return _CategoryPickerTile(
-                      category: child,
-                      isSelected: isSelected,
-                      onTap: child.hasChildren
-                          ? () async {
-                              final selected =
-                                  await showModalBottomSheet<CategoryModel>(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (_) => SubcategoryPickerSheet(
-                                      parent: child,
-                                      selectedCategoryId: selectedCategoryId,
-                                    ),
-                                  );
-                              if (!context.mounted) return;
-                              if (selected != null) {
-                                Navigator.of(context).pop(selected);
-                              }
-                            }
-                          : () => Navigator.of(context).pop(child),
-                      cs: cs,
-                      tt: tt,
-                    );
-                  },
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  parent.name,
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
           ),
         ),
-      ),
+        Flexible(
+          child: ListView.builder(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: parent.children.length,
+            itemBuilder: (context, i) {
+              final child = parent.children[i];
+              final isSelected = child.id == selectedCategoryId;
+
+              return _CategoryPickerTile(
+                category: child,
+                isSelected: isSelected,
+                onTap: child.hasChildren
+                    ? () async {
+                        final selected = await showAdaptiveModal<CategoryModel>(
+                          context: context,
+                          builder: (_) => SubcategoryPickerSheet(
+                            parent: child,
+                            selectedCategoryId: selectedCategoryId,
+                          ),
+                        );
+                        if (!context.mounted) return;
+                        if (selected != null) {
+                          Navigator.of(context).pop(selected);
+                        }
+                      }
+                    : () => Navigator.of(context).pop(child),
+                cs: cs,
+                tt: tt,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

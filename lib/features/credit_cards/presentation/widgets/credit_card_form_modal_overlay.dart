@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/adaptive_modal_panel.dart';
 import 'package:bestfin/features/credit_cards/presentation/providers/credit_card_form_modal_provider.dart';
 import 'package:bestfin/features/credit_cards/presentation/screens/credit_card_form_screen.dart';
@@ -34,23 +35,12 @@ class _CreditCardFormModalOverlayState
           final current = ref.read(creditCardFormModalProvider);
           if (!current.isOpen) return;
           ref.read(creditCardFormModalProvider.notifier).close();
-          showModalBottomSheet(
+          showAppBottomSheet<void>(
             context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.65,
-                ),
-                child: CreditCardFormScreen(
-                  card: current.card,
-                  onClose: () => Navigator.of(context).pop(),
-                ),
-              ),
+            useSafeArea: false,
+            builder: (sheetContext) => CreditCardFormScreen(
+              card: current.card,
+              onClose: () => Navigator.of(sheetContext).pop(),
             ),
           );
         });

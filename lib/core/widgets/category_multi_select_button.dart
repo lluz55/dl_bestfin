@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 
@@ -91,10 +92,8 @@ class CategoryMultiSelectButton extends StatelessWidget {
   }
 
   void _openSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _CategoryChecklistSheet(
         candidates: candidates,
         initialSelectedIds: Set<String>.from(selectedIds),
@@ -155,132 +154,93 @@ class _CategoryChecklistSheetState extends State<_CategoryChecklistSheet> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+          child: Row(
             children: [
-              _Handle(cs: cs),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Selecionar Categorias',
-                        style: tt.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.select_all_rounded),
-                      tooltip: 'Selecionar todos',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: _selectAll,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.deselect_rounded),
-                      tooltip: 'Desmarcar todos',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: _selectNone,
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        widget.onConfirm(_selected);
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Confirmar'),
-                    ),
-                  ],
+              Expanded(
+                child: Text(
+                  'Selecionar Categorias',
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: SearchBar(
-                  hintText: 'Buscar categoria...',
-                  leading: const Icon(Icons.search_rounded),
-                  onChanged: (v) => setState(() => _query = v),
-                  elevation: const WidgetStatePropertyAll(0),
-                  backgroundColor: WidgetStatePropertyAll(
-                    cs.surfaceContainerHighest,
-                  ),
-                ),
+              IconButton(
+                icon: const Icon(Icons.select_all_rounded),
+                tooltip: 'Selecionar todos',
+                visualDensity: VisualDensity.compact,
+                onPressed: _selectAll,
               ),
-              Flexible(
-                child: _filtered.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Nenhuma categoria encontrada',
-                          style: tt.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-                        itemCount: _filtered.length,
-                        itemBuilder: (ctx, i) {
-                          final cat = _filtered[i];
-                          final isSelected = _selected.contains(cat.id);
-                          return CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (v) => setState(() {
-                              if (v == true) {
-                                _selected.add(cat.id);
-                              } else {
-                                _selected.remove(cat.id);
-                              }
-                            }),
-                            secondary: CategoryIcon(
-                              icon: cat.icon,
-                              color: cat.color,
-                              size: 36,
-                            ),
-                            title: Text(cat.displayName, style: tt.bodyMedium),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            checkboxShape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            controlAffinity: ListTileControlAffinity.trailing,
-                          );
-                        },
-                      ),
+              IconButton(
+                icon: const Icon(Icons.deselect_rounded),
+                tooltip: 'Desmarcar todos',
+                visualDensity: VisualDensity.compact,
+                onPressed: _selectNone,
+              ),
+              TextButton(
+                onPressed: () {
+                  widget.onConfirm(_selected);
+                  Navigator.pop(context);
+                },
+                child: const Text('Confirmar'),
               ),
             ],
           ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: SearchBar(
+            hintText: 'Buscar categoria...',
+            leading: const Icon(Icons.search_rounded),
+            onChanged: (v) => setState(() => _query = v),
+            elevation: const WidgetStatePropertyAll(0),
+            backgroundColor: WidgetStatePropertyAll(cs.surfaceContainerHighest),
+          ),
+        ),
+        Flexible(
+          child: _filtered.isEmpty
+              ? Center(
+                  child: Text(
+                    'Nenhuma categoria encontrada',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+                  itemCount: _filtered.length,
+                  itemBuilder: (ctx, i) {
+                    final cat = _filtered[i];
+                    final isSelected = _selected.contains(cat.id);
+                    return CheckboxListTile(
+                      value: isSelected,
+                      onChanged: (v) => setState(() {
+                        if (v == true) {
+                          _selected.add(cat.id);
+                        } else {
+                          _selected.remove(cat.id);
+                        }
+                      }),
+                      secondary: CategoryIcon(
+                        icon: cat.icon,
+                        color: cat.color,
+                        size: 36,
+                      ),
+                      title: Text(cat.displayName, style: tt.bodyMedium),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      checkboxShape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
-}
-
-class _Handle extends StatelessWidget {
-  final ColorScheme cs;
-  const _Handle({required this.cs});
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Container(
-      margin: const EdgeInsets.only(top: 12, bottom: 4),
-      width: 36,
-      height: 4,
-      decoration: BoxDecoration(
-        color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(2),
-      ),
-    ),
-  );
 }

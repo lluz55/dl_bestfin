@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/utils/date_formatter.dart';
@@ -18,7 +19,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
   void _showTypeFilter(BuildContext context, WidgetRef ref) {
     final filters = ref.read(transactionFiltersProvider);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (context) {
         return SafeArea(
@@ -75,89 +76,74 @@ class TransactionFiltersWidget extends ConsumerWidget {
   void _showAccountFilter(BuildContext context, WidgetRef ref) {
     final activeAccounts = ref.read(activeAccountsProvider);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return Consumer(
-              builder: (context, ref, child) {
-                final currentFilters = ref.watch(transactionFiltersProvider);
-                final selectedIds = currentFilters.accountIds;
-                final accountIdSet = activeAccounts.map((a) => a.id).toSet();
+        return Consumer(
+          builder: (context, ref, child) {
+            final currentFilters = ref.watch(transactionFiltersProvider);
+            final selectedIds = currentFilters.accountIds;
+            final accountIdSet = activeAccounts.map((a) => a.id).toSet();
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 20,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Filtrar Contas',
-                            style: context.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              ref
-                                  .read(transactionFiltersProvider.notifier)
-                                  .update((state) {
-                                    final updated = state.accountIds
-                                        .where(
-                                          (id) => !accountIdSet.contains(id),
-                                        )
-                                        .toList();
-                                    return state.copyWith(accountIds: updated);
-                                  });
-                            },
-                            child: const Text('Limpar'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          children: [
-                            for (var account in activeAccounts)
-                              _AccountFilterTile(
-                                name: account.name,
-                                icon: IconMapper.fromCodePoint(
-                                  int.parse(account.icon),
-                                ),
-                                color: Color(
-                                  int.parse(
-                                    'FF${account.color.replaceFirst('#', '')}',
-                                    radix: 16,
-                                  ),
-                                ),
-                                isSelected: selectedIds.contains(account.id),
-                                onTap: () => _toggleAccount(ref, account.id),
-                              ),
-                          ],
+                      Text(
+                        'Filtrar Contas',
+                        style: context.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      AppButton(
-                        label: 'APLICAR',
-                        expanded: true,
-                        onPressed: () => Navigator.pop(context),
+                      TextButton(
+                        onPressed: () {
+                          ref.read(transactionFiltersProvider.notifier).update((
+                            state,
+                          ) {
+                            final updated = state.accountIds
+                                .where((id) => !accountIdSet.contains(id))
+                                .toList();
+                            return state.copyWith(accountIds: updated);
+                          });
+                        },
+                        child: const Text('Limpar'),
                       ),
                     ],
                   ),
-                );
-              },
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        for (var account in activeAccounts)
+                          _AccountFilterTile(
+                            name: account.name,
+                            icon: IconMapper.fromCodePoint(
+                              int.parse(account.icon),
+                            ),
+                            color: Color(
+                              int.parse(
+                                'FF${account.color.replaceFirst('#', '')}',
+                                radix: 16,
+                              ),
+                            ),
+                            isSelected: selectedIds.contains(account.id),
+                            onTap: () => _toggleAccount(ref, account.id),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppButton(
+                    label: 'APLICAR',
+                    expanded: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -168,87 +154,72 @@ class TransactionFiltersWidget extends ConsumerWidget {
   void _showCreditCardFilter(BuildContext context, WidgetRef ref) {
     final creditCards = ref.read(creditCardsStreamProvider).value ?? [];
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return Consumer(
-              builder: (context, ref, child) {
-                final currentFilters = ref.watch(transactionFiltersProvider);
-                final selectedIds = currentFilters.creditCardIds;
-                final cardIdSet = creditCards.map((c) => c.id).toSet();
+        return Consumer(
+          builder: (context, ref, child) {
+            final currentFilters = ref.watch(transactionFiltersProvider);
+            final selectedIds = currentFilters.creditCardIds;
+            final cardIdSet = creditCards.map((c) => c.id).toSet();
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 20,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Filtrar Cartões',
-                            style: context.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              ref
-                                  .read(transactionFiltersProvider.notifier)
-                                  .update((state) {
-                                    final updated = state.creditCardIds
-                                        .where((id) => !cardIdSet.contains(id))
-                                        .toList();
-                                    return state.copyWith(
-                                      creditCardIds: updated,
-                                    );
-                                  });
-                            },
-                            child: const Text('Limpar'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          children: [
-                            for (var card in creditCards)
-                              _AccountFilterTile(
-                                name: card.name,
-                                icon: Icons.credit_card_rounded,
-                                color: Color(
-                                  int.parse(
-                                    'FF${(card.color ?? "#2196F3").replaceFirst('#', '')}',
-                                    radix: 16,
-                                  ),
-                                ),
-                                isSelected: selectedIds.contains(card.id),
-                                onTap: () => _toggleCreditCard(ref, card.id),
-                              ),
-                          ],
+                      Text(
+                        'Filtrar Cartões',
+                        style: context.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      AppButton(
-                        label: 'APLICAR',
-                        expanded: true,
-                        onPressed: () => Navigator.pop(context),
+                      TextButton(
+                        onPressed: () {
+                          ref.read(transactionFiltersProvider.notifier).update((
+                            state,
+                          ) {
+                            final updated = state.creditCardIds
+                                .where((id) => !cardIdSet.contains(id))
+                                .toList();
+                            return state.copyWith(creditCardIds: updated);
+                          });
+                        },
+                        child: const Text('Limpar'),
                       ),
                     ],
                   ),
-                );
-              },
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        for (var card in creditCards)
+                          _AccountFilterTile(
+                            name: card.name,
+                            icon: Icons.credit_card_rounded,
+                            color: Color(
+                              int.parse(
+                                'FF${(card.color ?? "#2196F3").replaceFirst('#', '')}',
+                                radix: 16,
+                              ),
+                            ),
+                            isSelected: selectedIds.contains(card.id),
+                            onTap: () => _toggleCreditCard(ref, card.id),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppButton(
+                    label: 'APLICAR',
+                    expanded: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -284,7 +255,7 @@ class TransactionFiltersWidget extends ConsumerWidget {
     final filters = ref.read(transactionFiltersProvider);
     final categories = ref.read(allFlatCategoriesProvider);
 
-    showModalBottomSheet(
+    showAdaptiveModal<void>(
       context: context,
       builder: (context) {
         return SafeArea(

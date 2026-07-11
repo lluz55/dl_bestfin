@@ -22,6 +22,12 @@ class NotificationSettingsScreen extends ConsumerWidget {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Captura de notificações',
+        infoDescription: 'Configure a captura automática de transações por notificações bancárias no Android. Defina padrões de correspondência para cada banco.',
+        infoFeatures: [
+          'Padrões de captura por banco',
+          'Teste de correspondência',
+          'Permissão de notificações',
+        ],
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
