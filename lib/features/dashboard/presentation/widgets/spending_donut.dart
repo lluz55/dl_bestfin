@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/dashboard/domain/models/dashboard_data.dart';
+import 'package:bestfin/features/dashboard/presentation/utils/category_navigation.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 
-class SpendingDonut extends StatefulWidget {
+class SpendingDonut extends ConsumerStatefulWidget {
   final List<DashboardCategorySpending> categoryExpenses;
 
   const SpendingDonut({super.key, required this.categoryExpenses});
 
   @override
-  State<SpendingDonut> createState() => _SpendingDonutState();
+  ConsumerState<SpendingDonut> createState() => _SpendingDonutState();
 }
 
-class _SpendingDonutState extends State<SpendingDonut> {
+class _SpendingDonutState extends ConsumerState<SpendingDonut> {
   int _touchedIndex = -1;
 
   @override
@@ -172,68 +174,77 @@ class _SpendingDonutState extends State<SpendingDonut> {
         ? 'R\$ •••••'
         : 'R\$ ${valAmount.toStringAsFixed(0)}';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? cs.surfaceContainerHighest.withValues(alpha: 0.7)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.categoryName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.labelLarge?.copyWith(
-                      fontWeight: isSelected
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                      color: cs.onSurface,
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    '${(item.percentage * 100).toStringAsFixed(0)}%',
-                    style: tt.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              formattedAmount,
-              style: tt.labelMedium
-                  ?.copyWith(
-                    fontWeight: FontWeight.w700,
+    final categoryId = item.category?.id;
+
+    final content = AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.7)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.categoryName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.labelLarge?.copyWith(
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                     color: cs.onSurface,
                     fontSize: 11,
-                  )
-                  .merge(AppTypography.monospace),
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '${(item.percentage * 100).toStringAsFixed(0)}%',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            formattedAmount,
+            style: tt.labelMedium
+                ?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                  fontSize: 11,
+                )
+                .merge(AppTypography.monospace),
+          ),
+        ],
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: categoryId == null
+          ? content
+          : InkWell(
+              onTap: () =>
+                  goToTransactionsForCategory(context, ref, categoryId),
+              borderRadius: BorderRadius.circular(12),
+              child: content,
+            ),
     );
   }
 }

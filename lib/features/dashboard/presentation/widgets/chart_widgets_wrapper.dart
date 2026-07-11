@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/dashboard/domain/models/dashboard_data.dart';
+import 'package:bestfin/features/dashboard/presentation/utils/category_navigation.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/widgets/bar_chart_widget.dart';
 import 'package:bestfin/features/reports/presentation/widgets/line_chart_widget.dart';
@@ -62,13 +64,13 @@ class MonthlyBarChartWidgetWrapper extends StatelessWidget {
   }
 }
 
-class CategoryRankingWidgetWrapper extends StatelessWidget {
+class CategoryRankingWidgetWrapper extends ConsumerWidget {
   final List<CategoryRankingItem> items;
 
   const CategoryRankingWidgetWrapper({super.key, required this.items});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
     final hasData = items.isNotEmpty;
@@ -138,7 +140,16 @@ class CategoryRankingWidgetWrapper extends StatelessWidget {
               ),
             )
           else
-            CategoryBarChartWidget(items: chartItems, maxAmount: maxAmount),
+            CategoryBarChartWidget(
+              items: chartItems,
+              maxAmount: maxAmount,
+              onBarTap: (index) {
+                final id = items[index].category?.id;
+                if (id != null) {
+                  goToTransactionsForCategory(context, ref, id);
+                }
+              },
+            ),
         ],
       ),
     );
