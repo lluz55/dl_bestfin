@@ -68,6 +68,35 @@ ok()    { echo "[release] ✓ $*"; }
 err()   { echo "[release] ✗ $*" >&2; exit 1; }
 step()  { echo; echo "══ $* ══"; }
 
+# Filtra linhas de aviso de pacotes desatualizados do output do Flutter
+filter_flutter() {
+  grep -v 'have newer versions\|available)$'
+}
+
+# Executa build Flutter com saída filtrada e suporte a dry-run
+flutter_build() {
+  if $dry_run; then
+    echo "  [dry-run] nix develop -c flutter $*"
+    return 0
+  fi
+  echo "  → nix develop -c flutter $*"
+  nix develop -c flutter "$@" 2>&1 | filter_flutter
+  local exit_code="${PIPESTATUS[0]}"
+  return "$exit_code"
+}
+
+# Executa dart run via nix com saída filtrada
+dart_run() {
+  if $dry_run; then
+    echo "  [dry-run] nix develop -c dart run $*"
+    return 0
+  fi
+  echo "  → nix develop -c dart run $*"
+  nix develop -c dart run "$@" 2>&1 | filter_flutter
+  local exit_code="${PIPESTATUS[0]}"
+  return "$exit_code"
+}
+
 # Trap para mostrar em qual linha o script falhou
 error_trap() {
   local last_exit=$?
@@ -330,12 +359,12 @@ if $SKIP_BUILD; then
   $dry_run || [[ -f "$APK_SRC" ]] || err "APK não encontrado em $APK_SRC. Compile antes de usar --skip-build."
 else
   step "Compilando Android APK (pode levar vários minutos)"
-  run nix develop -c flutter build apk --release
+  flutter_build build apk --release
   $dry_run || [[ -f "$APK_SRC" ]] || err "APK não foi gerado em $APK_SRC"
   ok "APK gerado (${APK_SRC})"
 
   step "Compilando Linux bundle (pode levar vários minutos)"
-  run nix develop -c flutter build linux --release
+  flutter_build build linux --release
   $dry_run || [[ -d "build/linux/x64/release/bundle" ]] || err "Bundle Linux não foi gerado"
   ok "Bundle Linux gerado"
 fi
@@ -377,7 +406,7 @@ else
   NOSTR_ARGS=(--version "$VERSION" --changelog "$CHANGELOG" --download-url "$DOWNLOAD_URL")
   $CRITICAL && NOSTR_ARGS+=(--critical)
 
-  run nix develop -c dart run scripts/publish_update.dart "${NOSTR_ARGS[@]}"
+  dart_run scripts/publish_update.dart "${NOSTR_ARGS[@]}"
   ok "Notificação Nostr publicada"
 fi
 
