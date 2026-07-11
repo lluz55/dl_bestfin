@@ -68,8 +68,15 @@ ok()    { echo "[release] ✓ $*"; }
 err()   { echo "[release] ✗ $*" >&2; exit 1; }
 step()  { echo; echo "══ $* ══"; }
 
+# Trap para mostrar em qual linha o script falhou
+error_trap() {
+  local last_exit=$?
+  local line=$1
+  echo "[release] ✗ ERRO na linha ${line} (exit code: ${last_exit})" >&2
+}
+trap 'error_trap $LINENO' ERR
+
 # ── Load .env (secrets, nunca commitado) ──────────────────────────────────────
-# Se existir, carrega as variáveis exportando-as automaticamente.
 if [[ -f "$PROJECT_DIR/.env" ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -84,27 +91,39 @@ run() {
   if $dry_run; then
     echo "  [dry-run] $*"
   else
+    echo "  → $*"
     "$@"
   fi
 }
 
 # Função para bump automático de versão
-# Se VERSION for "patch", "minor" ou "major", calcula a nova versão
 compute_auto_bump() {
   local current_version
   current_version=$(grep '^version:' pubspec.yaml | grep -oP '\d+\.\d+\.\d+' || echo "0.0.0")
-  
+
   local major minor patch
   IFS='.' read -r major minor patch <<< "$current_version"
-  
+
   case "$VERSION" in
     patch) patch=$((patch + 1)) ;;
     minor) minor=$((minor + 1)); patch=0 ;;
     major) major=$((major + 1)); minor=0; patch=0 ;;
     *) return 1 ;;
   esac
-  
+
   echo "${major}.${minor}.${patch}"
+}
+
+# Extrai uma seção do CHANGELOG.md
+extract_changelog_section() {
+  local file="$1" target="$2"
+  awk -v target="$target" '
+    /^## / {
+      if (found) exit
+      if ($2 == target) { found = 1; next }
+    }
+    found { print }
+  ' "$file" | sed -e '/./,$!d' | sed -e ':a' -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
 }
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
@@ -116,7 +135,6 @@ CRITICAL=false
 SKIP_BUILD=false
 SKIP_NOSTR=false
 NOSTR_KEY_FILE=""
-AUTO_BUMP=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -127,7 +145,7 @@ while [[ $# -gt 0 ]]; do
     --skip-build)     SKIP_BUILD=true;     shift ;;
     --skip-nostr)     SKIP_NOSTR=true;     shift ;;
     --dry-run)        dry_run=true;        shift ;;
-    --auto-bump)      AUTO_BUMP=true;      shift ;;
+    --auto-bump)      auto_bump=true;      shift ;;
     -*)            err "Opção desconhecida: $1" ;;
     *)
       if [[ -z "$VERSION" ]]; then
@@ -140,37 +158,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Processa bump automático se habilitado
-if $AUTO_BUMP && [[ "$VERSION" =~ ^(patch|minor|major)$ ]]; then
+if $auto_bump && [[ "$VERSION" =~ ^(patch|minor|major)$ ]]; then
   NEW_VERSION=$(compute_auto_bump)
-  if [[ $? -ne 0 ]]; then
-    err "Falha ao calcular bump automático para '$VERSION'"
-  fi
   VERSION="$NEW_VERSION"
   info "Bump automático: versão → $VERSION"
 fi
 
 [[ -n "$VERSION" ]] || err "Uso: $0 <versão> [opções]  (ex: $0 1.1.0 --changelog 'Novas funcionalidades')"
-
-# Valida formato X.Y.Z
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || err "Versão inválida '$VERSION'. Use o formato X.Y.Z"
-
-# Extrai uma seção do CHANGELOG.md (do cabeçalho "## <token>" até a próxima
-# seção "## "), sem os cabeçalhos e sem linhas em branco nas pontas.
-# O token é comparado com o segundo campo do cabeçalho, então funciona para
-# "## v1.2.3", "## v1.2.3 (data)" e "## Unreleased".
-extract_changelog_section() {
-  local file="$1" target="$2"
-  awk -v target="$target" '
-    /^## / {
-      if (found) exit
-      if ($2 == target) { found = 1; next }
-    }
-    found { print }
-  ' "$file" | sed -e '/./,$!d' | sed -e ':a' -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
-}
 
 # Processa changelog: prioridade --changelog > --changelog-file > CHANGELOG.md
 RENAME_UNRELEASED=false
+CHANGELOG_MD="$PROJECT_DIR/CHANGELOG.md"
 if [[ -n "$CHANGELOG" ]]; then
   : # já está em CHANGELOG
 elif [[ -n "$CHANGELOG_FILE" ]]; then
@@ -178,7 +177,6 @@ elif [[ -n "$CHANGELOG_FILE" ]]; then
     || err "Arquivo de changelog não encontrado: $CHANGELOG_FILE"
   CHANGELOG="$(cat "$CHANGELOG_FILE")"
 else
-  CHANGELOG_MD="$PROJECT_DIR/CHANGELOG.md"
   [[ -f "$CHANGELOG_MD" ]] || err "CHANGELOG.md não encontrado em $PROJECT_DIR"
   CHANGELOG="$(extract_changelog_section "$CHANGELOG_MD" "v${VERSION}")"
   if [[ -n "$CHANGELOG" ]]; then
@@ -192,7 +190,13 @@ else
   fi
 fi
 
-DOWNLOAD_URL="https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo 'owner/bestfin')/releases/tag/v${VERSION}"
+# Obtém o nome do repositório para a URL de download
+REPO_NAME=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
+if [[ -z "$REPO_NAME" ]]; then
+  # Tenta extrair do remote git
+  REPO_NAME=$(git remote get-url origin 2>/dev/null | grep -oP '(?<=github\.com/|github\.com:)[^/.]+/[^.]+' || echo "owner/bestfin")
+fi
+DOWNLOAD_URL="https://github.com/${REPO_NAME}/releases/tag/v${VERSION}"
 
 APK_NAME="bestfin-v${VERSION}-android.apk"
 LINUX_ARCHIVE="bestfin-v${VERSION}-linux-x64.tar.gz"
@@ -211,31 +215,43 @@ fi
 
 # Chave Nostr do desenvolvedor
 if ! $SKIP_NOSTR; then
-  # Prioridade: --nostr-key-file > env var apontando para arquivo > env var literal
   if [[ -n "$NOSTR_KEY_FILE" ]]; then
     [[ -f "$NOSTR_KEY_FILE" ]] \
       || err "Arquivo da chave Nostr não encontrado: $NOSTR_KEY_FILE"
     BESTFIN_DEV_NOSTR_PRIVKEY="$(tr -d '[:space:]' < "$NOSTR_KEY_FILE")"
   elif [[ -f "${BESTFIN_DEV_NOSTR_PRIVKEY:-}" ]]; then
-    # A env var contém um caminho de arquivo — lê a chave de dentro dele
     BESTFIN_DEV_NOSTR_PRIVKEY="$(tr -d '[:space:]' < "$BESTFIN_DEV_NOSTR_PRIVKEY")"
   fi
   export BESTFIN_DEV_NOSTR_PRIVKEY
 
   [[ -n "${BESTFIN_DEV_NOSTR_PRIVKEY:-}" ]] \
     || err "Chave Nostr não definida. Exporte BESTFIN_DEV_NOSTR_PRIVKEY (hex ou arquivo), use --nostr-key-file ou --skip-nostr."
+
+  # Valida se a chave parece válida (64 chars hex ou nsec)
+  if [[ "${#BESTFIN_DEV_NOSTR_PRIVKEY}" != 64 ]] && [[ "$BESTFIN_DEV_NOSTR_PRIVKEY" != nsec1* ]]; then
+    err "Chave Nostr parece inválida (deve ser 64 caracteres hex ou começar com nsec1)."
+  fi
+  ok "Chave Nostr configurada"
 fi
 
 # Credenciais de assinatura Android
 if ! $SKIP_BUILD; then
   [[ -f "android/key.properties" ]] \
     || err "android/key.properties não encontrado. Necessário para assinar o APK."
+  ok "Credenciais de assinatura Android OK"
 fi
 
 # gh CLI
 if ! command -v gh &>/dev/null; then
   err "gh CLI não encontrado. Instale em https://cli.github.com."
 fi
+ok "gh CLI encontrado"
+
+# git configurado para push
+if ! git remote get-url origin &>/dev/null; then
+  err "Remote 'origin' não configurado."
+fi
+ok "Remote origin configurado"
 
 ok "Pré-condições OK"
 
@@ -243,35 +259,42 @@ ok "Pré-condições OK"
 
 step "Atualizando versão para ${VERSION}"
 
-# Lê build number atual e incrementa
 CURRENT_BUILD=$(grep '^version:' pubspec.yaml | grep -oP '\+\K[0-9]+' || echo "0")
 NEW_BUILD=$((CURRENT_BUILD + 1))
 
 info "pubspec.yaml: version → ${VERSION}+${NEW_BUILD}"
 run sed -i "s/^version:.*/version: ${VERSION}+${NEW_BUILD}/" pubspec.yaml
 
-info "app_info.dart: kAppVersion → '${VERSION}'"
+info "app_info.dart: kAppVersion = '${VERSION}'"
 run sed -i "s/const String kAppVersion = '.*'/const String kAppVersion = '${VERSION}'/" \
   lib/core/constants/app_info.dart
 
-# Se a env var BESTFIN_DEV_NOSTR_PUBKEY foi definida (via .env ou ambiente),
-# atualiza a pubkey embutida no app para bater com a chave usada no release.
-CURRENT_PUBKEY=$(grep -oP "kDeveloperNostrPubkey = '\\K[^']+" lib/core/constants/app_info.dart)
+# Verifica se a substituição foi aplicada
+$dry_run || grep -q "kAppVersion = '${VERSION}'" lib/core/constants/app_info.dart \
+  || err "Falha ao atualizar kAppVersion em app_info.dart"
+
+# Atualiza kDeveloperNostrPubkey se a env var for diferente do que está no código
+CURRENT_PUBKEY=$(grep -oP "kDeveloperNostrPubkey = '?\K[^';]+" lib/core/constants/app_info.dart | head -1 || echo "")
 PUBKEY="${BESTFIN_DEV_NOSTR_PUBKEY:-}"
 if [[ -n "$PUBKEY" && "$CURRENT_PUBKEY" != "$PUBKEY" ]]; then
-  # Se for caminho de arquivo, lê o conteúdo
   if [[ -f "$PUBKEY" ]]; then
     info "Lendo pubkey do arquivo: $PUBKEY"
     PUBKEY=$(tr -d '[:space:]' < "$PUBKEY")
   fi
-  # Converte npub → hex automaticamente
   if [[ "$PUBKEY" == npub1* ]]; then
     info "Convertendo npub → hex..."
     PUBKEY=$(nix develop -c dart run scripts/publish_update.dart --to-hex "$PUBKEY" 2>/dev/null)
   fi
-  info "app_info.dart: kDeveloperNostrPubkey → '${PUBKEY}'"
-  run sed -i "s/const String kDeveloperNostrPubkey = '.*'/const String kDeveloperNostrPubkey = '${PUBKEY}'/" \
-    lib/core/constants/app_info.dart
+  info "app_info.dart: kDeveloperNostrPubkey = '${PUBKEY}'"
+  # A declaração está em duas linhas no código, então substituímos a linha após o =
+  if grep -qP "kDeveloperNostrPubkey =$" lib/core/constants/app_info.dart; then
+    run sed -i "/kDeveloperNostrPubkey =/{n;s/'[^']*'/'${PUBKEY}'/}" lib/core/constants/app_info.dart
+  else
+    run sed -i "s/const String kDeveloperNostrPubkey = '.*'/const String kDeveloperNostrPubkey = '${PUBKEY}'/" \
+      lib/core/constants/app_info.dart
+  fi
+  $dry_run || grep -q "${PUBKEY}" lib/core/constants/app_info.dart \
+    || err "Falha ao atualizar kDeveloperNostrPubkey em app_info.dart"
 fi
 
 BUMP_FILES=(pubspec.yaml lib/core/constants/app_info.dart)
@@ -280,6 +303,8 @@ if $RENAME_UNRELEASED; then
   RELEASE_DATE="$(date +%F)"
   info "CHANGELOG.md: ## Unreleased → ## v${VERSION} (${RELEASE_DATE})"
   run sed -i "0,/^## Unreleased.*/s//## v${VERSION} (${RELEASE_DATE})/" CHANGELOG.md
+  $dry_run || grep -q "^## v${VERSION}" CHANGELOG.md \
+    || err "Falha ao renomear Unreleased para v${VERSION} no CHANGELOG.md"
   BUMP_FILES+=(CHANGELOG.md)
 fi
 
@@ -292,29 +317,34 @@ step "Commit e tag v${VERSION}"
 run git add "${BUMP_FILES[@]}"
 run git commit -m "chore(release): bump version para v${VERSION}"
 run git tag "v${VERSION}"
-run git push origin HEAD "v${VERSION}"
 
-ok "Commit e tag publicados"
+# git push sem prompt interativo
+GIT_TERMINAL_PROMPT=0 run git push origin HEAD "v${VERSION}"
+
+ok "Commit e tag publicados (v${VERSION})"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 if $SKIP_BUILD; then
   info "Build pulado (--skip-build)"
-  [[ -f "$APK_SRC" ]] || err "APK não encontrado em $APK_SRC. Compile antes de usar --skip-build."
+  $dry_run || [[ -f "$APK_SRC" ]] || err "APK não encontrado em $APK_SRC. Compile antes de usar --skip-build."
 else
-  step "Compilando Android APK"
+  step "Compilando Android APK (pode levar vários minutos)"
   run nix develop -c flutter build apk --release
-  ok "APK gerado em $APK_SRC"
+  $dry_run || [[ -f "$APK_SRC" ]] || err "APK não foi gerado em $APK_SRC"
+  ok "APK gerado (${APK_SRC})"
 
-  step "Compilando Linux bundle"
+  step "Compilando Linux bundle (pode levar vários minutos)"
   run nix develop -c flutter build linux --release
-  ok "Bundle Linux gerado em build/linux/x64/release/bundle/"
+  $dry_run || [[ -d "build/linux/x64/release/bundle" ]] || err "Bundle Linux não foi gerado"
+  ok "Bundle Linux gerado"
 fi
 
 # ── Empacotar Linux ───────────────────────────────────────────────────────────
 
 step "Empacotando bundle Linux"
 run tar -czf "$LINUX_ARCHIVE" -C build/linux/x64/release/bundle .
+$dry_run || [[ -f "$LINUX_ARCHIVE" ]] || err "Arquivo $LINUX_ARCHIVE não foi criado"
 ok "Arquivo: $LINUX_ARCHIVE"
 
 # ── GitHub Release ───────────────────────────────────────────────────────────
@@ -338,6 +368,11 @@ if $SKIP_NOSTR; then
   info "Publicação Nostr pulada (--skip-nostr)"
 else
   step "Publicando notificação de atualização via Nostr"
+
+  # Verifica se a chave privada está disponível (pode ter sido carregada do .env)
+  if [[ -z "${BESTFIN_DEV_NOSTR_PRIVKEY:-}" ]]; then
+    err "BESTFIN_DEV_NOSTR_PRIVKEY não está definida para publicação Nostr."
+  fi
 
   NOSTR_ARGS=(--version "$VERSION" --changelog "$CHANGELOG" --download-url "$DOWNLOAD_URL")
   $CRITICAL && NOSTR_ARGS+=(--critical)
