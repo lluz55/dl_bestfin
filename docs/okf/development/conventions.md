@@ -32,6 +32,7 @@ timestamp: 2026-06-29T00:00:00Z
 - Animações: `flutter_animate` para micro-interações; `lottie` para animações vetoriais complexas.
 - Empty states: usar o widget `EmptyState` de `lib/core/widgets/empty_state.dart`.
 - Loading: usar `AppLoadingIndicator` de `lib/core/widgets/loading_indicator.dart`.
+- **Info modals (exceção):** `showDialog` com `Dialog` centralizado — **nunca** `showAdaptiveModal` ou `showModalBottomSheet`. Ver [Modal Informativo](info-modal.md).
 
 ## Valores Monetários
 

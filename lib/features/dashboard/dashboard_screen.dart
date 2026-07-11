@@ -12,6 +12,7 @@ import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/animated_chip.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/core/widgets/profile_avatar.dart';
+import 'package:bestfin/core/widgets/page_info_modal.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
@@ -127,6 +128,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   onToggleHidden: () =>
                       ref.read(valuesHiddenProvider.notifier).toggle(),
                   onCustomize: () => showHomeWidgetsEditSheet(context),
+                  onShowInfo: () => _showDashboardInfo(context),
                   onSyncErrorTap: syncState.backgroundErrorMessage == null
                       ? null
                       : () => _showSyncErrorDialog(
@@ -244,6 +246,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 100),
         ],
       ),
+    );
+  }
+
+  void _showDashboardInfo(BuildContext context) {
+    showPageInfoModal(
+      context: context,
+      title: 'BestFin',
+      description: 'Acompanhe suas finanças de forma rápida com widgets configuráveis. Veja saldo total, receitas e despesas do período, extrato recente, gráficos e muito mais em uma única tela.',
+      features: [
+        'Widgets configuráveis (arraste e personalize)',
+        'Saldo total e valor livre para gastar',
+        'Gráfico de despesas por categoria',
+        'Receitas e despesas do período',
+        'Metas, orçamentos e projeção de caixa',
+        'Transações recentes e contas a pagar',
+      ],
     );
   }
 
@@ -419,6 +437,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.syncIndicator,
     required this.onToggleHidden,
     required this.onCustomize,
+    required this.onShowInfo,
     required this.showHeaderIcon,
     this.onSyncErrorTap,
     this.customizeKey,
@@ -432,6 +451,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
   final _SyncIndicator syncIndicator;
   final VoidCallback onToggleHidden;
   final VoidCallback onCustomize;
+  final VoidCallback onShowInfo;
   final VoidCallback? onSyncErrorTap;
   final GlobalKey? customizeKey;
   final bool showHeaderIcon;
@@ -447,6 +467,7 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
       old.greeting != greeting ||
       old.profile.photoPath != profile.photoPath ||
       old.hidden != hidden ||
+      old.showHeaderIcon != showHeaderIcon ||
       old.syncIndicator != syncIndicator ||
       old.cs != cs ||
       old.showHeaderIcon != showHeaderIcon;
@@ -602,6 +623,13 @@ class _DashboardHeaderDelegate extends SliverPersistentHeaderDelegate {
                     ),
                     tooltip: hidden ? 'Mostrar valores' : 'Ocultar valores',
                     onPressed: onToggleHidden,
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 6),
+                  _TonalIconButton(
+                    icon: const Icon(Icons.info_outline_rounded, size: 18),
+                    tooltip: 'Sobre esta tela',
+                    onPressed: onShowInfo,
                     cs: cs,
                   ),
                   const SizedBox(width: 6),

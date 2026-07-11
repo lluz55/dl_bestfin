@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/widgets/page_info_modal.dart';
 
 /// AppBar unificado para todas as páginas do app.
 /// Detecta o back button explicitamente para garantir padding e ícone consistentes.
@@ -16,6 +18,8 @@ class AppPageAppBar extends ConsumerWidget implements PreferredSizeWidget {
     this.automaticallyImplyLeading = true,
     this.bottom,
     this.showVisibilityToggle = false,
+    this.infoDescription,
+    this.infoFeatures,
   });
 
   final String title;
@@ -24,6 +28,13 @@ class AppPageAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final Widget? leading;
   final bool automaticallyImplyLeading;
   final bool showVisibilityToggle;
+
+  /// Descrição exibida no modal de informações da página.
+  /// Quando definida, um botão de informação é adicionado automaticamente ao header.
+  final String? infoDescription;
+
+  /// Lista opcional de funcionalidades destacadas no modal.
+  final List<String>? infoFeatures;
 
   /// Substitui a linha divisória padrão. Use para TabBar ou filtros customizados.
   final PreferredSizeWidget? bottom;
@@ -47,9 +58,11 @@ class AppPageAppBar extends ConsumerWidget implements PreferredSizeWidget {
     if (!canPop) {
       canPop = ModalRoute.of(context)?.canPop ?? false;
     }
+    // Em tablets e desktop, a navegação é feita pelo sidebar — oculta a seta de voltar
+    final isCompact = Breakpoints.isCompact(context);
     final effectiveLeading =
         leading ??
-        (automaticallyImplyLeading && canPop
+        (automaticallyImplyLeading && canPop && isCompact
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
@@ -77,6 +90,12 @@ class AppPageAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     final hidden = ref.watch(valuesHiddenProvider);
     final List<Widget> effectiveActions = [
+      if (infoDescription != null)
+        PageInfoButton(
+          title: title,
+          description: infoDescription!,
+          features: infoFeatures,
+        ),
       ...?actions,
       if (showVisibilityToggle)
         IconButton(
