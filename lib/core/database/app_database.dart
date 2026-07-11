@@ -36,6 +36,7 @@ import 'tables/category_parents.dart';
 import 'tables/goal_categories.dart';
 import 'tables/chat_messages.dart';
 import 'tables/budgets.dart';
+import 'tables/budget_categories.dart';
 import 'tables/transaction_splits.dart';
 import 'tables/reconciliation_checkpoints.dart';
 
@@ -91,6 +92,7 @@ part 'app_database.g.dart';
     GoalCategories,
     ChatMessages,
     Budgets,
+    BudgetCategories,
     TransactionSplits,
     ReconciliationCheckpoints,
     NostrEventLog,
@@ -123,7 +125,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration {
@@ -310,7 +312,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(chatMessages);
         }
         if (from < 18) {
-          // Feature: Orçamento Envelope
+          // Feature: Orçamento
           await m.createTable(budgets);
           // Feature: Reconciliação de Contas
           await m.addColumn(entries, entries.reconciledAt);
@@ -336,6 +338,32 @@ class AppDatabase extends _$AppDatabase {
           // Agrupamento de lançamentos em massa em um único bloco.
           await m.addColumn(transactions, transactions.groupId);
           await m.createIndex(transactionsGroupIdx);
+        }
+        if (from < 24) {
+          // Multi-categorias por orçamento: criar tabela pivô e migrar dados.
+          await m.createTable(budgetCategories);
+
+          // Adicionar coluna 'name' com valor padrão temporário.
+          // SQLite não permite ADD COLUMN NOT NULL sem DEFAULT quando há linhas.
+          await customStatement(
+            "ALTER TABLE budgets ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+          );
+
+          // Migrar dados existentes: copiar categoryId → budget_categories
+          // e gerar nome a partir do nome da categoria.
+          await customStatement(
+            'INSERT INTO budget_categories (budget_id, category_id) '
+            'SELECT id, category_id FROM budgets WHERE category_id IS NOT NULL',
+          );
+          await customStatement(
+            'UPDATE budgets SET name = '
+            "(SELECT c.name FROM categories c WHERE c.id = budgets.category_id) "
+            "WHERE name = ''",
+          );
+          // Fallback para orçamentos sem categoria.
+          await customStatement(
+            "UPDATE budgets SET name = 'Orçamento' WHERE name = ''",
+          );
         }
       },
       beforeOpen: (details) async {
@@ -545,6 +573,110 @@ class AppDatabase extends _$AppDatabase {
         'Parcelamento quitado',
         'Pague todas as parcelas de um parcelamento ou financiamento',
         'installment_completed',
+      ),
+      (
+        'first_account',
+        'Primeira conta',
+        'Cadastre sua primeira conta no aplicativo',
+        'first_account',
+      ),
+      (
+        'category_explorer',
+        'Explorador de categorias',
+        'Crie pelo menos 5 categorias personalizadas',
+        'category_explorer',
+      ),
+      (
+        'month_saver',
+        'Economia do mês',
+        'Finalize um mês com mais receitas do que despesas',
+        'month_saver',
+      ),
+      (
+        'consistency_king',
+        'Rei da consistência',
+        'Registre transações por 30 dias consecutivos',
+        'consistency_king',
+      ),
+      (
+        'budget_streak_7',
+        'Sob controle',
+        'Fique abaixo do orçamento por 7 dias consecutivos',
+        'budget_streak_7',
+      ),
+      (
+        'diversified_portfolio',
+        'Carteira diversificada',
+        'Tenha investimentos em pelo menos 3 tipos diferentes',
+        'diversified_portfolio',
+      ),
+      (
+        'credit_card_discipline',
+        'Disciplina de crédito',
+        'Pague a fatura total do cartão de crédito',
+        'credit_card_discipline',
+      ),
+      // ── Conquistas de médio prazo (3-6 meses) ──
+      (
+        'hundred_transactions',
+        'Centenário',
+        'Registre pelo menos 100 transações no aplicativo',
+        'hundred_transactions',
+      ),
+      (
+        'three_months_streak',
+        'Três meses firme',
+        'Registre transações por 90 dias consecutivos',
+        'three_months_streak',
+      ),
+      (
+        'ten_goals_reached',
+        'Atirador de elite',
+        'Conclua pelo menos 10 objetivos financeiros',
+        'ten_goals_reached',
+      ),
+      (
+        'budget_master_90',
+        'Mestre do orçamento',
+        'Fique abaixo do orçamento por 90 dias consecutivos',
+        'budget_master_90',
+      ),
+      (
+        'savings_milestone',
+        'Marco de economia',
+        'Acumule R\$10.000 em contribuicoes a objetivos',
+        'savings_milestone',
+      ),
+      // ── Conquistas de longo prazo (6-12+ meses) ──
+      (
+        'year_streak',
+        'Ano de foco',
+        'Registre transações por 365 dias consecutivos',
+        'year_streak',
+      ),
+      (
+        'all_goals_completed',
+        'Missão cumprida',
+        'Conclua todos os seus objetivos ativos (mínimo 3)',
+        'all_goals_completed',
+      ),
+      (
+        'investment_gains',
+        'Rentabilidade positiva',
+        'Tenha lucro consolidado em todos os seus investimentos',
+        'investment_gains',
+      ),
+      (
+        'financial_freedom',
+        'Liberdade financeira',
+        'Seu patrimonio total supere R\$50.000',
+        'financial_freedom',
+      ),
+      (
+        'consistent_saver',
+        'Poupador consistente',
+        'Economize dinheiro por 6 meses consecutivos',
+        'consistent_saver',
       ),
     ];
 

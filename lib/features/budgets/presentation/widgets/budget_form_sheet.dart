@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
+import 'package:bestfin/core/widgets/category_multi_select_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
-import 'package:bestfin/core/widgets/category_picker.dart';
 import 'package:bestfin/features/budgets/domain/models/budget_model.dart';
-import 'package:bestfin/features/categories/domain/models/category.dart';
+import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 import 'package:bestfin/features/budgets/presentation/providers/budgets_provider.dart';
 
 Future<void> showBudgetFormSheet(
@@ -14,14 +15,8 @@ Future<void> showBudgetFormSheet(
   required int year,
   required int month,
 }) {
-  return showModalBottomSheet(
+  return showAdaptiveModal<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
     builder: (ctx) =>
         _BudgetFormSheet(existing: existing, year: year, month: month),
   );
@@ -43,8 +38,9 @@ class _BudgetFormSheet extends ConsumerStatefulWidget {
 }
 
 class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
+  final _nameController = TextEditingController();
   final _amountController = TextEditingController();
-  CategoryModel? _selectedCategory;
+  List<String> _selectedCategoryIds = [];
   bool _saving = false;
   String? _error;
 
@@ -52,30 +48,38 @@ class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
   void initState() {
     super.initState();
     if (widget.existing != null) {
+      _nameController.text = widget.existing!.name;
       _amountController.text = CurrencyFormatter.centsToInputString(
         widget.existing!.amount,
       );
+      _selectedCategoryIds = List.from(widget.existing!.categoryIds);
     }
   }
 
   @override
   void dispose() {
+    _nameController.dispose();
     _amountController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final name = _nameController.text.trim();
     final amountText = _amountController.text
         .replaceAll('.', '')
         .replaceAll(',', '.');
     final amount = (double.tryParse(amountText) ?? 0) * 100;
 
+    if (name.isEmpty) {
+      setState(() => _error = 'Informe um nome para o orçamento');
+      return;
+    }
     if (amount <= 0) {
       setState(() => _error = 'Informe um valor válido');
       return;
     }
-    if (_selectedCategory == null && widget.existing == null) {
-      setState(() => _error = 'Selecione uma categoria');
+    if (_selectedCategoryIds.isEmpty) {
+      setState(() => _error = 'Selecione pelo menos uma categoria');
       return;
     }
 
@@ -88,14 +92,17 @@ class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
       if (widget.existing != null) {
         await ref.read(updateBudgetProvider)(
           widget.existing!.id,
-          amount.round(),
+          name: name,
+          amount: amount.round(),
+          categoryIds: _selectedCategoryIds,
         );
       } else {
         await ref.read(createBudgetProvider)(
-          categoryId: _selectedCategory!.id,
+          name: name,
           year: widget.year,
           month: widget.month,
           amount: amount.round(),
+          categoryIds: _selectedCategoryIds,
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -111,6 +118,12 @@ class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final isEditing = widget.existing != null;
+
+    // Filtrar categorias de despesa para o seletor.
+    final allCats = ref.watch(allFlatCategoriesProvider);
+    final expenseCats = allCats
+        .where((c) => c.type == 'expense' || c.type == 'both')
+        .toList();
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -132,36 +145,47 @@ class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
             ),
             const SizedBox(height: 20),
             Text(
-              isEditing ? 'Editar Envelope' : 'Novo Envelope',
+              isEditing ? 'Editar orçamento' : 'Novo orçamento',
               style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 24),
-            if (!isEditing) ...[
-              Text(
-                'Categoria',
-                style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 8),
-              _CategorySelector(
-                selected: _selectedCategory,
-                onSelected: (cat) => setState(() {
-                  _selectedCategory = cat;
-                  _error = null;
-                }),
-                cs: cs,
-                tt: tt,
-              ),
-              const SizedBox(height: 20),
-            ] else ...[
-              Text(
-                widget.existing!.categoryName ?? 'Categoria',
-                style: tt.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: cs.primary,
+            // Nome do orçamento.
+            Text(
+              'Nome',
+              style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: cs.surfaceContainerHigh,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
                 ),
+                hintText: 'Ex: Alimentação, Transporte...',
               ),
-              const SizedBox(height: 20),
-            ],
+              onChanged: (_) => setState(() => _error = null),
+            ),
+            const SizedBox(height: 20),
+            // Categorias.
+            Text(
+              'Categorias',
+              style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            CategoryMultiSelectButton(
+              selectedIds: _selectedCategoryIds,
+              onChanged: (ids) => setState(() {
+                _selectedCategoryIds = ids;
+                _error = null;
+              }),
+              candidates: expenseCats,
+              label: 'Categorias de despesa',
+            ),
+            const SizedBox(height: 20),
+            // Valor planejado.
             Text(
               'Valor planejado',
               style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
@@ -193,56 +217,11 @@ class _BudgetFormSheetState extends ConsumerState<_BudgetFormSheet> {
             ],
             const SizedBox(height: 28),
             AppButton(
-              label: isEditing ? 'Salvar' : 'Criar Envelope',
+              label: isEditing ? 'Salvar' : 'Criar orçamento',
               expanded: true,
               loading: _saving,
               onPressed: _save,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategorySelector extends StatelessWidget {
-  final CategoryModel? selected;
-  final ValueChanged<CategoryModel> onSelected;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  const _CategorySelector({
-    required this.selected,
-    required this.onSelected,
-    required this.cs,
-    required this.tt,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        final cat = await showCategoryPicker(context, typeFilter: 'expense');
-        if (cat != null) onSelected(cat);
-      },
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                selected?.displayName ?? 'Toque para selecionar',
-                style: tt.bodyMedium?.copyWith(
-                  color: selected != null ? cs.onSurface : cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_drop_down_rounded, color: cs.onSurfaceVariant),
           ],
         ),
       ),

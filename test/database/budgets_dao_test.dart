@@ -36,78 +36,16 @@ void main() {
     await db.close();
   });
 
-  test(
-    'getSpendingBreakdownForCategory separates confirmed from pending spend',
-    () async {
-      final year = 2026;
-      final month = 7;
-
-      // Confirmed expense within the period.
-      await db.transactionsDao.createTransaction(
-        data: TransactionsCompanion.insert(
-          id: const Uuid().v4(),
-          date: DateTime(year, month, 5),
-          description: 'Groceries',
-          type: 'expense',
-          categoryId: Value(categoryId),
-        ),
-        accountId: accountId,
-        amount: 10000,
-      );
-
-      // Pending (future) expense within the same period.
-      await db.transactionsDao.createTransaction(
-        data: TransactionsCompanion.insert(
-          id: const Uuid().v4(),
-          date: DateTime(year, month, 20),
-          description: 'Upcoming groceries',
-          type: 'expense',
-          categoryId: Value(categoryId),
-          isCompleted: const Value(false),
-        ),
-        accountId: accountId,
-        amount: 4000,
-      );
-
-      // Pending expense in a different month must not count.
-      await db.transactionsDao.createTransaction(
-        data: TransactionsCompanion.insert(
-          id: const Uuid().v4(),
-          date: DateTime(year, month + 1, 3),
-          description: 'Next month groceries',
-          type: 'expense',
-          categoryId: Value(categoryId),
-          isCompleted: const Value(false),
-        ),
-        accountId: accountId,
-        amount: 9999,
-      );
-
-      final breakdown = await db.budgetsDao.getSpendingBreakdownForCategory(
-        categoryId,
-        year,
-        month,
-      );
-
-      expect(breakdown.confirmed, 10000);
-      expect(breakdown.pending, 4000);
-      expect(breakdown.total, 14000);
-      expect(
-        await db.budgetsDao.getSpentForCategory(categoryId, year, month),
-        10000,
-      );
-    },
-  );
-
   test('getBudgetsWithSpending exposes both spent and pending', () async {
     final year = 2026;
     final month = 7;
 
     await db.budgetsDao.insertBudget(
-      categoryId: categoryId,
+      name: 'Alimentação',
       year: year,
       month: month,
       amount: 20000,
+      categoryIds: [categoryId],
     );
 
     await db.transactionsDao.createTransaction(
@@ -141,5 +79,77 @@ void main() {
     expect(result.spent, 10000);
     expect(result.pending, 4000);
     expect(result.available, 10000);
+  });
+
+  test('getCategoryIdsForBudget returns linked categories', () async {
+    final year = 2026;
+    final month = 7;
+
+    final budget = await db.budgetsDao.insertBudget(
+      name: 'Transporte',
+      year: year,
+      month: month,
+      amount: 5000,
+      categoryIds: [categoryId],
+    );
+
+    final catIds = await db.budgetsDao.getCategoryIdsForBudget(budget.id);
+    expect(catIds, [categoryId]);
+  });
+
+  test('insertBudget with multiple categories', () async {
+    final cat2Id = const Uuid().v4();
+    await db.categoriesDao.insertCategory(
+      CategoriesCompanion.insert(
+        id: cat2Id,
+        name: 'Transport',
+        icon: 'directions_car',
+        color: 'blue',
+        type: 'expense',
+      ),
+    );
+
+    final budget = await db.budgetsDao.insertBudget(
+      name: 'Gastos Variados',
+      year: 2026,
+      month: 7,
+      amount: 30000,
+      categoryIds: [categoryId, cat2Id],
+    );
+
+    final catIds = await db.budgetsDao.getCategoryIdsForBudget(budget.id);
+    expect(catIds.length, 2);
+    expect(catIds, containsAll([categoryId, cat2Id]));
+  });
+
+  test('updateBudget replaces categories', () async {
+    final cat2Id = const Uuid().v4();
+    await db.categoriesDao.insertCategory(
+      CategoriesCompanion.insert(
+        id: cat2Id,
+        name: 'Health',
+        icon: 'local_hospital',
+        color: 'red',
+        type: 'expense',
+      ),
+    );
+
+    final budget = await db.budgetsDao.insertBudget(
+      name: 'Original',
+      year: 2026,
+      month: 7,
+      amount: 10000,
+      categoryIds: [categoryId],
+    );
+
+    await db.budgetsDao.updateBudget(
+      budget.id,
+      name: 'Atualizado',
+      amount: 15000,
+      categoryIds: [cat2Id],
+    );
+
+    final catIds = await db.budgetsDao.getCategoryIdsForBudget(budget.id);
+    expect(catIds, [cat2Id]);
   });
 }

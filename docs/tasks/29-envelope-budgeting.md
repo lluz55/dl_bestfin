@@ -1,14 +1,14 @@
 ---
 type: Task
 id: "29"
-title: "Orçamento Envelope (YNAB-style)"
-status: in_progress
-timestamp: 2026-07-01T00:00:00Z
+title: "Orçamento (multi-categorias)"
+status: completed
+timestamp: 2026-07-11T00:00:00Z
 ---
 
-# Orçamento Envelope
+# Orçamento
 
-Feature de orçamento mensal por categoria com rollover automático do saldo não gasto.
+Feature de orçamento mensal com múltiplas categorias por orçamento e rollover automático.
 
 ## Subtarefas
 
@@ -25,3 +25,16 @@ Feature de orçamento mensal por categoria com rollover automático do saldo nã
 - [x] Adicionar HomeWidgetId.budgetsOverview
 - [x] Adicionar rota /budgets
 - [x] Adicionar item no MoreScreen (seção Objetivos)
+- [x] Renomear "Envelope" → "Orçamento" em toda a UI
+- [x] Criar tabela pivô `budget_categories` (budgetId, categoryId)
+- [x] Migration v24: adicionar coluna `name`, criar budget_categories, migrar dados
+- [x] Atualizar DAO para multi-categorias (getCategoryIdsForBudget, insertBudget com categoryIds)
+- [x] Atualizar Repository com _enrichCategories
+- [x] Atualizar BudgetModel (name, List<CategoryInfo>)
+- [x] Atualizar Providers (createBudgetProvider, updateBudgetProvider)
+- [x] Atualizar BudgetFormSheet com campo nome + CategoryMultiSelectButton
+- [x] Atualizar BudgetCard com chips de categorias
+- [x] Atualizar BudgetsOverviewCard com nome do orçamento
+- [x] Atualizar sync_service para formato legado e novo
+- [x] Atualizar insights_service para multi-categorias
+- [x] Atualizar testes (budgets_dao_test, insights_service_test)

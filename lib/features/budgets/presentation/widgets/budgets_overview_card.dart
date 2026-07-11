@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
-import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/budgets/presentation/providers/budgets_provider.dart';
@@ -37,7 +36,7 @@ class BudgetsOverviewCard extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ORÇAMENTO ENVELOPE',
+                'ORÇAMENTO',
                 style: tt.labelSmall?.copyWith(
                   color: cs.onSurfaceVariant.withValues(alpha: 0.8),
                   letterSpacing: 1.5,
@@ -84,7 +83,7 @@ class BudgetsOverviewCard extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Nenhum envelope criado.',
+                              'Nenhum orçamento criado.',
                               style: tt.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -220,9 +219,6 @@ class BudgetsOverviewCard extends ConsumerWidget {
                     runSpacing: 8,
                     children: budgets.take(4).map((b) {
                       final color = _parseColor(b.categoryColor, cs.primary);
-                      final icon = b.categoryIcon != null
-                          ? IconMapper.fromString(b.categoryIcon!)
-                          : Icons.category_rounded;
                       final bProgress = b.progress.clamp(0.0, 1.0);
                       final bColor = b.isOverBudget
                           ? cs.error
@@ -231,9 +227,8 @@ class BudgetsOverviewCard extends ConsumerWidget {
                                 : color);
 
                       return Chip(
-                        avatar: Icon(icon, size: 14, color: bColor),
                         label: Text(
-                          '${(bProgress * 100).toStringAsFixed(0)}%',
+                          '${b.name} ${(bProgress * 100).toStringAsFixed(0)}%',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,

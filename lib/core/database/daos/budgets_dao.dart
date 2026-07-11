@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../app_database.dart';
 import '../tables/budgets.dart';
+import '../tables/budget_categories.dart';
 import '../tables/transactions.dart';
 import '../tables/entries.dart';
 
@@ -40,7 +41,7 @@ class BudgetWithSpending {
       budget.amount == 0 ? 0 : spent / (budget.amount + budget.rolloverAmount);
 }
 
-@DriftAccessor(tables: [Budgets, Transactions, Entries])
+@DriftAccessor(tables: [Budgets, BudgetCategories, Transactions, Entries])
 class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
   BudgetsDao(super.db);
 
@@ -59,71 +60,15 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     )..where((b) => b.year.equals(year) & b.month.equals(month))).get();
   }
 
-  Future<Budget?> getForCategory(String categoryId, int year, int month) {
-    return (select(budgets)..where(
-          (b) =>
-              b.categoryId.equals(categoryId) &
-              b.year.equals(year) &
-              b.month.equals(month),
-        ))
-        .getSingleOrNull();
+  /// Retorna as categorias vinculadas a um orçamento.
+  Future<List<String>> getCategoryIdsForBudget(String budgetId) async {
+    final rows = await (select(budgetCategories)
+          ..where((bc) => bc.budgetId.equals(budgetId)))
+        .get();
+    return rows.map((r) => r.categoryId).toList();
   }
 
-  /// Retorna o gasto confirmado e o previsto de [categoryId] durante o
-  /// período [year]/[month] num único round-trip.
-  Future<CategorySpendingBreakdown> getSpendingBreakdownForCategory(
-    String categoryId,
-    int year,
-    int month,
-  ) async {
-    final start = DateTime(year, month);
-    final end = DateTime(year, month + 1);
-
-    final confirmedExpr = CustomExpression<int>(
-      "SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END)",
-    );
-    final pendingExpr = CustomExpression<int>(
-      "SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END)",
-    );
-
-    final query = selectOnly(transactions)
-      ..addColumns([confirmedExpr, pendingExpr])
-      ..join([
-        innerJoin(entries, entries.transactionId.equalsExp(transactions.id)),
-      ])
-      ..where(
-        transactions.categoryId.equals(categoryId) &
-            transactions.type.equals('expense') &
-            transactions.isConfirmed.equals(true) &
-            transactions.date.isBiggerOrEqualValue(start) &
-            transactions.date.isSmallerThanValue(end) &
-            entries.type.equals('credit'),
-      );
-
-    final row = await query.getSingleOrNull();
-    return CategorySpendingBreakdown(
-      confirmed: row?.read(confirmedExpr) ?? 0,
-      pending: row?.read(pendingExpr) ?? 0,
-    );
-  }
-
-  /// Calcula o total gasto (confirmado) em [categoryId] durante o período
-  /// [year]/[month].
-  Future<int> getSpentForCategory(
-    String categoryId,
-    int year,
-    int month,
-  ) async {
-    final breakdown = await getSpendingBreakdownForCategory(
-      categoryId,
-      year,
-      month,
-    );
-    return breakdown.confirmed;
-  }
-
-  /// Retorna todos os budgets do período com o valor gasto (confirmado e
-  /// previsto) calculado.
+  /// Retorna todos os orçamentos de um período com categorias e gasto.
   Future<List<BudgetWithSpending>> getBudgetsWithSpending(
     int year,
     int month,
@@ -138,113 +83,134 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
     );
 
-    final query =
-        select(budgets).join([
-            leftOuterJoin(
-              transactions,
-              transactions.categoryId.equalsExp(budgets.categoryId) &
-                  transactions.type.equals('expense') &
-                  transactions.isConfirmed.equals(true) &
-                  transactions.date.isBiggerOrEqualValue(start) &
-                  transactions.date.isSmallerThanValue(end),
-            ),
-            leftOuterJoin(
-              entries,
-              entries.transactionId.equalsExp(transactions.id) &
-                  entries.type.equals('credit'),
-            ),
+    // Buscar orçamentos do período.
+    final budgetRows = await (select(budgets)
+          ..where((b) => b.year.equals(year) & b.month.equals(month))
+          ..orderBy([(b) => OrderingTerm.asc(b.createdAt)]))
+        .get();
+
+    final results = <BudgetWithSpending>[];
+    for (final budget in budgetRows) {
+      // Buscar categorias deste orçamento.
+      final catIds = await getCategoryIdsForBudget(budget.id);
+
+      int confirmed = 0;
+      int pending = 0;
+
+      if (catIds.isNotEmpty) {
+        // Calcular gasto para todas as categorias do orçamento.
+        final query = selectOnly(transactions)
+          ..addColumns([confirmedExpr, pendingExpr])
+          ..join([
+            innerJoin(entries, entries.transactionId.equalsExp(transactions.id)),
           ])
-          ..where(budgets.year.equals(year) & budgets.month.equals(month))
-          ..addColumns([confirmedExpr, pendingExpr]);
+          ..where(
+            transactions.categoryId.isIn(catIds) &
+                transactions.type.equals('expense') &
+                transactions.isConfirmed.equals(true) &
+                transactions.date.isBiggerOrEqualValue(start) &
+                transactions.date.isSmallerThanValue(end) &
+                entries.type.equals('credit'),
+          );
 
-    query.groupBy([budgets.id]);
+        final row = await query.getSingleOrNull();
+        confirmed = row?.read(confirmedExpr) ?? 0;
+        pending = row?.read(pendingExpr) ?? 0;
+      }
 
-    final rows = await query.get();
-    return rows.map((row) {
-      final budget = row.readTable(budgets);
-      final spent = row.read(confirmedExpr) ?? 0;
-      final pending = row.read(pendingExpr) ?? 0;
-      return BudgetWithSpending(budget: budget, spent: spent, pending: pending);
-    }).toList();
+      results.add(BudgetWithSpending(
+        budget: budget,
+        spent: confirmed,
+        pending: pending,
+      ));
+    }
+
+    return results;
   }
 
   Stream<List<BudgetWithSpending>> watchBudgetsWithSpending(
     int year,
     int month,
   ) {
-    final start = DateTime(year, month);
-    final end = DateTime(year, month + 1);
-
-    final confirmedExpr = CustomExpression<int>(
-      "COALESCE(SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END), 0)",
+    // Reatividade: assiste mudanças em budgets e recalcula gastos.
+    return watchByPeriod(year, month).asyncMap(
+      (_) => getBudgetsWithSpending(year, month),
     );
-    final pendingExpr = CustomExpression<int>(
-      "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
-    );
-
-    final query =
-        select(budgets).join([
-            leftOuterJoin(
-              transactions,
-              transactions.categoryId.equalsExp(budgets.categoryId) &
-                  transactions.type.equals('expense') &
-                  transactions.isConfirmed.equals(true) &
-                  transactions.date.isBiggerOrEqualValue(start) &
-                  transactions.date.isSmallerThanValue(end),
-            ),
-            leftOuterJoin(
-              entries,
-              entries.transactionId.equalsExp(transactions.id) &
-                  entries.type.equals('credit'),
-            ),
-          ])
-          ..where(budgets.year.equals(year) & budgets.month.equals(month))
-          ..addColumns([confirmedExpr, pendingExpr]);
-
-    query.groupBy([budgets.id]);
-
-    return query.watch().map((rows) {
-      return rows.map((row) {
-        final budget = row.readTable(budgets);
-        final spent = row.read(confirmedExpr) ?? 0;
-        final pending = row.read(pendingExpr) ?? 0;
-        return BudgetWithSpending(
-          budget: budget,
-          spent: spent,
-          pending: pending,
-        );
-      }).toList();
-    });
   }
 
   // ── Writes ─────────────────────────────────────────────────────────────────
 
   Future<Budget> insertBudget({
-    required String categoryId,
+    required String name,
     required int year,
     required int month,
     required int amount,
+    required List<String> categoryIds,
     int rolloverAmount = 0,
   }) async {
     final id = const Uuid().v4();
     await into(budgets).insert(
       BudgetsCompanion.insert(
         id: id,
-        categoryId: categoryId,
+        name: name,
         year: year,
         month: month,
         amount: amount,
         rolloverAmount: Value(rolloverAmount),
       ),
     );
+
+    // Inserir categorias na tabela pivô.
+    if (categoryIds.isNotEmpty) {
+      await batch((batch) {
+        batch.insertAll(
+          budgetCategories,
+          categoryIds
+              .map((catId) => BudgetCategoriesCompanion.insert(
+                    budgetId: id,
+                    categoryId: catId,
+                  ))
+              .toList(),
+        );
+      });
+    }
+
     await _enqueueBudgetSync(id, 'insert');
     return (select(budgets)..where((b) => b.id.equals(id))).getSingle();
   }
 
-  Future<void> updateBudget(String id, int amount) async {
+  Future<void> updateBudget(
+    String id, {
+    required String name,
+    required int amount,
+    required List<String> categoryIds,
+  }) async {
     await (update(budgets)..where((b) => b.id.equals(id))).write(
-      BudgetsCompanion(amount: Value(amount), updatedAt: Value(DateTime.now())),
+      BudgetsCompanion(
+        name: Value(name),
+        amount: Value(amount),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
+
+    // Atualizar categorias: deletar antigas e inserir novas.
+    await (delete(budgetCategories)
+          ..where((bc) => bc.budgetId.equals(id)))
+        .go();
+    if (categoryIds.isNotEmpty) {
+      await batch((batch) {
+        batch.insertAll(
+          budgetCategories,
+          categoryIds
+              .map((catId) => BudgetCategoriesCompanion.insert(
+                    budgetId: id,
+                    categoryId: catId,
+                  ))
+              .toList(),
+        );
+      });
+    }
+
     await _enqueueBudgetSync(id, 'update');
   }
 
@@ -260,6 +226,7 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
 
   Future<int> deleteBudget(String id) async {
     await _enqueueBudgetSync(id, 'delete');
+    // Cascade delete cuida de budget_categories.
     return (delete(budgets)..where((b) => b.id.equals(id))).go();
   }
 
@@ -268,11 +235,15 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       budgets,
     )..where((b) => b.id.equals(id))).getSingleOrNull();
 
+    // Buscar category_ids para o payload de sync.
+    final catIds = budget != null ? await getCategoryIdsForBudget(id) : <String>[];
+
     final payload = budget == null
         ? <String, dynamic>{'id': id}
         : <String, dynamic>{
             'id': budget.id,
-            'category_id': budget.categoryId,
+            'name': budget.name,
+            'category_ids': catIds,
             'year': budget.year,
             'month': budget.month,
             'amount': budget.amount,

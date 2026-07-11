@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/shell/app_shell.dart';
 import 'package:bestfin/core/shell/detail_shell.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/features/accounts/presentation/screens/account_form_screen.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/accounts/presentation/screens/accounts_list_screen.dart';
@@ -61,6 +62,15 @@ import 'package:bestfin/features/pdf_import/presentation/screens/pdf_review_scre
 import 'package:bestfin/features/budgets/presentation/screens/budgets_list_screen.dart';
 import 'package:bestfin/features/cashflow/presentation/screens/cashflow_screen.dart';
 
+// Returns a page with no enter/exit transition on medium+ screens (tablet /
+// desktop) and the default platform transition on compact screens (mobile).
+// Eliminates the slide-in animation that feels heavy on wide layouts where
+// pages appear side-by-side inside the DetailShell rather than full-screen.
+Page<dynamic> _page(BuildContext context, Widget child) {
+  if (Breakpoints.isCompact(context)) return MaterialPage(child: child);
+  return NoTransitionPage(child: child);
+}
+
 class _RouterNotifier extends ChangeNotifier {
   bool _onboardingCompleted;
 
@@ -116,7 +126,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) => _page(context, const OnboardingScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -158,43 +168,49 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/transaction/new',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final typeStr = state.uri.queryParameters['type'];
           final isCloning = state.uri.queryParameters['isCloning'] == 'true';
           final type = typeStr != null
               ? TransactionType.fromString(typeStr)
               : TransactionType.expense;
           final prefilled = state.extra as TransactionModel?;
-          return TransactionFormScreen(
-            initialType: type,
-            transaction: prefilled,
-            isCloning: isCloning,
+          return _page(
+            context,
+            TransactionFormScreen(
+              initialType: type,
+              transaction: prefilled,
+              isCloning: isCloning,
+            ),
           );
         },
       ),
       GoRoute(
         path: '/transaction/bulk-new',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final typeStr = state.uri.queryParameters['type'];
-          return BulkTransactionScreen(
-            initialType: typeStr != null
-                ? TransactionType.fromString(typeStr)
-                : TransactionType.expense,
+          return _page(
+            context,
+            BulkTransactionScreen(
+              initialType: typeStr != null
+                  ? TransactionType.fromString(typeStr)
+                  : TransactionType.expense,
+            ),
           );
         },
       ),
       GoRoute(
         path: '/transaction/edit',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tx = state.extra as TransactionModel;
-          return TransactionFormScreen(transaction: tx);
+          return _page(context, TransactionFormScreen(transaction: tx));
         },
       ),
       GoRoute(
         path: '/transaction/group/:groupId',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final groupId = state.pathParameters['groupId']!;
-          return TransactionGroupScreen(groupId: groupId);
+          return _page(context, TransactionGroupScreen(groupId: groupId));
         },
       ),
       // ── Páginas de feature (hub "Mais") ──────────────────────────────────
@@ -206,190 +222,219 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/accounts',
-            builder: (context, state) => const AccountsListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const AccountsListScreen()),
           ),
           GoRoute(
             path: '/accounts/new',
-            builder: (context, state) => const AccountFormScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const AccountFormScreen()),
           ),
           GoRoute(
             path: '/accounts/edit',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final account = state.extra as Account;
-              return AccountFormScreen(accountToEdit: account);
+              return _page(context, AccountFormScreen(accountToEdit: account));
             },
           ),
           GoRoute(
             path: '/accounts/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return AccountDetailScreen(accountId: id);
+              return _page(context, AccountDetailScreen(accountId: id));
             },
           ),
           GoRoute(
             path: '/accounts/:id/reconcile',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return ReconciliationScreen(accountId: id);
+              return _page(context, ReconciliationScreen(accountId: id));
             },
           ),
           GoRoute(
             path: '/settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const SettingsScreen()),
           ),
           GoRoute(
             path: '/budgets',
-            builder: (context, state) => const BudgetsListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const BudgetsListScreen()),
           ),
           GoRoute(
             path: '/cashflow',
-            builder: (context, state) => const CashFlowScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const CashFlowScreen()),
           ),
           GoRoute(
             path: '/backup',
-            builder: (context, state) => const BackupScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const BackupScreen()),
           ),
           GoRoute(
             path: '/installments',
-            builder: (context, state) => const InstallmentsListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const InstallmentsListScreen()),
           ),
           GoRoute(
             path: '/recurring',
-            builder: (context, state) => const RecurringListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const RecurringListScreen()),
           ),
           GoRoute(
             path: '/recurring/subscriptions',
-            builder: (context, state) => const SubscriptionsHubScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const SubscriptionsHubScreen()),
           ),
           GoRoute(
             path: '/goals',
-            builder: (context, state) => const GoalsListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const GoalsListScreen()),
           ),
           GoRoute(
             path: '/goals/new',
-            builder: (context, state) => const GoalFormScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const GoalFormScreen()),
           ),
           GoRoute(
             path: '/goals/edit',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final goal = state.extra as GoalModel;
-              return GoalFormScreen(existingGoal: goal);
+              return _page(context, GoalFormScreen(existingGoal: goal));
             },
           ),
           GoRoute(
             path: '/goals/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return GoalDetailScreen(goalId: id);
+              return _page(context, GoalDetailScreen(goalId: id));
             },
           ),
           GoRoute(
             path: '/investments',
-            builder: (context, state) => const PortfolioScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const PortfolioScreen()),
           ),
           GoRoute(
             path: '/investments/new',
-            builder: (context, state) => const InvestmentFormScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const InvestmentFormScreen()),
           ),
           GoRoute(
             path: '/investments/edit',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final inv = state.extra as Investment;
-              return InvestmentFormScreen(existingInvestment: inv);
+              return _page(
+                  context, InvestmentFormScreen(existingInvestment: inv));
             },
           ),
           GoRoute(
             path: '/investments/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return InvestmentDetailScreen(investmentId: id);
+              return _page(context, InvestmentDetailScreen(investmentId: id));
             },
           ),
           GoRoute(
             path: '/financing',
-            builder: (context, state) => const FinancingListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const FinancingListScreen()),
           ),
           GoRoute(
             path: '/financing/new',
-            builder: (context, state) => const FinancingFormScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const FinancingFormScreen()),
           ),
           GoRoute(
             path: '/financing/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return FinancingDetailScreen(financingId: id);
+              return _page(context, FinancingDetailScreen(financingId: id));
             },
           ),
           GoRoute(
             path: '/notifications/review',
-            builder: (context, state) => const ReviewQueueScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const ReviewQueueScreen()),
           ),
           GoRoute(
             path: '/notifications/settings',
-            builder: (context, state) => const NotificationSettingsScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const NotificationSettingsScreen()),
           ),
           GoRoute(
             path: '/sync',
-            builder: (context, state) => const SyncSettingsScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const SyncSettingsScreen()),
           ),
           GoRoute(
             path: '/sync/household',
-            builder: (context, state) => const HouseholdScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const HouseholdScreen()),
           ),
           GoRoute(
             path: '/gamification',
-            builder: (context, state) => const GamificationHubScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const GamificationHubScreen()),
           ),
           GoRoute(
             path: '/categories',
-            builder: (context, state) => const CategoriesScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const CategoriesScreen()),
           ),
           GoRoute(
             path: '/categories/edit',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final cat = state.extra as CategoryModel;
-              return CategoryFormScreen(categoryToEdit: cat);
+              return _page(context, CategoryFormScreen(categoryToEdit: cat));
             },
           ),
           GoRoute(
             path: '/credit-cards',
-            builder: (context, state) => const CreditCardsListScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const CreditCardsListScreen()),
           ),
           GoRoute(
             path: '/credit-cards/new',
-            builder: (context, state) => const CreditCardFormScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const CreditCardFormScreen()),
           ),
           GoRoute(
             path: '/credit-cards/edit',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final card = state.extra as CreditCardModel;
-              return CreditCardFormScreen(card: card);
+              return _page(context, CreditCardFormScreen(card: card));
             },
           ),
           GoRoute(
             path: '/credit-cards/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return CreditCardDetailScreen(cardId: id);
+              return _page(context, CreditCardDetailScreen(cardId: id));
             },
           ),
           GoRoute(
             path: '/credit-cards/:cardId/invoices/:invoiceId',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final cardId = state.pathParameters['cardId']!;
               final invoiceId = state.pathParameters['invoiceId']!;
-              return InvoiceDetailScreen(cardId: cardId, invoiceId: invoiceId);
+              return _page(
+                context,
+                InvoiceDetailScreen(cardId: cardId, invoiceId: invoiceId),
+              );
             },
           ),
           GoRoute(
             path: '/pdf-import',
-            builder: (context, state) => const PdfImportScreen(),
+            pageBuilder: (context, state) =>
+                _page(context, const PdfImportScreen()),
           ),
           GoRoute(
             path: '/pdf-import/review',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final transactions = state.extra as List<PdfParsedTransaction>;
-              return PdfReviewScreen(transactions: transactions);
+              return _page(
+                  context, PdfReviewScreen(transactions: transactions));
             },
           ),
         ],
@@ -399,37 +444,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // categoria (subfluxo do onboarding) permanecem cobrindo a tela inteira.
       GoRoute(
         path: '/sync/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _page(context, const LoginScreen()),
       ),
       GoRoute(
         path: '/sync/register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) =>
+            _page(context, const RegisterScreen()),
       ),
       GoRoute(
         path: '/sync/recover',
-        builder: (context, state) => const MnemonicRecoveryScreen(),
+        pageBuilder: (context, state) =>
+            _page(context, const MnemonicRecoveryScreen()),
       ),
       GoRoute(
         path: '/sync/mnemonic-display',
-        builder: (context, state) =>
-            MnemonicDisplayScreen(mnemonic: state.extra as String),
+        pageBuilder: (context, state) => _page(
+          context,
+          MnemonicDisplayScreen(mnemonic: state.extra as String),
+        ),
       ),
       GoRoute(
         path: '/sync/qr',
-        builder: (context, state) =>
-            IdentityQrScreen(masterKey: state.extra as List<int>),
+        pageBuilder: (context, state) => _page(
+          context,
+          IdentityQrScreen(masterKey: state.extra as List<int>),
+        ),
       ),
       GoRoute(
         path: '/sync/scan',
-        builder: (context, state) => const QrScannerScreen(),
+        pageBuilder: (context, state) =>
+            _page(context, const QrScannerScreen()),
       ),
       GoRoute(
         path: '/categories/new',
-        builder: (context, state) => const CategoryFormScreen(),
+        pageBuilder: (context, state) =>
+            _page(context, const CategoryFormScreen()),
       ),
       GoRoute(
         path: '/security/pin-setup',
-        builder: (context, state) => const PinSetupScreen(),
+        pageBuilder: (context, state) =>
+            _page(context, const PinSetupScreen()),
       ),
     ],
   );

@@ -36,7 +36,7 @@ extension HomeWidgetIdLabel on HomeWidgetId {
     HomeWidgetId.periodFilter => 'Filtro de período',
     HomeWidgetId.quickActions => 'Ações rápidas',
     HomeWidgetId.recentTransactions => 'Últimas transações',
-    HomeWidgetId.budgetsOverview => 'Orçamento Envelope',
+    HomeWidgetId.budgetsOverview => 'Orçamento',
     HomeWidgetId.cashFlowProjection => 'Projeção de Caixa',
   };
 }

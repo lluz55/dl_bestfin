@@ -224,7 +224,16 @@ class MoreScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Mais'),
+      appBar: const AppPageAppBar(
+        title: 'Mais',
+        infoDescription: 'Acesse todas as funcionalidades do BestFin em um só lugar: contas, cartões, investimentos, metas, orçamentos, relatórios e configurações.',
+        infoFeatures: [
+          'Controle completo de contas, cartões e investimentos',
+          'Metas financeiras e orçamento envelope',
+          'Importação de faturas e extratos PDF',
+          'Sincronização E2E entre dispositivos',
+        ],
+      ),
       body: Breakpoints.isCompact(context)
           ? _MenuColumnBody(sections: _sections)
           : LayoutBuilder(

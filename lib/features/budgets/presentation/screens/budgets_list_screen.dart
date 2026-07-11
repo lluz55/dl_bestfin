@@ -85,9 +85,9 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
     final confirmed = await showAdaptiveDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Excluir envelope'),
+        title: const Text('Excluir orçamento'),
         content: Text(
-          'Remover o envelope "${budget.categoryName ?? 'Categoria'}"?',
+          'Remover o orçamento "${budget.name}"?',
         ),
         actions: [
           TextButton(
@@ -136,7 +136,14 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
-        title: 'Orçamento Envelope',
+        title: 'Orçamento',
+        infoDescription: 'Defina orçamentos mensais por categoria. Acompanhe seus gastos e mantenha o controle financeiro.',
+        infoFeatures: [
+          'Orçamento por categoria',
+          'Rollover de saldo entre meses',
+          'Acompanhamento de gastos em tempo real',
+          'Alertas de estouro de orçamento',
+        ],
         actions: [
           IconButton(
             icon: const Icon(Icons.autorenew_rounded),
@@ -145,7 +152,7 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
-            tooltip: 'Novo envelope',
+            tooltip: 'Novo orçamento',
             onPressed: () =>
                 showBudgetFormSheet(context, year: _year, month: _month),
           ),
@@ -332,7 +339,7 @@ class _SummaryBar extends StatelessWidget {
           if (overBudget > 0) ...[
             const SizedBox(height: 4),
             Text(
-              '$overBudget envelope(s) acima do limite',
+              '$overBudget orçamento(s) acima do limite',
               style: tt.labelSmall?.copyWith(
                 color: cs.error,
                 fontWeight: FontWeight.w700,
@@ -374,7 +381,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Nenhum envelope criado',
+              'Nenhum orçamento criado',
               style: tt.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: cs.onSurface,
@@ -382,7 +389,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Crie envelopes para planejar seus gastos por categoria.',
+              'Crie orçamentos para planejar seus gastos por categoria.',
               textAlign: TextAlign.center,
               style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
@@ -390,7 +397,7 @@ class _EmptyState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Criar primeiro envelope'),
+              label: const Text('Criar primeiro orçamento'),
             ),
           ],
         ),

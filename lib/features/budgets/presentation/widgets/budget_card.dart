@@ -70,14 +70,56 @@ class BudgetCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Nome do orçamento.
                     Text(
-                      budget.categoryName ?? 'Categoria',
+                      budget.name,
                       style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    // Categorias (chips compactas).
+                    if (budget.categories.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: [
+                          ...budget.categories.take(3).map((cat) {
+                            final catColor = _parseColor(cat.color, cs.primary);
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: catColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                cat.name,
+                                style: tt.labelSmall?.copyWith(
+                                  color: catColor,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            );
+                          }),
+                          if (budget.categories.length > 3)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 2),
+                              child: Text(
+                                '+${budget.categories.length - 3}',
+                                style: tt.labelSmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),

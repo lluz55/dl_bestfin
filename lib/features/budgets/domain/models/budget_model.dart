@@ -1,11 +1,24 @@
 import 'package:bestfin/core/database/app_database.dart' as db;
 
+class CategoryInfo {
+  final String id;
+  final String name;
+  final String? color;
+  final String? icon;
+
+  const CategoryInfo({
+    required this.id,
+    required this.name,
+    this.color,
+    this.icon,
+  });
+}
+
 class BudgetModel {
   final String id;
-  final String categoryId;
-  final String? categoryName;
-  final String? categoryColor;
-  final String? categoryIcon;
+  final String name;
+  final List<String> categoryIds;
+  final List<CategoryInfo> categories;
   final int year;
   final int month;
   final int amount;
@@ -19,10 +32,9 @@ class BudgetModel {
 
   const BudgetModel({
     required this.id,
-    required this.categoryId,
-    this.categoryName,
-    this.categoryColor,
-    this.categoryIcon,
+    required this.name,
+    required this.categoryIds,
+    required this.categories,
     required this.year,
     required this.month,
     required this.amount,
@@ -42,20 +54,30 @@ class BudgetModel {
   double get projectedProgress =>
       totalBudget == 0 ? 0.0 : projectedSpent / totalBudget;
 
+  /// Cor principal: cor da primeira categoria, ou null.
+  String? get categoryColor =>
+      categories.isNotEmpty ? categories.first.color : null;
+
+  /// Ícone principal: ícone da primeira categoria, ou null.
+  String? get categoryIcon =>
+      categories.isNotEmpty ? categories.first.icon : null;
+
+  /// Nome de exibição: primeira categoria ou nome do orçamento.
+  String get displayName =>
+      categories.length == 1 ? categories.first.name : name;
+
   factory BudgetModel.fromDbWithSpending(
     db.Budget budget,
     int spent, {
     int pending = 0,
-    String? categoryName,
-    String? categoryColor,
-    String? categoryIcon,
+    required List<String> categoryIds,
+    required List<CategoryInfo> categories,
   }) {
     return BudgetModel(
       id: budget.id,
-      categoryId: budget.categoryId,
-      categoryName: categoryName,
-      categoryColor: categoryColor,
-      categoryIcon: categoryIcon,
+      name: budget.name,
+      categoryIds: categoryIds,
+      categories: categories,
       year: budget.year,
       month: budget.month,
       amount: budget.amount,

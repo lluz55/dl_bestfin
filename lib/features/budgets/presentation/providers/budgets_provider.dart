@@ -24,31 +24,52 @@ final currentPeriodBudgetsProvider = StreamProvider<List<BudgetModel>>((ref) {
 final createBudgetProvider =
     Provider<
       Future<void> Function({
-        required String categoryId,
+        required String name,
         required int year,
         required int month,
         required int amount,
+        required List<String> categoryIds,
       })
     >((ref) {
       return ({
-        required String categoryId,
+        required String name,
         required int year,
         required int month,
         required int amount,
-      }) => ref
-          .read(budgetRepositoryProvider)
-          .createBudget(
-            categoryId: categoryId,
-            year: year,
-            month: month,
-            amount: amount,
-          );
+        required List<String> categoryIds,
+      }) =>
+          ref
+              .read(budgetRepositoryProvider)
+              .createBudget(
+                name: name,
+                year: year,
+                month: month,
+                amount: amount,
+                categoryIds: categoryIds,
+              );
     });
 
 final updateBudgetProvider =
-    Provider<Future<void> Function(String id, int amount)>((ref) {
-      return (id, amount) =>
-          ref.read(budgetRepositoryProvider).updateBudget(id, amount);
+    Provider<
+      Future<void> Function(
+        String id, {
+        required String name,
+        required int amount,
+        required List<String> categoryIds,
+      })
+    >((ref) {
+      return (
+        id, {
+        required String name,
+        required int amount,
+        required List<String> categoryIds,
+      }) =>
+          ref.read(budgetRepositoryProvider).updateBudget(
+                id,
+                name: name,
+                amount: amount,
+                categoryIds: categoryIds,
+              );
     });
 
 final deleteBudgetProvider = Provider<Future<void> Function(String id)>((ref) {

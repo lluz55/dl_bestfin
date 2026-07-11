@@ -603,13 +603,20 @@ class SyncService {
 
     final budgets = await _db.select(_db.budgets).get();
     for (final b in budgets) {
+      // Buscar categorias do orçamento.
+      final catRows = await (_db.select(_db.budgetCategories)
+            ..where((bc) => bc.budgetId.equals(b.id)))
+          .get();
+      final categoryIds = catRows.map((r) => r.categoryId).toList();
+
       await enqueue(
         operation: 'update',
         entityType: 'budget',
         entityId: b.id,
         payload: {
           'id': b.id,
-          'category_id': b.categoryId,
+          'name': b.name,
+          'category_ids': categoryIds,
           'year': b.year,
           'month': b.month,
           'amount': b.amount,
@@ -1457,13 +1464,25 @@ class SyncService {
       return;
     }
 
-    final resolvedCategoryId = await _fkOrNull(
-      'categories',
-      row['category_id'] as String?,
-    );
-    if (resolvedCategoryId == null) {
-      debugPrint('[Sync] Budget $id ignorado: categoria não encontrada');
-      return;
+    final name = row['name'] as String? ?? 'Orçamento';
+
+    // Suportar formato legado (category_id) e novo (category_ids).
+    final categoryIdsRaw = row['category_ids'] as List<dynamic>?;
+    final legacyCategoryId = row['category_id'] as String?;
+    List<String> categoryIds;
+    if (categoryIdsRaw != null) {
+      categoryIds = categoryIdsRaw.cast<String>();
+    } else if (legacyCategoryId != null) {
+      categoryIds = [legacyCategoryId];
+    } else {
+      categoryIds = [];
+    }
+
+    // Validar que todas as categorias existem.
+    final validCategoryIds = <String>[];
+    for (final catId in categoryIds) {
+      final resolved = await _fkOrNull('categories', catId);
+      if (resolved != null) validCategoryIds.add(resolved);
     }
 
     await _db
@@ -1471,7 +1490,7 @@ class SyncService {
         .insertOnConflictUpdate(
           BudgetsCompanion(
             id: Value(id),
-            categoryId: Value(resolvedCategoryId),
+            name: Value(name),
             year: Value(row['year'] as int? ?? DateTime.now().year),
             month: Value(row['month'] as int? ?? DateTime.now().month),
             amount: Value(row['amount'] as int? ?? 0),
@@ -1483,6 +1502,24 @@ class SyncService {
             ),
           ),
         );
+
+    // Sincronizar categorias na tabela pivô.
+    await (_db.delete(_db.budgetCategories)
+          ..where((bc) => bc.budgetId.equals(id)))
+        .go();
+    if (validCategoryIds.isNotEmpty) {
+      await _db.batch((batch) {
+        batch.insertAll(
+          _db.budgetCategories,
+          validCategoryIds
+              .map((catId) => BudgetCategoriesCompanion.insert(
+                    budgetId: id,
+                    categoryId: catId,
+                  ))
+              .toList(),
+        );
+      });
+    }
   }
 
   bool _isSupportedEntity(String entityType) {
