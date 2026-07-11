@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:bestfin/features/accounts/data/repositories/account_repository.dart';
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
@@ -51,19 +52,25 @@ class GetDashboardData {
 
     Timer? debounceTimer;
 
-    void flush() {
-      if (lastTx != null && lastAcc != null && lastGoals != null) {
-        try {
-          final data = aggregate(
-            lastTx!,
-            lastAcc!,
-            lastGoals!,
+    // A agregação reprocessa TODO o histórico de transações (várias passadas
+    // O(n) + ordenações). Rodá-la em um isolate de fundo via [compute] evita
+    // travar a thread da UI a cada gravação — a lógica em [aggregate] é pura,
+    // então o resultado é idêntico ao cálculo síncrono.
+    Future<void> flush() async {
+      if (lastTx == null || lastAcc == null || lastGoals == null) return;
+      try {
+        final data = await compute(
+          _aggregateDashboardData,
+          _DashboardAggregateArgs(
+            transactions: lastTx!,
+            accounts: lastAcc!,
+            activeGoals: lastGoals!,
             periodIndex: periodIndex,
-          );
-          if (!controller.isClosed) controller.add(data);
-        } catch (e, stackTrace) {
-          if (!controller.isClosed) controller.addError(e, stackTrace);
-        }
+          ),
+        );
+        if (!controller.isClosed) controller.add(data);
+      } catch (e, stackTrace) {
+        if (!controller.isClosed) controller.addError(e, stackTrace);
       }
     }
 
@@ -112,7 +119,7 @@ class GetDashboardData {
     return controller.stream;
   }
 
-  DashboardData aggregate(
+  static DashboardData aggregate(
     List<TransactionModel> transactions,
     List<Account> accounts,
     List<GoalModel> activeGoals, {
@@ -309,7 +316,7 @@ class GetDashboardData {
     return count < 1 ? 1 : count;
   }
 
-  List<MonthlyBar> _calculateMonthlyHistory(
+  static List<MonthlyBar> _calculateMonthlyHistory(
     List<TransactionModel> transactions,
     DateTime now,
     DateTime start,
@@ -380,7 +387,7 @@ class GetDashboardData {
     return bars;
   }
 
-  List<CashFlowPoint> _calculateCashFlowHistory(
+  static List<CashFlowPoint> _calculateCashFlowHistory(
     List<TransactionModel> transactions,
     DateTime now,
     DateTime windowStart,
@@ -479,7 +486,7 @@ class GetDashboardData {
     return points;
   }
 
-  List<NetWorthPoint> _calculateNetWorthHistory(
+  static List<NetWorthPoint> _calculateNetWorthHistory(
     List<Account> accounts,
     List<TransactionModel> transactions,
     DateTime now,
@@ -550,7 +557,7 @@ class GetDashboardData {
     return points;
   }
 
-  List<CategoryRankingItem> _calculateCategoryRanking(
+  static List<CategoryRankingItem> _calculateCategoryRanking(
     List<TransactionModel> transactions,
     DateTime start,
   ) {
@@ -589,6 +596,32 @@ class GetDashboardData {
       );
     }).toList();
   }
+}
+
+/// Argumentos serializáveis passados ao isolate de fundo em [compute].
+class _DashboardAggregateArgs {
+  final List<TransactionModel> transactions;
+  final List<Account> accounts;
+  final List<GoalModel> activeGoals;
+  final int periodIndex;
+
+  const _DashboardAggregateArgs({
+    required this.transactions,
+    required this.accounts,
+    required this.activeGoals,
+    required this.periodIndex,
+  });
+}
+
+/// Ponto de entrada do isolate: precisa ser uma função de nível de topo para
+/// o [compute]. Delega para a lógica pura [GetDashboardData.aggregate].
+DashboardData _aggregateDashboardData(_DashboardAggregateArgs args) {
+  return GetDashboardData.aggregate(
+    args.transactions,
+    args.accounts,
+    args.activeGoals,
+    periodIndex: args.periodIndex,
+  );
 }
 
 class _CategoryGroup {

@@ -54,8 +54,9 @@ class BadgeChecker {
   }
 
   Future<void> _checkFirstTransaction() async {
-    final txs = await _transactionRepository.watchAllTransactions().first;
-    if (txs.isNotEmpty) {
+    // Só precisamos saber se existe ao menos uma transação — evita carregar e
+    // mapear todo o histórico (com joins de categoria/entidade/entries).
+    if (await _transactionRepository.hasAnyTransactions()) {
       await _unlockBadge('first_transaction');
     }
   }
@@ -82,8 +83,7 @@ class BadgeChecker {
   Future<void> _checkDebtFree() async {
     final financings = await _financingRepository.watchAllFinancings().first;
     if (financings.isEmpty) {
-      final txs = await _transactionRepository.watchAllTransactions().first;
-      if (txs.isNotEmpty) {
+      if (await _transactionRepository.hasAnyTransactions()) {
         await _unlockBadge('debt_free');
       }
     }
