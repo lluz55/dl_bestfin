@@ -3,6 +3,7 @@ import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/categories/presentation/providers/categories_provider.dart';
 import 'package:bestfin/features/categories/presentation/widgets/category_tile.dart';
@@ -11,11 +12,15 @@ class CategoryTree extends ConsumerWidget {
   const CategoryTree({
     super.key,
     required this.isReorderMode,
+    this.selectedCategory,
+    required this.onSelect,
     required this.onEdit,
     required this.onDelete,
   });
 
   final bool isReorderMode;
+  final CategoryModel? selectedCategory;
+  final void Function(CategoryModel) onSelect;
   final void Function(CategoryModel) onEdit;
   final void Function(CategoryModel) onDelete;
 
@@ -24,6 +29,7 @@ class CategoryTree extends ConsumerWidget {
     final asyncTree = ref.watch(categoriesTreeProvider);
     final reorder = ref.read(reorderCategoriesProvider);
     final motion = context.motion;
+    final isCompact = Breakpoints.isCompact(context);
 
     return asyncTree.when(
       loading: () => const Center(child: AppLoadingIndicator()),
@@ -39,7 +45,10 @@ class CategoryTree extends ConsumerWidget {
 
         return ReorderableListView.builder(
           buildDefaultDragHandles: false,
-          padding: const EdgeInsets.only(bottom: 120),
+          padding: EdgeInsets.only(
+            bottom: isCompact ? 120 : 24,
+            top: 8,
+          ),
           itemCount: roots.length,
           onReorder: (oldIndex, newIndex) {
             final mutable = [...roots];
@@ -57,6 +66,7 @@ class CategoryTree extends ConsumerWidget {
           },
           itemBuilder: (context, index) {
             final category = roots[index];
+            final isSelected = selectedCategory?.id == category.id;
             return CategoryTile(
               key: ValueKey(category.id),
               category: category,
@@ -65,6 +75,8 @@ class CategoryTree extends ConsumerWidget {
               delay: Duration(
                 milliseconds: index * motion.staggerInterval.inMilliseconds,
               ),
+              isSelected: isSelected,
+              onTap: () => onSelect(category),
               onEdit: () => onEdit(category),
               onDelete: () => onDelete(category),
             );

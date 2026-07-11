@@ -14,6 +14,8 @@ class CategoryTile extends StatefulWidget {
     this.onDelete,
     this.delay = Duration.zero,
     this.initiallyExpanded = false,
+    this.isSelected = false,
+    this.onTap,
   });
 
   final CategoryModel category;
@@ -23,6 +25,8 @@ class CategoryTile extends StatefulWidget {
   final VoidCallback? onDelete;
   final Duration delay;
   final bool initiallyExpanded;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
   @override
   State<CategoryTile> createState() => _CategoryTileState();
@@ -52,9 +56,11 @@ class _CategoryTileState extends State<CategoryTile> {
               hasChildren: category.hasChildren,
               index: widget.index,
               isReorderMode: widget.isReorderMode,
-              onToggle: category.hasChildren
-                  ? () => setState(() => _expanded = !_expanded)
-                  : null,
+              isSelected: widget.isSelected,
+              onTap: widget.onTap ??
+                  (category.hasChildren
+                      ? () => setState(() => _expanded = !_expanded)
+                      : null),
               onEdit: widget.onEdit,
               onDelete: widget.onDelete,
               cs: cs,
@@ -98,7 +104,8 @@ class _TileRow extends StatelessWidget {
     required this.hasChildren,
     this.index,
     this.isReorderMode = false,
-    required this.onToggle,
+    this.isSelected = false,
+    required this.onTap,
     required this.onEdit,
     required this.onDelete,
     required this.cs,
@@ -110,7 +117,8 @@ class _TileRow extends StatelessWidget {
   final bool hasChildren;
   final int? index;
   final bool isReorderMode;
-  final VoidCallback? onToggle;
+  final bool isSelected;
+  final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final ColorScheme cs;
@@ -119,9 +127,11 @@ class _TileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: isSelected
+          ? cs.primary.withValues(alpha: 0.12)
+          : Colors.transparent,
       child: InkWell(
-        onTap: onToggle,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -146,6 +156,7 @@ class _TileRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: tt.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
+                              color: isSelected ? cs.primary : null,
                             ),
                           ),
                         ),
