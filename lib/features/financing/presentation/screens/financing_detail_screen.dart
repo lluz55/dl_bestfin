@@ -156,6 +156,13 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
       appBar: AppPageAppBar(
         title: 'Detalhes do Contrato',
         showVisibilityToggle: true,
+        infoDescription: 'Acompanhe o financiamento em detalhes: saldo devedor, parcelas, amortização, juros e projeções futuras.',
+        infoFeatures: [
+          'Valor total e saldo devedor',
+          'Taxa de juros e CET',
+          'Cronograma de parcelas',
+          'Projeção de amortização',
+        ],
         actions: [
           financingAsync.when(
             data: (fin) => IconButton(

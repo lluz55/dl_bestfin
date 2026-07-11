@@ -71,6 +71,13 @@ class CreditCardDetailScreen extends ConsumerWidget {
         appBar: AppPageAppBar(
           title: card.name,
           showVisibilityToggle: true,
+          infoDescription: 'Acompanhe o resumo completo do cartão de crédito: limite, fatura atual, próximas faturas e histórico completo.',
+          infoFeatures: [
+            'Limite disponível e utilizado',
+            'Fatura atual com detalhamento',
+            'Linha do tempo de faturas',
+            'Editar ou excluir cartão',
+          ],
           actions: [
             IconButton(
               icon: const Icon(Icons.edit_outlined),

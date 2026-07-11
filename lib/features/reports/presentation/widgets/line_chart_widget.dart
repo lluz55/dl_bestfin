@@ -59,149 +59,155 @@ class _NetWorthLineChartWidgetState extends State<NetWorthLineChartWidget>
       double.infinity,
     );
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        // Clip points to animate line drawing
-        final visibleCount = ((widget.points.length) * _animation.value)
-            .ceil()
-            .clamp(1, widget.points.length);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, _) {
+            // Clip points to animate line drawing
+            final visibleCount = ((widget.points.length) * _animation.value)
+                .ceil()
+                .clamp(1, widget.points.length);
 
-        final spots = List.generate(visibleCount, (i) {
-          return FlSpot(i.toDouble(), widget.points[i].netWorth.toDouble());
-        });
+            final spots = List.generate(visibleCount, (i) {
+              return FlSpot(i.toDouble(), widget.points[i].netWorth.toDouble());
+            });
 
-        return AspectRatio(
-          aspectRatio: 2.0,
-          child: LineChart(
-            LineChartData(
-              minY: minVal - padding,
-              maxY: maxVal + padding,
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipItems: (spots) => spots.map((s) {
-                    final i = s.x.toInt();
-                    if (i >= widget.points.length) return null;
-                    final p = widget.points[i];
-                    final months = [
-                      'Jan',
-                      'Fev',
-                      'Mar',
-                      'Abr',
-                      'Mai',
-                      'Jun',
-                      'Jul',
-                      'Ago',
-                      'Set',
-                      'Out',
-                      'Nov',
-                      'Dez',
-                    ];
-                    final formattedWorth = CurrencyFormatter.formatCents(
-                      p.netWorth,
-                    );
-                    return LineTooltipItem(
-                      '${months[p.date.month - 1]} ${p.date.year}\n$formattedWorth',
-                      Theme.of(context).textTheme.labelSmall!.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w700,
+            return AspectRatio(
+              aspectRatio: 2.0,
+              child: LineChart(
+                LineChartData(
+                  minY: minVal - padding,
+                  maxY: maxVal + padding,
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipItems: (spots) => spots.map((s) {
+                        final i = s.x.toInt();
+                        if (i >= widget.points.length) return null;
+                        final p = widget.points[i];
+                        final months = [
+                          'Jan',
+                          'Fev',
+                          'Mar',
+                          'Abr',
+                          'Mai',
+                          'Jun',
+                          'Jul',
+                          'Ago',
+                          'Set',
+                          'Out',
+                          'Nov',
+                          'Dez',
+                        ];
+                        final formattedWorth = CurrencyFormatter.formatCents(
+                          p.netWorth,
+                        );
+                        return LineTooltipItem(
+                          '${months[p.date.month - 1]} ${p.date.year}\n$formattedWorth',
+                          Theme.of(context).textTheme.labelSmall!.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final i = value.toInt();
+                          if (i < 0 || i >= widget.points.length) {
+                            return const SizedBox();
+                          }
+                          final p = widget.points[i];
+                          const months = [
+                            'Jan',
+                            'Fev',
+                            'Mar',
+                            'Abr',
+                            'Mai',
+                            'Jun',
+                            'Jul',
+                            'Ago',
+                            'Set',
+                            'Out',
+                            'Nov',
+                            'Dez',
+                          ];
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              months[p.date.month - 1],
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          );
+                        },
+                        reservedSize: 32,
                       ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              titlesData: FlTitlesData(
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= widget.points.length)
-                        return const SizedBox();
-                      final p = widget.points[i];
-                      const months = [
-                        'Jan',
-                        'Fev',
-                        'Mar',
-                        'Abr',
-                        'Mai',
-                        'Jun',
-                        'Jul',
-                        'Ago',
-                        'Set',
-                        'Out',
-                        'Nov',
-                        'Dez',
-                      ];
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          months[p.date.month - 1],
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
-                                ),
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      );
-                    },
-                    reservedSize: 32,
+                    ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                   ),
-                ),
-                leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-              ),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                getDrawingHorizontalLine: (_) => FlLine(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                  strokeWidth: 1,
-                  dashArray: [4, 4],
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: false,
-                  color: cs.primary,
-                  barWidth: 3,
-                  dotData: FlDotData(
+                  gridData: FlGridData(
                     show: true,
-                    getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
-                      radius: 4,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: cs.outlineVariant.withValues(alpha: 0.2),
+                      strokeWidth: 1,
+                      dashArray: [4, 4],
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: false,
                       color: cs.primary,
-                      strokeWidth: 2,
-                      strokeColor: cs.surface,
+                      barWidth: 3,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
+                          radius: 4,
+                          color: cs.primary,
+                          strokeWidth: 2,
+                          strokeColor: cs.surface,
+                        ),
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            cs.primary.withValues(alpha: 0.2),
+                            cs.primary.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        cs.primary.withValues(alpha: 0.2),
-                        cs.primary.withValues(alpha: 0.0),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -258,95 +264,100 @@ class _CashFlowLineChartWidgetState extends State<CashFlowLineChartWidget>
       double.infinity,
     );
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        final visibleCount = ((widget.points.length) * _animation.value)
-            .ceil()
-            .clamp(1, widget.points.length);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, _) {
+            final visibleCount = ((widget.points.length) * _animation.value)
+                .ceil()
+                .clamp(1, widget.points.length);
 
-        final spots = List.generate(visibleCount, (i) {
-          return FlSpot(
-            i.toDouble(),
-            widget.points[i].cumulativeBalance.toDouble(),
-          );
-        });
+            final spots = List.generate(visibleCount, (i) {
+              return FlSpot(
+                i.toDouble(),
+                widget.points[i].cumulativeBalance.toDouble(),
+              );
+            });
 
-        return AspectRatio(
-          aspectRatio: 2.0,
-          child: LineChart(
-            LineChartData(
-              minY: minVal - padding,
-              maxY: maxVal + padding,
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipItems: (spots) => spots.map((s) {
-                    final i = s.x.toInt();
-                    if (i >= widget.points.length) return null;
-                    final p = widget.points[i];
-                    final dateFormatted =
-                        '${p.date.day.toString().padLeft(2, '0')}/${p.date.month.toString().padLeft(2, '0')}';
-                    final formattedWorth = CurrencyFormatter.formatCents(
-                      p.cumulativeBalance,
-                    );
-                    return LineTooltipItem(
-                      '$dateFormatted\n$formattedWorth',
-                      Theme.of(context).textTheme.labelSmall!.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              titlesData: const FlTitlesData(
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-              ),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                getDrawingHorizontalLine: (_) => FlLine(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                  strokeWidth: 1,
-                  dashArray: [4, 4],
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: false,
-                  color: cs.tertiary,
-                  barWidth: 3,
-                  dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        cs.tertiary.withValues(alpha: 0.2),
-                        cs.tertiary.withValues(alpha: 0.0),
-                      ],
+            return AspectRatio(
+              aspectRatio: 2.0,
+              child: LineChart(
+                LineChartData(
+                  minY: minVal - padding,
+                  maxY: maxVal + padding,
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipItems: (spots) => spots.map((s) {
+                        final i = s.x.toInt();
+                        if (i >= widget.points.length) return null;
+                        final p = widget.points[i];
+                        final dateFormatted =
+                            '${p.date.day.toString().padLeft(2, '0')}/${p.date.month.toString().padLeft(2, '0')}';
+                        final formattedWorth = CurrencyFormatter.formatCents(
+                          p.cumulativeBalance,
+                        );
+                        return LineTooltipItem(
+                          '$dateFormatted\n$formattedWorth',
+                          Theme.of(context).textTheme.labelSmall!.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
+                  titlesData: const FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: cs.outlineVariant.withValues(alpha: 0.2),
+                      strokeWidth: 1,
+                      dashArray: [4, 4],
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: false,
+                      color: cs.tertiary,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            cs.tertiary.withValues(alpha: 0.2),
+                            cs.tertiary.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }

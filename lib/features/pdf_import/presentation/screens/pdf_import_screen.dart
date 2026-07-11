@@ -82,7 +82,16 @@ class _PdfImportScreenState extends ConsumerState<PdfImportScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Importar Fatura / Recibo PDF'),
+      appBar: const AppPageAppBar(
+        title: 'Importar Fatura / Recibo PDF',
+        infoDescription: 'Importe extratos bancários e faturas de cartão de crédito em PDF de forma automática. O app extrai os dados e você revisa antes de importar.',
+        infoFeatures: [
+          'Suporte a Nubank, Banco do Brasil e outros',
+          'Extração automática de dados',
+          'Revisão antes de importar',
+          'Fallback para LLM on-device',
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

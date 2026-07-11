@@ -42,93 +42,98 @@ class _TreemapWidgetState extends State<TreemapWidget>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final rects = _squarify(
-              widget.nodes,
-              Rect.fromLTWH(0, 0, constraints.maxWidth, constraints.maxHeight),
-            );
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, _) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final rects = _squarify(
+                  widget.nodes,
+                  Rect.fromLTWH(0, 0, constraints.maxWidth, constraints.maxHeight),
+                );
 
-            return SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: Stack(
-                children: List.generate(rects.length, (i) {
-                  final node = widget.nodes[i];
-                  final rect = rects[i];
-                  Color nodeColor;
-                  try {
-                    final hex = node.color.replaceFirst('#', '');
-                    nodeColor = Color(int.parse('FF$hex', radix: 16));
-                  } catch (_) {
-                    nodeColor = Theme.of(context).colorScheme.primary;
-                  }
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Stack(
+                    children: List.generate(rects.length, (i) {
+                      final node = widget.nodes[i];
+                      final rect = rects[i];
+                      Color nodeColor;
+                      try {
+                        final hex = node.color.replaceFirst('#', '');
+                        nodeColor = Color(int.parse('FF$hex', radix: 16));
+                      } catch (_) {
+                        nodeColor = Theme.of(context).colorScheme.primary;
+                      }
 
-                  return Positioned(
-                    left: rect.left + 1,
-                    top: rect.top + 1,
-                    width: (rect.width - 2).clamp(0, double.infinity),
-                    height: (rect.height - 2).clamp(0, double.infinity),
-                    child: GestureDetector(
-                      onTap: () => widget.onTap?.call(node),
-                      child: AnimatedOpacity(
-                        opacity: _animation.value,
-                        duration: Duration.zero,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: nodeColor.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(4),
+                      return Positioned(
+                        left: rect.left + 1,
+                        top: rect.top + 1,
+                        width: (rect.width - 2).clamp(0, double.infinity),
+                        height: (rect.height - 2).clamp(0, double.infinity),
+                        child: GestureDetector(
+                          onTap: () => widget.onTap?.call(node),
+                          child: AnimatedOpacity(
+                            opacity: _animation.value,
+                            duration: Duration.zero,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: nodeColor.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              padding: const EdgeInsets.all(6),
+                              child: rect.width > 60 && rect.height > 30
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            node.label,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 10,
+                                                ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
+                                          ),
+                                        ),
+                                        if (rect.height > 48)
+                                          Text(
+                                            CurrencyFormatter.valuesHidden
+                                                ? 'R\$ •••••'
+                                                : 'R\$ ${(node.value / 100).toStringAsFixed(0)}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(
+                                                  color: Colors.white70,
+                                                  fontSize: 9,
+                                                ),
+                                          ),
+                                      ],
+                                    )
+                                  : const SizedBox(),
+                            ),
                           ),
-                          padding: const EdgeInsets.all(6),
-                          child: rect.width > 60 && rect.height > 30
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        node.label,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 10,
-                                            ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                      ),
-                                    ),
-                                    if (rect.height > 48)
-                                      Text(
-                                        CurrencyFormatter.valuesHidden
-                                            ? 'R\$ •••••'
-                                            : 'R\$ ${(node.value / 100).toStringAsFixed(0)}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: Colors.white70,
-                                              fontSize: 9,
-                                            ),
-                                      ),
-                                  ],
-                                )
-                              : const SizedBox(),
                         ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
+                      );
+                    }),
+                  ),
+                );
+              },
             );
           },
-        );
-      },
+        ),
+      ),
     );
   }
 

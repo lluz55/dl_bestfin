@@ -68,148 +68,153 @@ class _WaterfallChartWidgetState extends State<WaterfallChartWidget>
     // Bar 1: expense (from 0 to expense)
     // Bar 2: net (from 0 to net)
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        final t = _animation.value;
-        final double incomeH = incomeDouble * t;
-        final double expenseH = expenseDouble * t;
-        final double netH = net.toDouble() * t;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, _) {
+            final t = _animation.value;
+            final double incomeH = incomeDouble * t;
+            final double expenseH = expenseDouble * t;
+            final double netH = net.toDouble() * t;
 
-        return Column(
-          children: [
-            AspectRatio(
-              aspectRatio: 1.7,
-              child: BarChart(
-                BarChartData(
-                  minY: finalMinY,
-                  maxY: finalMaxY,
-                  barTouchData: const BarTouchData(enabled: false),
-                  titlesData: FlTitlesData(
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          const labels = ['Receita', 'Despesa', 'Saldo'];
-                          final i = value.toInt();
-                          if (i < 0 || i >= labels.length) {
-                            return const SizedBox();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              labels[i],
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: cs.onSurfaceVariant.withValues(
-                                      alpha: 0.8,
-                                    ),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          );
-                        },
-                        reservedSize: 32,
-                      ),
-                    ),
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    getDrawingHorizontalLine: (_) => FlLine(
-                      color: cs.outlineVariant.withValues(alpha: 0.2),
-                      strokeWidth: 1,
-                      dashArray: [4, 4],
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  barGroups: [
-                    // Income bar
-                    BarChartGroupData(
-                      x: 0,
-                      barRods: [
-                        BarChartRodData(
-                          fromY: 0,
-                          toY: incomeH,
-                          color: cs.primary,
-                          width: 32,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Expense bar
-                    BarChartGroupData(
-                      x: 1,
-                      barRods: [
-                        BarChartRodData(
-                          fromY: 0,
-                          toY: expenseH,
-                          color: cs.error,
-                          width: 32,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Net bar
-                    BarChartGroupData(
-                      x: 2,
-                      barRods: [
-                        BarChartRodData(
-                          fromY: 0,
-                          toY: netH,
-                          color: net >= 0 ? cs.tertiary : cs.error,
-                          width: 32,
-                          borderRadius: net >= 0
-                              ? const BorderRadius.vertical(
-                                  top: Radius.circular(8),
-                                )
-                              : const BorderRadius.vertical(
-                                  bottom: Radius.circular(8),
+            return Column(
+              children: [
+                AspectRatio(
+                  aspectRatio: 1.7,
+                  child: BarChart(
+                    BarChartData(
+                      minY: finalMinY,
+                      maxY: finalMaxY,
+                      barTouchData: const BarTouchData(enabled: false),
+                      titlesData: FlTitlesData(
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              const labels = ['Receita', 'Despesa', 'Saldo'];
+                              final i = value.toInt();
+                              if (i < 0 || i >= labels.length) {
+                                return const SizedBox();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  labels[i],
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.8,
+                                        ),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
+                              );
+                            },
+                            reservedSize: 32,
+                          ),
+                        ),
+                        leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (_) => FlLine(
+                          color: cs.outlineVariant.withValues(alpha: 0.2),
+                          strokeWidth: 1,
+                          dashArray: [4, 4],
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      barGroups: [
+                        // Income bar
+                        BarChartGroupData(
+                          x: 0,
+                          barRods: [
+                            BarChartRodData(
+                              fromY: 0,
+                              toY: incomeH,
+                              color: cs.primary,
+                              width: 32,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(8),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Expense bar
+                        BarChartGroupData(
+                          x: 1,
+                          barRods: [
+                            BarChartRodData(
+                              fromY: 0,
+                              toY: expenseH,
+                              color: cs.error,
+                              width: 32,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(8),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Net bar
+                        BarChartGroupData(
+                          x: 2,
+                          barRods: [
+                            BarChartRodData(
+                              fromY: 0,
+                              toY: netH,
+                              color: net >= 0 ? cs.tertiary : cs.error,
+                              width: 32,
+                              borderRadius: net >= 0
+                                  ? const BorderRadius.vertical(
+                                      top: Radius.circular(8),
+                                    )
+                                  : const BorderRadius.vertical(
+                                      bottom: Radius.circular(8),
+                                    ),
+                            ),
+                          ],
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _WaterfallLegendItem(
+                      color: cs.primary,
+                      label: 'Receita',
+                      value: widget.income,
+                    ),
+                    _WaterfallLegendItem(
+                      color: cs.error,
+                      label: 'Despesa',
+                      value: widget.expense,
+                    ),
+                    _WaterfallLegendItem(
+                      color: net >= 0 ? cs.tertiary : cs.error,
+                      label: 'Saldo',
+                      value: net,
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _WaterfallLegendItem(
-                  color: cs.primary,
-                  label: 'Receita',
-                  value: widget.income,
-                ),
-                _WaterfallLegendItem(
-                  color: cs.error,
-                  label: 'Despesa',
-                  value: widget.expense,
-                ),
-                _WaterfallLegendItem(
-                  color: net >= 0 ? cs.tertiary : cs.error,
-                  label: 'Saldo',
-                  value: net,
-                ),
               ],
-            ),
-          ],
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 }

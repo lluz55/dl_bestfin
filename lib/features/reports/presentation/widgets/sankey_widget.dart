@@ -421,45 +421,50 @@ class _SankeyWidgetState extends State<SankeyWidget>
     final textColor = cs.onSurface;
     final headerColor = cs.onSurfaceVariant;
 
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final size = Size(constraints.maxWidth, constraints.maxHeight);
-              final layout = _getLayout(size);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = Size(constraints.maxWidth, constraints.maxHeight);
+                  final layout = _getLayout(size);
 
-              return InteractiveViewer(
-                transformationController: _transform,
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: GestureDetector(
-                  onTapUp: _handleTap,
-                  child: AnimatedBuilder(
-                    animation: _anim,
-                    builder: (context2, child2) => CustomPaint(
-                      size: size,
-                      painter: _SankeyPainter(
-                        layout: layout,
-                        progress: _anim.value,
-                        highlightedNodeId: _highlightedNodeId,
-                        highlightedLink: _highlightedLink,
-                        columnLabels: widget.data.columnLabels,
-                        textColor: textColor,
-                        headerColor: headerColor,
+                  return InteractiveViewer(
+                    transformationController: _transform,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: GestureDetector(
+                      onTapUp: _handleTap,
+                      child: AnimatedBuilder(
+                        animation: _anim,
+                        builder: (context2, child2) => CustomPaint(
+                          size: size,
+                          painter: _SankeyPainter(
+                            layout: layout,
+                            progress: _anim.value,
+                            highlightedNodeId: _highlightedNodeId,
+                            highlightedLink: _highlightedLink,
+                            columnLabels: widget.data.columnLabels,
+                            textColor: textColor,
+                            headerColor: headerColor,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            ),
+            if (_highlightedLink != null)
+              _LinkDetail(link: _highlightedLink!, layout: _layout),
+            if (_highlightedNodeId != null)
+              _NodeDetail(nodeId: _highlightedNodeId!, layout: _layout),
+          ],
         ),
-        if (_highlightedLink != null)
-          _LinkDetail(link: _highlightedLink!, layout: _layout),
-        if (_highlightedNodeId != null)
-          _NodeDetail(nodeId: _highlightedNodeId!, layout: _layout),
-      ],
+      ),
     );
   }
 }

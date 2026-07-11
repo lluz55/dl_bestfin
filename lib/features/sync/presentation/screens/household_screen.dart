@@ -22,6 +22,13 @@ class HouseholdScreen extends ConsumerWidget {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Grupos familiares',
+        infoDescription: 'Gerencie grupos familiares para compartilhar dados financeiros com segurança entre membros da família com sincronização E2E.',
+        infoFeatures: [
+          'Criar e gerenciar grupos',
+          'Convidar membros da família',
+          'Permissões por membro',
+          'Sincronização automática',
+        ],
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),

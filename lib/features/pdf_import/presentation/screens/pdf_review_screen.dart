@@ -93,6 +93,12 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Revisar Transações',
+        infoDescription: 'Revise e confirme os dados extraídos do PDF antes de importar as transações para o aplicativo. Selecione quais transações deseja importar.',
+        infoFeatures: [
+          'Revisão de dados extraídos',
+          'Seleção individual ou em lote',
+          'Confirmação antes de importar',
+        ],
         actions: [
           TextButton(
             onPressed: () {

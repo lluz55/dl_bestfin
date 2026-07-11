@@ -26,7 +26,16 @@ class SyncSettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Sincronização'),
+      appBar: const AppPageAppBar(
+        title: 'Sincronização',
+        infoDescription: 'Configure a sincronização E2E criptografada entre seus dispositivos usando relays Nostr. Seus dados financeiros permanecem privados.',
+        infoFeatures: [
+          'Criptografia de ponta a ponta (AES-256-GCM)',
+          'Sincronização automática em tempo real',
+          'Grupos familiares para compartilhamento',
+          'Recuperação de identidade por frase mnemônica',
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

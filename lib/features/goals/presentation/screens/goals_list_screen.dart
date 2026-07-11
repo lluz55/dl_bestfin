@@ -3,6 +3,7 @@ import 'package:bestfin/core/widgets/app_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
@@ -130,6 +131,13 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
           appBar: AppPageAppBar(
             title: 'Metas',
             showVisibilityToggle: true,
+            infoDescription: 'Defina metas financeiras com valor alvo e prazo, acompanhe o progresso e mantenha o foco nos seus objetivos.',
+            infoFeatures: [
+              'Metas com valor alvo e data limite',
+              'Acompanhamento de progresso',
+              'Celebração ao atingir a meta',
+              'Editar ou excluir metas',
+            ],
             actions: [
               IconButton(
                 icon: const Icon(Icons.add_rounded),
@@ -222,6 +230,7 @@ class _GoalsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncGoals = watchProvider(ref);
+    final isExpanded = Breakpoints.isExpanded(context);
 
     return asyncGoals.when(
       loading: () => const Center(child: AppLoadingIndicator()),
@@ -234,6 +243,28 @@ class _GoalsList extends ConsumerWidget {
             icon: emptyIcon,
             onAction: onAction,
             actionLabel: actionLabel,
+          );
+        }
+        if (isExpanded) {
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 3.2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: goals.length,
+            itemBuilder: (ctx, i) {
+              final goal = goals[i];
+              return GoalCard(
+                goal: goal,
+                onTap: () => context.push('/goals/${goal.id}'),
+                onContribute: () => onContribute(goal),
+                onArchive: () => onArchive(goal),
+                onDelete: () => onDelete(goal),
+              );
+            },
           );
         }
         return ListView.builder(

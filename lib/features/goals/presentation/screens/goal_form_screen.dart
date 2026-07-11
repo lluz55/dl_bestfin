@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/utils/icon_mapper.dart';
 import 'package:bestfin/core/widgets/account_selector.dart';
@@ -434,9 +435,8 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
   }
 
   Future<void> _pickIconAndColor() async {
-    await showModalBottomSheet(
+    await showAdaptiveModal<void>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => _IconColorPicker(
         selectedIcon: _icon,
         selectedColor: _color,

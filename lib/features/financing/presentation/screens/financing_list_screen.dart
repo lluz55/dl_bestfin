@@ -32,6 +32,13 @@ class FinancingListScreen extends ConsumerWidget {
         appBar: AppPageAppBar(
           title: 'Financiamentos',
           showVisibilityToggle: true,
+          infoDescription: 'Controle seus financiamentos com tabela Price. Acompanhe saldo devedor, parcelas pagas, taxa de juros e projeções.',
+          infoFeatures: [
+            'Saldo devedor total consolidado',
+            'Tabela Price com parcelas detalhadas',
+            'Projeção de amortização',
+            'Acompanhamento de parcelas pagas',
+          ],
           actions: [
             IconButton(
               icon: const Icon(Icons.add_rounded),

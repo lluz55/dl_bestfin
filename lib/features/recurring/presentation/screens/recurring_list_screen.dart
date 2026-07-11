@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
+import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
@@ -90,11 +92,20 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
+    final tt = context.textTheme;
+    final isExpanded = Breakpoints.isExpanded(context);
 
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Recorrentes',
+        infoDescription: 'Gerencie transações recorrentes como assinaturas, mensalidades e contas fixas. Configure a frequência e a renovação automática.',
+        infoFeatures: [
+          'Transações com renovação automática',
+          'Frequência: diária, semanal, mensal, anual',
+          'Hub de assinaturas dedicado',
+          'Controle de próximos vencimentos',
+        ],
         actions: [
           IconButton(
             icon: const Icon(Icons.dashboard_rounded),
@@ -134,6 +145,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
                   emptyDescription:
                       'Crie uma recorrência para automatizar despesas e receitas que se repetem.',
                   emptyIcon: Icons.repeat_rounded,
+                  isExpanded: isExpanded,
                 ),
                 _RuleList(
                   watchProvider: (ref) => ref.watch(pausedRecurringProvider),
@@ -144,6 +156,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
                   emptyDescription:
                       'Recorrências pausadas aparecem aqui. Você pode retomá-las a qualquer momento.',
                   emptyIcon: Icons.pause_circle_outline_rounded,
+                  isExpanded: isExpanded,
                 ),
                 _RuleList(
                   watchProvider: (ref) => ref.watch(finishedRecurringProvider),
@@ -154,6 +167,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
                   emptyDescription:
                       'Recorrências que atingiram a data de término aparecem aqui.',
                   emptyIcon: Icons.check_circle_outline_rounded,
+                  isExpanded: isExpanded,
                 ),
               ],
             ),
@@ -172,6 +186,7 @@ class _RuleList extends ConsumerWidget {
   final String emptyTitle;
   final String emptyDescription;
   final IconData emptyIcon;
+  final bool isExpanded;
 
   const _RuleList({
     required this.watchProvider,
@@ -181,6 +196,7 @@ class _RuleList extends ConsumerWidget {
     required this.emptyTitle,
     required this.emptyDescription,
     required this.emptyIcon,
+    this.isExpanded = false,
   });
 
   @override
@@ -198,6 +214,29 @@ class _RuleList extends ConsumerWidget {
             icon: emptyIcon,
           );
         }
+
+        if (isExpanded) {
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 3.5,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: rules.length,
+            itemBuilder: (context, index) {
+              final rule = rules[index];
+              return RecurringCard(
+                rule: rule,
+                onPause: () => onPause(rule.id),
+                onResume: () => onResume(rule.id),
+                onDelete: () => onDelete(rule.id),
+              );
+            },
+          );
+        }
+
         return ListView.builder(
           padding: const EdgeInsets.only(top: 8, bottom: 100),
           itemCount: rules.length,

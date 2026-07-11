@@ -105,6 +105,14 @@ class ReportsHubScreen extends ConsumerWidget {
         appBar: const AppPageAppBar(
           title: 'Relatórios',
           showVisibilityToggle: true,
+          infoDescription: 'Visualize relatórios detalhados das suas finanças: distribuição por categoria, comparativo mensal, fluxo de caixa, evolução patrimonial e gráfico Sankey interativo.',
+          infoFeatures: [
+            'Gastos por categoria com gráfico de rosca',
+            'Comparativo receita × despesa mês a mês',
+            'Projeção de fluxo de caixa futuro',
+            'Evolução do patrimônio líquido',
+            'Diagrama Sankey interativo',
+          ],
         ),
         body: _ReportsMasterDetail(entries: _entries),
       );
@@ -115,6 +123,14 @@ class ReportsHubScreen extends ConsumerWidget {
       appBar: const AppPageAppBar(
         title: 'Relatórios',
         showVisibilityToggle: true,
+        infoDescription: 'Visualize relatórios detalhados das suas finanças: distribuição por categoria, comparativo mensal, fluxo de caixa, evolução patrimonial e gráfico Sankey interativo.',
+        infoFeatures: [
+          'Gastos por categoria com gráfico de rosca',
+          'Comparativo receita × despesa mês a mês',
+          'Projeção de fluxo de caixa futuro',
+          'Evolução do patrimônio líquido',
+          'Diagrama Sankey interativo',
+        ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -240,6 +256,10 @@ class _ReportHubCardState extends State<_ReportHubCard> {
   }
 }
 
+// ─── Largura máxima padronizada para gráficos em telas largas ────────────────
+// Impede que cards e gráficos se alarguem horizontalmente de forma ilimitada.
+const _kReportContentMaxWidth = 720.0;
+
 // ─── Master-detail (telas expandidas) ────────────────────────────────────────
 
 class _ReportsMasterDetail extends StatefulWidget {
@@ -262,12 +282,12 @@ class _ReportsMasterDetailState extends State<_ReportsMasterDetail> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 300,
+          width: 380,
           child: ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
             itemCount: widget.entries.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) => _ReportNavTile(
+            separatorBuilder: (_, _) => const SizedBox(height: 2),
+            itemBuilder: (context, i) => _ReportListTile(
               entry: widget.entries[i],
               selected: i == _selectedIndex,
               onTap: () => setState(() => _selectedIndex = i),
@@ -281,10 +301,16 @@ class _ReportsMasterDetailState extends State<_ReportsMasterDetail> {
               const ReportFiltersWidget(),
               const Divider(height: 1, thickness: 0.5),
               Expanded(
-                // KeyedSubtree força a troca de estado ao mudar de relatório.
-                child: KeyedSubtree(
-                  key: ValueKey(_selectedIndex),
-                  child: selected.buildContent(),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _kReportContentMaxWidth,
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey(_selectedIndex),
+                      child: selected.buildContent(),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -295,8 +321,8 @@ class _ReportsMasterDetailState extends State<_ReportsMasterDetail> {
   }
 }
 
-class _ReportNavTile extends StatelessWidget {
-  const _ReportNavTile({
+class _ReportListTile extends StatelessWidget {
+  const _ReportListTile({
     required this.entry,
     required this.selected,
     required this.onTap,
@@ -310,60 +336,31 @@ class _ReportNavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
-    final shapes = context.shapes;
     final color = entry.colorFn(cs);
 
-    return Material(
-      color: selected ? cs.secondaryContainer : cs.surfaceContainerLow,
-      borderRadius: shapes.card,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(entry.icon, size: 20, color: color),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.title,
-                      style: tt.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: selected
-                            ? cs.onSecondaryContainer
-                            : cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodySmall?.copyWith(
-                        color: selected
-                            ? cs.onSecondaryContainer.withValues(alpha: 0.8)
-                            : cs.onSurfaceVariant,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return ListTile(
+      selected: selected,
+      selectedTileColor: cs.primaryContainer.withValues(alpha: 0.4),
+      onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      leading: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
         ),
+        child: Icon(entry.icon, size: 22, color: color.withValues(alpha: 0.7)),
+      ),
+      title: Text(
+        entry.title,
+        style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        entry.description,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
       ),
     );
   }
@@ -380,12 +377,25 @@ class _ReportDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppPageAppBar(title: title, showVisibilityToggle: true),
+      appBar: AppPageAppBar(
+        title: title,
+        showVisibilityToggle: true,
+        infoDescription: 'Visualize o relatório selecionado com dados detalhados do período escolhido.',
+      ),
       body: Column(
         children: [
           const ReportFiltersWidget(),
           const Divider(height: 1, thickness: 0.5),
-          Expanded(child: child),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _kReportContentMaxWidth,
+                ),
+                child: child,
+              ),
+            ),
+          ),
         ],
       ),
     );

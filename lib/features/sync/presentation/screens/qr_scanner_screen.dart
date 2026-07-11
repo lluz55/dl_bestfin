@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 class QrScannerScreen extends ConsumerStatefulWidget {
@@ -55,6 +56,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: Breakpoints.isCompact(context),
         title: const Text('Escanear QR'),
         actions: [
           IconButton(

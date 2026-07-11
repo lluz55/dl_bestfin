@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -15,12 +16,22 @@ class CashFlowScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
+    final isExpanded = Breakpoints.isExpanded(context);
     ref.watch(valuesHiddenProvider);
     final projectionAsync = ref.watch(cashFlowProjectionProvider);
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const AppPageAppBar(title: 'Projeção de Caixa'),
+      appBar: const AppPageAppBar(
+        title: 'Projeção de Caixa',
+        infoDescription: 'Visualize a projeção do seu fluxo de caixa para os próximos 30, 60 e 90 dias com base nas receitas, despesas futuras e transações recorrentes.',
+        infoFeatures: [
+          'Projeção para 30, 60 e 90 dias',
+          'Saldo atual e futuro projetado',
+          'Receitas e despesas futuras',
+          'Com base em transações recorrentes',
+        ],
+      ),
       body: projectionAsync.when(
         loading: () => const Center(child: AppLoadingIndicator()),
         error: (err, _) => Center(
@@ -36,7 +47,10 @@ class CashFlowScreen extends ConsumerWidget {
             children: [
               _SummaryCard(projection: projection, cs: cs, tt: tt),
               const SizedBox(height: 16),
-              _buildHorizonCards(projection, cs, tt),
+              if (isExpanded)
+                _buildExpandedHorizonCards(projection, cs, tt)
+              else
+                _buildHorizonCards(projection, cs, tt),
               const SizedBox(height: 20),
               if (projection.points.isNotEmpty) ...[
                 Text(
@@ -50,6 +64,63 @@ class CashFlowScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildExpandedHorizonCards(
+    CashFlowProjection projection,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Projeções',
+          style: tt.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _HorizonCard(
+                days: 30,
+                amount: projection.projectedBalance30d,
+                baseline: projection.currentBalance,
+                cs: cs,
+                tt: tt,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _HorizonCard(
+                days: 60,
+                amount: projection.projectedBalance60d,
+                baseline: projection.currentBalance,
+                cs: cs,
+                tt: tt,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _HorizonCard(
+                days: 90,
+                amount: projection.projectedBalance90d,
+                baseline: projection.currentBalance,
+                cs: cs,
+                tt: tt,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

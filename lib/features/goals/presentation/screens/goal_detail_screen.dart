@@ -81,6 +81,13 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       appBar: AppPageAppBar(
         title: goal.name,
         showVisibilityToggle: true,
+        infoDescription: 'Acompanhe o progresso detalhado da sua meta financeira com valor acumulado, evolução em gráfico e valor restante.',
+        infoFeatures: [
+          'Progresso com gráfico de evolução',
+          'Valor acumulado e restante',
+          'Depósitos mensais recomendados',
+          'Previsão de conclusão',
+        ],
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded),

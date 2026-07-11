@@ -33,6 +33,13 @@ class PortfolioScreen extends ConsumerWidget {
         appBar: AppPageAppBar(
           title: 'Meus Investimentos',
           showVisibilityToggle: true,
+          infoDescription: 'Acompanhe seu portfólio de investimentos com cotações, rentabilidade e distribuição por tipo de ativo.',
+          infoFeatures: [
+            'Visão geral do portfólio e saldo total',
+            'Rentabilidade por ativo',
+            'Distribuição por tipo de investimento',
+            'Histórico de cotações',
+          ],
           actions: [
             IconButton(
               icon: const Icon(Icons.add_rounded),
@@ -323,73 +330,78 @@ class _AllocationDonutChart extends StatelessWidget {
     final tt = context.textTheme;
     final keys = summary.allocationPercentages.keys.toList();
 
-    return Row(
-      children: [
-        SizedBox(
-          width: 130,
-          height: 130,
-          child: PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: 40,
-              sections: List.generate(keys.length, (idx) {
-                final pct = summary.allocationPercentages[keys[idx]] ?? 0.0;
-                return PieChartSectionData(
-                  color: _colorForIndex(idx),
-                  value: pct * 100,
-                  radius: 20,
-                  showTitle: false,
-                );
-              }),
-            ),
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: List.generate(keys.length, (idx) {
-              final type = keys[idx];
-              final pct = summary.allocationPercentages[type] ?? 0.0;
-              final typeLabel = _typeLabel(type);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: _colorForIndex(idx),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        typeLabel,
-                        style: tt.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      '${(pct * 100).toStringAsFixed(1)}%',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 130,
+              height: 130,
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 40,
+                  sections: List.generate(keys.length, (idx) {
+                    final pct = summary.allocationPercentages[keys[idx]] ?? 0.0;
+                    return PieChartSectionData(
+                      color: _colorForIndex(idx),
+                      value: pct * 100,
+                      radius: 20,
+                      showTitle: false,
+                    );
+                  }),
                 ),
-              );
-            }),
-          ),
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: List.generate(keys.length, (idx) {
+                  final type = keys[idx];
+                  final pct = summary.allocationPercentages[type] ?? 0.0;
+                  final typeLabel = _typeLabel(type);
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: _colorForIndex(idx),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            typeLabel,
+                            style: tt.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${(pct * 100).toStringAsFixed(1)}%',
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

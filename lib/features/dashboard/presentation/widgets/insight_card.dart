@@ -4,10 +4,76 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
+import 'package:bestfin/features/gamification/domain/models/financial_insight.dart';
 import 'package:bestfin/features/gamification/presentation/providers/gamification_providers.dart';
 
 class InsightCard extends ConsumerWidget {
   const InsightCard({super.key});
+
+  Map<String, dynamic> _getCategoryInfo(InsightCategory? category) {
+    switch (category) {
+      case InsightCategory.debt:
+        return {
+          'title': 'Dívidas',
+          'icon': Icons.payment,
+          'color': Colors.red,
+        };
+      case InsightCategory.savings:
+        return {
+          'title': 'Economia',
+          'icon': Icons.savings,
+          'color': Colors.green,
+        };
+      case InsightCategory.budget:
+        return {
+          'title': 'Orçamento',
+          'icon': Icons.pie_chart,
+          'color': Colors.orange,
+        };
+      case InsightCategory.cashflow:
+        return {
+          'title': 'Fluxo',
+          'icon': Icons.account_balance,
+          'color': Colors.blue,
+        };
+      case InsightCategory.investment:
+        return {
+          'title': 'Investimentos',
+          'icon': Icons.trending_up,
+          'color': Colors.purple,
+        };
+      case InsightCategory.creditCard:
+        return {
+          'title': 'Cartão',
+          'icon': Icons.credit_card,
+          'color': Colors.indigo,
+        };
+      case InsightCategory.subscription:
+        return {
+          'title': 'Assinaturas',
+          'icon': Icons.notifications,
+          'color': Colors.pink,
+        };
+      case InsightCategory.goal:
+        return {
+          'title': 'Metas',
+          'icon': Icons.flag,
+          'color': Colors.amber,
+        };
+      case InsightCategory.behavior:
+        return {
+          'title': 'Comportamento',
+          'icon': Icons.psychology,
+          'color': Colors.teal,
+        };
+      default:
+        return {
+          'title': 'Dica',
+          'icon': Icons.lightbulb_outline,
+          'color': Colors.blue,
+        };
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,13 +88,13 @@ class InsightCard extends ConsumerWidget {
     }
 
     final topInsight = gInsights.first;
-    final title = 'Dica Financeira';
+    final categoryInfo = _getCategoryInfo(topInsight.category);
+    final title = categoryInfo['title'] as String;
+    final iconData = categoryInfo['icon'] as IconData;
+    final categoryColor = categoryInfo['color'] as Color;
     final message = topInsight.text;
     final iconEmoji = topInsight.icon;
-    const icon = Icons.tips_and_updates_outlined;
-    const iconColor = Colors.blue;
-    final bgIconColor = Colors.blue.withValues(alpha: 0.1);
-    const badgeText = 'Dica';
+    final bgIconColor = categoryColor.withValues(alpha: 0.1);
 
     return AnimatedCard(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -43,15 +109,15 @@ class InsightCard extends ConsumerWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: cs.primary,
+                    iconData,
+                    color: categoryColor,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'INSIGHT',
+                    title.toUpperCase(),
                     style: tt.labelSmall?.copyWith(
-                      color: cs.primary,
+                      color: categoryColor,
                       letterSpacing: 1.2,
                       fontWeight: FontWeight.w700,
                     ),
@@ -65,7 +131,7 @@ class InsightCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  badgeText,
+                  'Dica',
                   style: tt.labelSmall?.copyWith(
                     color: cs.onSurface,
                     fontWeight: FontWeight.w600,
@@ -83,7 +149,7 @@ class InsightCard extends ConsumerWidget {
                 backgroundColor: bgIconColor,
                 child: iconEmoji.isNotEmpty
                     ? Text(iconEmoji, style: const TextStyle(fontSize: 20))
-                    : const Icon(icon, color: iconColor, size: 22),
+                    : Icon(iconData, color: categoryColor, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -91,18 +157,10 @@ class InsightCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      CurrencyFormatter.sanitizeText(title),
+                      CurrencyFormatter.sanitizeText(message),
                       style: tt.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      CurrencyFormatter.sanitizeText(message),
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        height: 1.4,
                       ),
                     ),
                   ],

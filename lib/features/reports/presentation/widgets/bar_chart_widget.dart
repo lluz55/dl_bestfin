@@ -59,140 +59,146 @@ class _MonthlyBarChartWidgetState extends State<MonthlyBarChartWidget>
       ].reduce((a, b) => a > b ? a : b),
     );
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        return AspectRatio(
-          aspectRatio: 1.7,
-          child: BarChart(
-            BarChartData(
-              maxY: maxVal > 0 ? maxVal * 1.2 * _animation.value + 1 : 100,
-              barTouchData: BarTouchData(
-                touchTooltipData: BarTouchTooltipData(
-                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                    final bar = widget.bars[group.x];
-                    final label = rodIndex == 0 ? 'Receita' : 'Despesa';
-                    final amt = rodIndex == 0 ? bar.income : bar.expense;
-                    final pending = rodIndex == 0
-                        ? bar.pendingIncome
-                        : bar.pendingExpense;
-                    final pendingSuffix = pending > 0
-                        ? '\n+${CurrencyFormatter.formatCents(pending)} previsto'
-                        : '';
-                    return BarTooltipItem(
-                      '$label\n${CurrencyFormatter.formatCents(amt.toInt())}$pendingSuffix',
-                      Theme.of(context).textTheme.labelSmall!.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              titlesData: FlTitlesData(
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= widget.bars.length)
-                        return const SizedBox();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          widget.bars[i].label,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.8,
-                                ),
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      );
-                    },
-                    reservedSize: 32,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, _) {
+            return AspectRatio(
+              aspectRatio: 1.7,
+              child: BarChart(
+                BarChartData(
+                  maxY: maxVal > 0 ? maxVal * 1.2 * _animation.value + 1 : 100,
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final bar = widget.bars[group.x];
+                        final label = rodIndex == 0 ? 'Receita' : 'Despesa';
+                        final amt = rodIndex == 0 ? bar.income : bar.expense;
+                        final pending = rodIndex == 0
+                            ? bar.pendingIncome
+                            : bar.pendingExpense;
+                        final pendingSuffix = pending > 0
+                            ? '\n+${CurrencyFormatter.formatCents(pending)} previsto'
+                            : '';
+                        return BarTooltipItem(
+                          '$label\n${CurrencyFormatter.formatCents(amt.toInt())}$pendingSuffix',
+                          Theme.of(context).textTheme.labelSmall!.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-              ),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: maxVal > 0 ? maxVal / 4 : 25,
-                getDrawingHorizontalLine: (_) => FlLine(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                  strokeWidth: 1,
-                  dashArray: [4, 4],
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              barGroups: List.generate(widget.bars.length, (i) {
-                final bar = widget.bars[i];
-                final income = bar.income.toDouble() * _animation.value;
-                final incomeWithPending =
-                    (bar.income + bar.pendingIncome).toDouble() *
-                    _animation.value;
-                final expense = bar.expense.toDouble() * _animation.value;
-                final expenseWithPending =
-                    (bar.expense + bar.pendingExpense).toDouble() *
-                    _animation.value;
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final i = value.toInt();
+                          if (i < 0 || i >= widget.bars.length) {
+                            return const SizedBox();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              widget.bars[i].label,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          );
+                        },
+                        reservedSize: 32,
+                      ),
+                    ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: maxVal > 0 ? maxVal / 4 : 25,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: cs.outlineVariant.withValues(alpha: 0.2),
+                      strokeWidth: 1,
+                      dashArray: [4, 4],
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: List.generate(widget.bars.length, (i) {
+                    final bar = widget.bars[i];
+                    final income = bar.income.toDouble() * _animation.value;
+                    final incomeWithPending =
+                        (bar.income + bar.pendingIncome).toDouble() *
+                        _animation.value;
+                    final expense = bar.expense.toDouble() * _animation.value;
+                    final expenseWithPending =
+                        (bar.expense + bar.pendingExpense).toDouble() *
+                        _animation.value;
 
-                return BarChartGroupData(
-                  x: i,
-                  barsSpace: 6,
-                  barRods: [
-                    BarChartRodData(
-                      toY: incomeWithPending,
-                      color: cs.primary,
-                      width: 14,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(6),
-                      ),
-                      rodStackItems: bar.pendingIncome > 0
-                          ? [
-                              BarChartRodStackItem(0, income, cs.primary),
-                              BarChartRodStackItem(
-                                income,
-                                incomeWithPending,
-                                cs.primary.withValues(alpha: 0.35),
-                              ),
-                            ]
-                          : [],
-                    ),
-                    BarChartRodData(
-                      toY: expenseWithPending,
-                      color: cs.error,
-                      width: 14,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(6),
-                      ),
-                      rodStackItems: bar.pendingExpense > 0
-                          ? [
-                              BarChartRodStackItem(0, expense, cs.error),
-                              BarChartRodStackItem(
-                                expense,
-                                expenseWithPending,
-                                cs.error.withValues(alpha: 0.35),
-                              ),
-                            ]
-                          : [],
-                    ),
-                  ],
-                );
-              }),
-            ),
-          ),
-        );
-      },
+                    return BarChartGroupData(
+                      x: i,
+                      barsSpace: 6,
+                      barRods: [
+                        BarChartRodData(
+                          toY: incomeWithPending,
+                          color: cs.primary,
+                          width: 14,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(6),
+                          ),
+                          rodStackItems: bar.pendingIncome > 0
+                              ? [
+                                  BarChartRodStackItem(0, income, cs.primary),
+                                  BarChartRodStackItem(
+                                    income,
+                                    incomeWithPending,
+                                    cs.primary.withValues(alpha: 0.35),
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        BarChartRodData(
+                          toY: expenseWithPending,
+                          color: cs.error,
+                          width: 14,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(6),
+                          ),
+                          rodStackItems: bar.pendingExpense > 0
+                              ? [
+                                  BarChartRodStackItem(0, expense, cs.error),
+                                  BarChartRodStackItem(
+                                    expense,
+                                    expenseWithPending,
+                                    cs.error.withValues(alpha: 0.35),
+                                  ),
+                                ]
+                              : [],
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -247,84 +253,89 @@ class _CategoryBarChartWidgetState extends State<CategoryBarChartWidget>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        return Column(
-          children: List.generate(widget.items.length, (i) {
-            final item = widget.items[i];
-            // stagger: each bar starts a bit later
-            final staggerT = ((i * 0.05) < _animation.value)
-                ? (_animation.value - i * 0.05).clamp(0.0, 1.0)
-                : 0.0;
-            final staggerRatio = widget.maxAmount > 0
-                ? (item.amount / widget.maxAmount) * staggerT
-                : 0.0;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, _) {
+            return Column(
+              children: List.generate(widget.items.length, (i) {
+                final item = widget.items[i];
+                // stagger: each bar starts a bit later
+                final staggerT = ((i * 0.05) < _animation.value)
+                    ? (_animation.value - i * 0.05).clamp(0.0, 1.0)
+                    : 0.0;
+                final staggerRatio = widget.maxAmount > 0
+                    ? (item.amount / widget.maxAmount) * staggerT
+                    : 0.0;
 
-            final row = Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 100,
-                    child: Text(
-                      item.label,
-                      style: tt.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Container(
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(6),
+                final row = Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          item.label,
+                          style: tt.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        FractionallySizedBox(
-                          widthFactor: staggerRatio.clamp(0.0, 1.0),
-                          child: Container(
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: item.color,
-                              borderRadius: BorderRadius.circular(6),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Container(
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
-                          ),
+                            FractionallySizedBox(
+                              widthFactor: staggerRatio.clamp(0.0, 1.0),
+                              child: Container(
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: item.color,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 80,
-                    child: Text(
-                      CurrencyFormatter.formatCents(item.amount),
-                      style: tt.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
                       ),
-                      textAlign: TextAlign.right,
-                    ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 80,
+                        child: Text(
+                          CurrencyFormatter.formatCents(item.amount),
+                          style: tt.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
+                );
 
-            if (widget.onBarTap == null) return row;
-            return InkWell(
-              onTap: () => widget.onBarTap!(i),
-              borderRadius: BorderRadius.circular(8),
-              child: row,
+                if (widget.onBarTap == null) return row;
+                return InkWell(
+                  onTap: () => widget.onBarTap!(i),
+                  borderRadius: BorderRadius.circular(8),
+                  child: row,
+                );
+              }),
             );
-          }),
-        );
-      },
+          },
+        ),
+      ),
     );
   }
 }

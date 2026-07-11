@@ -77,148 +77,153 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Column(
-      children: [
-        SizedBox(
-          width: 240,
-          child: AspectRatio(
-            aspectRatio: 1.0,
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, _) {
-                return PieChart(
-                  PieChartData(
-                    pieTouchData: PieTouchData(
-                      touchCallback: (event, response) {
-                        setState(() {
-                          if (!event.isInterestedForInteractions ||
-                              response?.touchedSection == null) {
-                            _touchedIndex = null;
-                            return;
-                          }
-                          _touchedIndex =
-                              response!.touchedSection!.touchedSectionIndex;
-                        });
-                      },
-                    ),
-                    startDegreeOffset: -90,
-                    sectionsSpace: 4,
-                    centerSpaceRadius: 50,
-                    sections: List.generate(widget.items.length, (i) {
-                      final item = widget.items[i];
-                      final isTouched = i == _touchedIndex;
-                      return PieChartSectionData(
-                        value: item.amountInCents.toDouble() * _animation.value,
-                        color: _colorFor(i),
-                        radius: isTouched ? 34 : 24,
-                        showTitle: false,
-                        badgeWidget: isTouched
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cs.surfaceContainerHigh,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${(item.percentage * 100).toStringAsFixed(0)}%',
-                                  style: tt.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: cs.onSurface,
-                                  ),
-                                ),
-                              )
-                            : null,
-                        badgePositionPercentageOffset: 1.4,
-                      );
-                    }),
-                  ),
-                );
-              },
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: Column(
+          children: [
+            SizedBox(
+              width: 240,
+              child: AspectRatio(
+                aspectRatio: 1.0,
+                child: AnimatedBuilder(
+                  animation: _animation,
+                  builder: (context, _) {
+                    return PieChart(
+                      PieChartData(
+                        pieTouchData: PieTouchData(
+                          touchCallback: (event, response) {
+                            setState(() {
+                              if (!event.isInterestedForInteractions ||
+                                  response?.touchedSection == null) {
+                                _touchedIndex = null;
+                                return;
+                              }
+                              _touchedIndex =
+                                  response!.touchedSection!.touchedSectionIndex;
+                            });
+                          },
+                        ),
+                        startDegreeOffset: -90,
+                        sectionsSpace: 4,
+                        centerSpaceRadius: 50,
+                        sections: List.generate(widget.items.length, (i) {
+                          final item = widget.items[i];
+                          final isTouched = i == _touchedIndex;
+                          return PieChartSectionData(
+                            value: item.amountInCents.toDouble() * _animation.value,
+                            color: _colorFor(i),
+                            radius: isTouched ? 34 : 24,
+                            showTitle: false,
+                            badgeWidget: isTouched
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cs.surfaceContainerHigh,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${(item.percentage * 100).toStringAsFixed(0)}%',
+                                      style: tt.labelSmall?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            badgePositionPercentageOffset: 1.4,
+                          );
+                        }),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 32),
-        // Legend
-        ...List.generate(widget.items.length, (i) {
-          final item = widget.items[i];
-          final isSelected = i == _touchedIndex;
-          final pct = (item.percentage * 100).toStringAsFixed(1);
-          final amt = CurrencyFormatter.formatCents(item.amountInCents);
+            const SizedBox(height: 32),
+            // Legend
+            ...List.generate(widget.items.length, (i) {
+              final item = widget.items[i];
+              final isSelected = i == _touchedIndex;
+              final pct = (item.percentage * 100).toStringAsFixed(1);
+              final amt = CurrencyFormatter.formatCents(item.amountInCents);
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? cs.surfaceContainerHighest.withValues(alpha: 0.7)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _colorFor(i),
-                      shape: BoxShape.circle,
-                    ),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? cs.surfaceContainerHighest.withValues(alpha: 0.7)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 12),
-                  if (item.category != null) ...[
-                    CategoryIcon(
-                      icon: item.category!.icon,
-                      color: item.category!.color,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.category?.displayName ?? 'Sem categoria',
-                          style: tt.titleSmall?.copyWith(
-                            fontWeight: isSelected
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            color: cs.onSurface,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _colorFor(i),
+                          shape: BoxShape.circle,
                         ),
-                        Text(
-                          '$pct%',
-                          style: tt.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (item.category != null) ...[
+                        CategoryIcon(
+                          icon: item.category!.icon,
+                          color: item.category!.color,
+                          size: 18,
                         ),
+                        const SizedBox(width: 8),
                       ],
-                    ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.category?.displayName ?? 'Sem categoria',
+                              style: tt.titleSmall?.copyWith(
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: cs.onSurface,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '$pct%',
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        amt,
+                        style: tt.labelLarge
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            )
+                            .merge(AppTypography.monospace),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    amt,
-                    style: tt.labelLarge
-                        ?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface,
-                        )
-                        .merge(AppTypography.monospace),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 }

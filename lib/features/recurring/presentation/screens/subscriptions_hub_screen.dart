@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
@@ -29,10 +30,18 @@ class SubscriptionsHubScreen extends ConsumerWidget {
       appBar: AppPageAppBar(
         title: 'Hub de Assinaturas',
         showVisibilityToggle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
-        ),
+        infoDescription: 'Acompanhe todas as suas assinaturas mensais e anuais em um só lugar, com valor total mensal e anual.',
+        infoFeatures: [
+          'Valor total mensal e anual',
+          'Próximos vencimentos',
+          'Categorização por tipo',
+        ],
+        leading: Breakpoints.isCompact(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => context.pop(),
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),

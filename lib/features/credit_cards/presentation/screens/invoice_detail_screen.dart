@@ -286,6 +286,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
           backgroundColor: cs.surface,
           appBar: AppPageAppBar(
             title: '${invoice.monthName} de ${invoice.year}',
+            infoDescription: 'Visualize os lançamentos detalhados da fatura, valor total, data de vencimento e status de pagamento.',
           ),
           body: _isProcessingPayment
               ? const Center(child: AppLoadingIndicator())

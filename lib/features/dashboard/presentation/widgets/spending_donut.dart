@@ -67,56 +67,61 @@ class _SpendingDonutState extends ConsumerState<SpendingDonut> {
               ),
             )
           else
-            Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: AspectRatio(
-                    aspectRatio: 1.0,
-                    child: PieChart(
-                      PieChartData(
-                        pieTouchData: PieTouchData(
-                          touchCallback:
-                              (FlTouchEvent event, pieTouchResponse) {
-                                setState(() {
-                                  if (!event.isInterestedForInteractions ||
-                                      pieTouchResponse == null ||
-                                      pieTouchResponse.touchedSection == null) {
-                                    _touchedIndex = -1;
-                                    return;
-                                  }
-                                  _touchedIndex = pieTouchResponse
-                                      .touchedSection!
-                                      .touchedSectionIndex;
-                                });
-                              },
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 650),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: AspectRatio(
+                        aspectRatio: 1.0,
+                        child: PieChart(
+                          PieChartData(
+                            pieTouchData: PieTouchData(
+                              touchCallback:
+                                  (FlTouchEvent event, pieTouchResponse) {
+                                    setState(() {
+                                      if (!event.isInterestedForInteractions ||
+                                          pieTouchResponse == null ||
+                                          pieTouchResponse.touchedSection == null) {
+                                        _touchedIndex = -1;
+                                        return;
+                                      }
+                                      _touchedIndex = pieTouchResponse
+                                          .touchedSection!
+                                          .touchedSectionIndex;
+                                    });
+                                  },
+                            ),
+                            borderData: FlBorderData(show: false),
+                            sectionsSpace: 4,
+                            centerSpaceRadius: 40,
+                            sections: _buildSections(cs),
+                          ),
                         ),
-                        borderData: FlBorderData(show: false),
-                        sectionsSpace: 4,
-                        centerSpaceRadius: 40,
-                        sections: _buildSections(cs),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      widget.categoryExpenses.take(5).length,
-                      (index) => _buildLegendItem(
-                        widget.categoryExpenses[index],
-                        index == _touchedIndex,
-                        cs,
-                        tt,
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          widget.categoryExpenses.take(5).length,
+                          (index) => _buildLegendItem(
+                            widget.categoryExpenses[index],
+                            index == _touchedIndex,
+                            cs,
+                            tt,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
         ],
       ),

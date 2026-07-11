@@ -198,6 +198,13 @@ class InvestmentDetailScreen extends ConsumerWidget {
       appBar: AppPageAppBar(
         title: 'Detalhes do Ativo',
         showVisibilityToggle: true,
+        infoDescription: 'Visualize todos os detalhes do investimento: valor aplicado, rentabilidade, histórico de cotações e composição.',
+        infoFeatures: [
+          'Valor atual e rentabilidade',
+          'Histórico de cotações em gráfico',
+          'Quantidade e valor médio',
+          'Editar ou excluir ativo',
+        ],
         actions: [
           investmentAsync.when(
             data: (inv) => IconButton(
@@ -341,40 +348,45 @@ class InvestmentDetailScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      SizedBox(
-                        height: 160,
-                        child: LineChart(
-                          LineChartData(
-                            gridData: const FlGridData(show: false),
-                            titlesData: const FlTitlesData(show: false),
-                            borderData: FlBorderData(show: false),
-                            lineBarsData: [
-                              LineChartBarData(
-                                spots: [
-                                  FlSpot(0, investedAmt),
-                                  FlSpot(1, currentVal),
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 650),
+                          child: SizedBox(
+                            height: 160,
+                            child: LineChart(
+                              LineChartData(
+                                gridData: const FlGridData(show: false),
+                                titlesData: const FlTitlesData(show: false),
+                                borderData: FlBorderData(show: false),
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: [
+                                      FlSpot(0, investedAmt),
+                                      FlSpot(1, currentVal),
+                                    ],
+                                    isCurved: false,
+                                    color: cs.primary,
+                                    barWidth: 4,
+                                    isStrokeCapRound: true,
+                                    dotData: FlDotData(
+                                      show: true,
+                                      getDotPainter:
+                                          (spot, percent, barData, index) =>
+                                              FlDotCirclePainter(
+                                                radius: 6,
+                                                color: cs.primary,
+                                                strokeColor: cs.surface,
+                                                strokeWidth: 2,
+                                              ),
+                                    ),
+                                    belowBarData: BarAreaData(
+                                      show: true,
+                                      color: cs.primary.withValues(alpha: 0.08),
+                                    ),
+                                  ),
                                 ],
-                                isCurved: false,
-                                color: cs.primary,
-                                barWidth: 4,
-                                isStrokeCapRound: true,
-                                dotData: FlDotData(
-                                  show: true,
-                                  getDotPainter:
-                                      (spot, percent, barData, index) =>
-                                          FlDotCirclePainter(
-                                            radius: 6,
-                                            color: cs.primary,
-                                            strokeColor: cs.surface,
-                                            strokeWidth: 2,
-                                          ),
-                                ),
-                                belowBarData: BarAreaData(
-                                  show: true,
-                                  color: cs.primary.withValues(alpha: 0.08),
-                                ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
