@@ -1,9 +1,11 @@
 name: Release
 
-# Disparado pelo push de uma tag vX.Y.Z (criada por scripts/release.sh).
-# A partir daqui, tudo roda no CI: build Android + Linux via Nix, criação do
-# GitHub Release com os binários anexados e publicação da notificação de
-# atualização nos relays Nostr.
+# Fallback MANUAL do release -- o fluxo padrão é 100% local via
+# scripts/release.sh (build + GitHub Release + notificação Nostr rodam na
+# máquina do dev, com os secrets decifrados localmente via SOPS). Este
+# workflow existe só para o caso raro de precisar compilar/publicar sem a
+# máquina local disponível; dispare com scripts/release-ci.sh <versão> ou
+# `gh workflow run release.yml --ref vX.Y.Z`.
 #
 # Sinal de "release crítico": scripts/release.sh cria a tag anotada com a
 # mensagem "critical" (em vez de "release") quando rodado com --critical.
@@ -11,9 +13,7 @@ name: Release
 # e o job `publish-nostr` para decidir a flag --critical do evento.
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_dispatch: {}
 
 permissions:
   contents: write

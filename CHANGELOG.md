@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Corrigido
+- `kDeveloperNostrPubkey` corrompido em `app_info.dart` (continha texto de log do Nix/Dart concatenado à chave hex) — corrigido para o valor correto
+- `scripts/release.sh`: extração da pubkey convertida de npub→hex agora ignora ruído de stdout (`dart run` pode imprimir "Running build hooks..." antes do resultado)
+
+### Alterado
+- Release passa a ser **100% local**: `scripts/release.sh` agora compila Android/Linux, cria o GitHub Release e publica a notificação Nostr diretamente na máquina do dev (usando os secrets decifrados via SOPS), sem depender do GitHub Actions
+- `.github/workflows/release.yml` não dispara mais automaticamente no push de tag — vira fallback manual (`workflow_dispatch`), usado via `scripts/release-ci.sh`
+
 ## v1.0.13 (2026-07-12)
 
 ### Adicionado

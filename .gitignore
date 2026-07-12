@@ -69,6 +69,7 @@ data/*.sqlite-wal
 
 # Release artifacts
 bestfin-*.tar.gz
+/dist/
 
 # Local agent/tooling state
 .mcp.json

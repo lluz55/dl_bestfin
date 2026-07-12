@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # release-ci.sh -- Prepara e dispara um release do BestFin via GitHub Actions.
 #
-# ATENÇÃO: o workflow .github/workflows/release.yml está DESATIVADO por
-# padrão (o gatilho automático de push de tag está comentado). Este script
-# funciona, mas depois do push da tag ele dispara o workflow manualmente via
-# `gh workflow run` (workflow_dispatch). Para voltar ao gatilho automático,
-# descomente o bloco `push: tags:` em release.yml.
-#
-# Use ./scripts/release.sh para o fluxo tradicional (build e publicação
-# 100% locais, sem depender do GitHub Actions).
+# ATENÇÃO: este é o fluxo de FALLBACK. O fluxo padrão é 100% local via
+# ./scripts/release.sh (build + GitHub Release + notificação Nostr rodam na
+# máquina do dev). .github/workflows/release.yml só roda via workflow_dispatch
+# manual -- não há mais gatilho automático de push de tag. Use este script só
+# se não puder compilar/publicar localmente (ex: sem os secrets do SOPS).
 #
 # O que faz:
 #   1. Valida pré-condições (git limpo)
@@ -47,7 +44,7 @@
 #                             GitHub Release (banner) e para o evento Nostr
 #                             (--critical em publish_update.dart).
 #   --no-dispatch            Só faz commit + tag + push, sem disparar o workflow
-#                             (útil se você vai reativar o gatilho automático)
+#                             (útil se for disparar manualmente depois)
 #   --dry-run                Imprime os passos sem executar nada destrutivo
 #   --auto-bump               Se a versão for "patch|minor|major", faz bump automático
 #
@@ -287,7 +284,9 @@ if $no_dispatch; then
   info "Disparo do workflow pulado (--no-dispatch)"
 else
   step "Disparando release.yml via workflow_dispatch"
-  run gh workflow run release.yml -f "tag=v${VERSION}"
+  # --ref seleciona a tag: define tanto o conteúdo compilado (checkout)
+  # quanto github.ref_name (usado pelo workflow para nomear os artefatos).
+  run gh workflow run release.yml --ref "v${VERSION}"
   ok "Workflow disparado para v${VERSION}"
 fi
 

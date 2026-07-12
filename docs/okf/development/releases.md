@@ -25,26 +25,26 @@ A cada release, `kAppVersion` deve ser atualizada para o mesmo `X.Y.Z` do `pubsp
 
 ## Fluxo de Release (resumo)
 
-Desde a introdução do CI/CD, o fluxo é dividido entre local e GitHub Actions. Detalhes completos e comandos em `AGENTS.md` §6. Passos:
+O fluxo é **100% local**, um único comando. Detalhes completos em `AGENTS.md` §6. `./scripts/release.sh X.Y.Z --changelog "..."`:
 
-1. `./scripts/release.sh X.Y.Z --changelog "..."` (local): bump de `pubspec.yaml` + `kAppVersion` em `app_info.dart`, commit, **tag anotada** `vX.Y.Z` e push.
-2. O push da tag dispara `.github/workflows/release.yml`, que faz o resto **no CI**:
-   * compila Android (`flutter build apk --release`) e Linux (`flutter build linux --release`) via `nix develop .#ci -c`;
-   * empacota o bundle Linux em `bestfin-vX.Y.Z-linux-x64.tar.gz`;
-   * `gh release create vX.Y.Z ...` anexando os dois binários, com notas extraídas do `CHANGELOG.md`;
-   * publica a notificação de atualização nos relays Nostr (`scripts/publish_update.dart`).
+1. Bump de `pubspec.yaml` + `kAppVersion` em `app_info.dart`, commit, **tag anotada** `vX.Y.Z` e push.
+2. Compila Android (`flutter build apk --release`) e Linux (`flutter build linux --release`) via `nix develop -c` — usando o keystore e a chave Nostr decifrados localmente via SOPS (ver [[secrets-sops]]).
+3. Empacota o bundle Linux em `bestfin-vX.Y.Z-linux-x64.tar.gz`.
+4. `gh release create vX.Y.Z ...` anexando os dois binários, com notas extraídas do `CHANGELOG.md`.
+5. Publica a notificação de atualização nos relays Nostr (`scripts/publish_update.dart`).
 
-Nenhum secret sensível (keystore Android, chave privada Nostr) precisa existir na máquina do dev — ficam só como secrets do GitHub Actions.
+`.github/workflows/release.yml` existe só como fallback manual (`workflow_dispatch`) para quando a máquina local não tem os secrets do SOPS disponíveis — não roda mais sozinho no push da tag.
 
 ## Erros comuns de agente
 
 * **Esquecer `kAppVersion`:** bumpar só o `pubspec.yaml` deixa a tela Sobre mostrando a versão antiga. Sempre atualize a constante junto — `scripts/release.sh` já cuida disso.
-* **Criar a tag sem push, ou tag não-anotada:** o CI depende do push da tag `vX.Y.Z` para disparar, e a mensagem da tag anotada carrega o sinal de release crítico (`--critical`). Use sempre `scripts/release.sh`, não `git tag` manual.
-* **Rodar `flutter build` fora do Nix:** ver [[environment]] — sempre `nix develop -c` (local) ou `nix develop .#ci -c` (CI).
-* **Esperar que `release.sh` compile/publique:** desde o CI/CD, o script só prepara e dispara a tag. Build, GitHub Release e Nostr são responsabilidade do workflow — acompanhe em `gh run watch`.
+* **Criar a tag sem push, ou tag não-anotada:** a mensagem da tag anotada carrega o sinal de release crítico (`--critical`), lido pelo próprio `release.sh`. Use sempre `scripts/release.sh`, não `git tag` manual.
+* **Rodar `flutter build` fora do Nix:** ver [[environment]] — sempre `nix develop -c`.
+* **Achar que precisa do GitHub Actions:** o fallback (`scripts/release-ci.sh` / `release.yml`) só é necessário sem acesso aos secrets locais do SOPS. O fluxo padrão (`scripts/release.sh`) compila e publica tudo sozinho.
 
 ## Referências
 
-* `AGENTS.md` §6 — Releases e Publicação de Binários (fluxo completo, workflow do CI e secrets necessários).
-* `.github/workflows/release.yml` — o workflow em si.
+* `AGENTS.md` §6 — Releases e Publicação de Binários (fluxo local completo, fallback CI e secrets necessários).
+* `docs/okf/development/secrets-sops.md` — como os secrets (keystore, chave Nostr) são decifrados localmente.
+* `.github/workflows/release.yml` — o workflow de fallback manual.
 * [[environment]] — comandos via Nix.

@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# release.sh -- Prepara e dispara um release do BestFin.
+# release.sh -- Compila e publica um release do BestFin, 100% local.
 #
-# O que faz (só a parte local -- o resto roda no GitHub Actions):
-#   1. Valida pré-condições (git limpo)
+# O que faz:
+#   1. Valida pré-condições (git limpo, gh CLI autenticado)
 #   2. Faz bump de versão em pubspec.yaml e app_info.dart
 #   3. Cria commit + tag anotada vX.Y.Z e faz push
+#   4. Compila o APK Android e o bundle Linux via Nix (nix develop -c)
+#   5. Cria o GitHub Release com os binários anexados
+#   6. Publica a notificação de atualização nos relays Nostr
 #
-# O push da tag dispara o workflow .github/workflows/release.yml, que
-# compila o APK Android e o bundle Linux via Nix, cria o GitHub Release com
-# os binários anexados e publica a notificação de atualização nos relays
-# Nostr. Esta máquina não precisa mais do keystore Android nem da chave
-# privada Nostr -- esses secrets vivem só no GitHub Actions.
+# Não depende do GitHub Actions -- keystore Android e chave privada Nostr são
+# descriptografados localmente via SOPS ao entrar no devShell (ver
+# docs/okf/development/secrets-sops.md). O workflow .github/workflows/release.yml
+# continua existindo só como fallback manual (workflow_dispatch) -- use
+# scripts/release-ci.sh se quiser disparar ele.
 #
 # Uso:
 #   ./scripts/release.sh <versão> [opções]
@@ -32,8 +35,8 @@
 #   notas no CHANGELOG.md (e faça commit) antes de rodar o script.
 #   A seção Unreleased combina bem com --auto-bump: escreva as notas sem
 #   se preocupar com o número da versão.
-#   --critical               Marca a tag como atualização crítica -- o CI lê
-#                             isso na mensagem da tag e propaga para o
+#   --critical               Marca a tag como atualização crítica -- o script
+#                             lê isso na mensagem da tag e propaga para o
 #                             GitHub Release (banner) e para o evento Nostr
 #                             (--critical em publish_update.dart).
 #   --dry-run                Imprime os passos sem executar nada destrutivo
@@ -41,9 +44,9 @@
 #
 # Pré-requisitos:
 #   - git configurado com acesso de push
-#
-# Após o push da tag, acompanhe o build em:
-#   gh run watch  (ou aba Actions no GitHub)
+#   - gh CLI autenticado (gh auth login) -- necessário para criar o GitHub Release
+#   - rodando dentro do checkout com .env decifrado (nix develop já faz isso)
+#     para publicar a notificação Nostr
 #
 # Exemplo:
 #   ./scripts/release.sh 1.1.0 --changelog "Melhoria de performance e correções de bugs"
@@ -185,6 +188,12 @@ if ! git remote get-url origin &>/dev/null; then
 fi
 ok "Remote origin configurado"
 
+# gh CLI (necessário para criar o GitHub Release)
+if ! command -v gh &>/dev/null; then
+  err "gh CLI não encontrado. Instale em https://cli.github.com."
+fi
+ok "gh CLI disponível"
+
 ok "Pré-condições OK"
 
 # -- Bump de versão ---------------------------------------------------------------
@@ -216,7 +225,11 @@ if [[ -n "$PUBKEY" && "$CURRENT_PUBKEY" != "$PUBKEY" ]]; then
   fi
   if [[ "$PUBKEY" == npub1* ]]; then
     info "Convertendo npub -> hex..."
-    PUBKEY=$(nix develop -c dart run scripts/publish_update.dart --to-hex "$PUBKEY" 2>/dev/null)
+    # `dart run` pode imprimir ruído no stdout (ex: "Running build hooks...").
+    # Extrai só a última ocorrência de 64 hex chars, ignorando esse ruído.
+    PUBKEY_RAW=$(nix develop -c dart run scripts/publish_update.dart --to-hex "$PUBKEY" 2>/dev/null)
+    PUBKEY=$(grep -oP '[0-9a-f]{64}' <<< "$PUBKEY_RAW" | tail -1)
+    [[ -n "$PUBKEY" ]] || err "Falha ao converter npub para hex (saída: ${PUBKEY_RAW})"
   fi
   info "app_info.dart: kDeveloperNostrPubkey = '${PUBKEY}'"
   # A declaração está em duas linhas no código, então substituímos a linha após o =
@@ -247,8 +260,8 @@ ok "Versão atualizada"
 
 step "Commit e tag v${VERSION}"
 
-# A mensagem da tag anotada é o sinal que o CI usa para saber se o release é
-# crítico (banner vermelho no GitHub Release + --critical no evento Nostr).
+# A mensagem da tag anotada é o sinal que este script usa para saber se o
+# release é crítico (banner no GitHub Release + --critical no evento Nostr).
 TAG_MESSAGE="release"
 $CRITICAL && TAG_MESSAGE="critical"
 
@@ -261,13 +274,60 @@ GIT_TERMINAL_PROMPT=0 run git push origin HEAD "v${VERSION}"
 
 ok "Commit e tag publicados (v${VERSION})"
 
+# -- Build local -------------------------------------------------------------------
+
+step "Compilando APK Android (release)"
+run nix develop -c flutter build apk --release
+
+step "Compilando bundle Linux (release)"
+run nix develop -c flutter build linux --release
+
+run mkdir -p dist
+APK_DIST="dist/bestfin-v${VERSION}-android.apk"
+LINUX_DIST="dist/bestfin-v${VERSION}-linux-x64.tar.gz"
+run cp build/app/outputs/flutter-apk/app-release.apk "$APK_DIST"
+run tar -czf "$LINUX_DIST" -C build/linux/x64/release/bundle .
+
+ok "Binários empacotados em dist/"
+
+# -- GitHub Release ----------------------------------------------------------------
+
+step "Criando GitHub Release v${VERSION}"
+
+FULL_NOTES="$CHANGELOG"
+if $CRITICAL; then
+  FULL_NOTES="${FULL_NOTES}"$'\n\n> **Atualização crítica:** recomenda-se atualizar o mais breve possível.'
+fi
+
+run gh release create "v${VERSION}" \
+  --title "BestFin v${VERSION}" \
+  --notes "$FULL_NOTES" \
+  "$APK_DIST" "$LINUX_DIST"
+
+ok "GitHub Release v${VERSION} publicado"
+
+# -- Notificação Nostr --------------------------------------------------------------
+
+step "Publicando notificação de atualização via Nostr"
+
+REPO_SLUG="$(git remote get-url origin | sed -E 's#.*[:/]([^/]+/[^/]+?)(\.git)?$#\1#')"
+NOSTR_ARGS=(
+  --version "${VERSION}"
+  --changelog "$CHANGELOG"
+  --download-url "https://github.com/${REPO_SLUG}/releases/tag/v${VERSION}"
+)
+$CRITICAL && NOSTR_ARGS+=(--critical)
+
+run nix develop -c dart run scripts/publish_update.dart "${NOSTR_ARGS[@]}"
+
+ok "Notificação Nostr publicada"
+
 # -- Concluído -----------------------------------------------------------------
 
 echo
 echo "=========================================="
-echo "  Tag v${VERSION} publicada com sucesso!"
-echo "  O GitHub Actions vai compilar os binários,"
-echo "  criar o Release e publicar a notificação Nostr."
-echo "  Acompanhe em: gh run watch  (ou aba Actions)"
+echo "  Release v${VERSION} publicado com sucesso!"
+echo "  Tag, binários (Android + Linux), GitHub Release"
+echo "  e notificação Nostr -- tudo local, sem CI."
 $dry_run && echo "  (simulação -- nenhuma ação foi executada)"
 echo "=========================================="
