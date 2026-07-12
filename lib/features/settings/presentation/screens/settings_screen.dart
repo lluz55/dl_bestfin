@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:drift/drift.dart' show Value;
-import 'package:bestfin/core/constants/app_info.dart';
 import 'package:bestfin/core/constants/default_categories.dart';
 import 'package:bestfin/core/database/app_database.dart' hide Account;
 import 'package:bestfin/core/database/database_provider.dart';
@@ -16,6 +15,7 @@ import 'package:bestfin/core/notifications/notification_service.dart';
 import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
+import 'package:bestfin/core/widgets/animated_detail_panel.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/section_header.dart';
 import 'package:bestfin/core/theme/custom_seed_provider.dart';
@@ -37,8 +37,6 @@ import 'package:bestfin/features/accounts/presentation/providers/accounts_provid
 import 'package:bestfin/features/accounts/domain/models/account.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/home_widgets_provider.dart';
 import 'package:bestfin/features/dashboard/presentation/providers/shortcuts_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 final _androidNotificationsEnabledProvider = FutureProvider.autoDispose<bool>((
@@ -561,49 +559,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
       _SettingsSection(
-        title: 'Ajuda',
+        title: 'Sincronização',
 
         tiles: [
           _SettingsTile(
-            icon: Icons.school_outlined,
-            title: 'Rever tutorial',
-            subtitle: 'Exibir novamente o guia de primeiros passos',
+            icon: Icons.sync_rounded,
+            title: 'Sincronizar',
+            subtitle: 'Relays, identidade e status da sincronização',
             cs: cs,
             tt: tt,
-            onTap: _replayTutorial,
+            onTap: () => context.push('/sync'),
           ),
-        ],
-      ),
-      _SettingsSection(
-        title: 'Sobre',
-
-        tiles: [
           _SettingsTile(
-            icon: Icons.info_outline_rounded,
-            title: 'Versão',
-            subtitle: kAppVersion,
+            icon: Icons.group_outlined,
+            title: 'Grupos familiares',
+            subtitle: 'Compartilhe dados com familiares',
             cs: cs,
             tt: tt,
-          ),
-          if (ref.watch(appUpdateProvider).value case final update?)
-            _UpdateAvailableTile(update: update, cs: cs, tt: tt),
-          _SettingsTile(
-            icon: Icons.privacy_tip_outlined,
-            title: 'Política de Privacidade',
-            subtitle: 'Seus dados ficam apenas no dispositivo',
-            cs: cs,
-            tt: tt,
+            onTap: () => context.push('/sync/household'),
           ),
         ],
       ),
     ];
-  }
-
-  /// Redefine o tutorial e volta ao início, onde os coach marks reaparecem.
-  Future<void> _replayTutorial() async {
-    await TutorialActions.reset(ref);
-    if (!mounted) return;
-    context.go('/home');
   }
 
   /// Em telas grandes, seleciona o detalhe para exibir na coluna direita; em
@@ -655,15 +632,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _SettingsDetail.backup => const BackupView(),
     };
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
-      // Alinha o sub-conteúdo ao topo (o padrão do AnimatedSwitcher é centralizar,
-      // o que deixava a página de tema verticalmente centrada).
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: Alignment.topCenter,
-        children: [...previousChildren, ?currentChild],
-      ),
-      child: KeyedSubtree(key: ValueKey(_selectedDetail), child: content),
+    return AnimatedDetailPanel(
+      keyValue: _selectedDetail,
+      child: content,
     );
   }
 
@@ -1144,70 +1115,4 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-class _UpdateAvailableTile extends ConsumerWidget {
-  const _UpdateAvailableTile({
-    required this.update,
-    required this.cs,
-    required this.tt,
-  });
 
-  final AppUpdateInfo update;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  Future<void> _launch(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) await launchUrl(uri);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bg = update.isCritical ? cs.errorContainer : cs.tertiaryContainer;
-    final fg = update.isCritical ? cs.onErrorContainer : cs.onTertiaryContainer;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(Icons.system_update_rounded, color: fg),
-        title: Text(
-          'Versão ${update.version} disponível',
-          style: tt.bodyMedium?.copyWith(
-            color: fg,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          update.changelog ?? 'Nova versão disponível para download',
-          style: tt.bodySmall?.copyWith(color: fg.withValues(alpha: 0.8)),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (update.downloadUrl case final url?)
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: fg),
-                onPressed: () {
-                  ref.read(appUpdateProvider.notifier).clearUpdate();
-                  _launch(url);
-                },
-                child: const Text('Baixar'),
-              ),
-            IconButton(
-              icon: Icon(Icons.close_rounded, size: 18, color: fg),
-              tooltip: 'Ignorar esta versão',
-              onPressed: () =>
-                  ref.read(appUpdateProvider.notifier).clearUpdate(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

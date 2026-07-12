@@ -87,7 +87,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                   : 'Pagamento cancelado para parcela ${inst.number}.',
             ),
             backgroundColor: isPaid
-                ? Colors.green.shade700
+                ? context.customColors.income
                 : context.colorScheme.primary,
           ),
         );
@@ -329,7 +329,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                                           _ProgressDetailRow(
                                             label: 'Amortizado:',
                                             amount: paidPrincipal,
-                                            color: Colors.green.shade700,
+                                            color: context.customColors.income,
                                             tt: tt,
                                             cs: cs,
                                           ),
@@ -428,7 +428,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                                               children: [
                                                 Icon(
                                                   Icons.savings_outlined,
-                                                  color: Colors.green.shade700,
+                                                  color: context.customColors.income,
                                                 ),
                                                 const SizedBox(width: 12),
                                                 Expanded(
@@ -536,17 +536,17 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                                 borderRadius: BorderRadius.circular(16),
                                 side: BorderSide(
                                   color: inst.isPaid
-                                      ? Colors.green.withValues(alpha: 0.3)
+                                      ? context.customColors.income.withValues(alpha: 0.3)
                                       : (isUnpaidOverdue
-                                            ? Colors.red.withValues(alpha: 0.3)
+                                            ? context.customColors.expense.withValues(alpha: 0.3)
                                             : Colors.transparent),
                                   width: 1,
                                 ),
                               ),
                               color: inst.isPaid
-                                  ? Colors.green.withValues(alpha: 0.03)
+                                  ? context.customColors.income.withValues(alpha: 0.03)
                                   : (isUnpaidOverdue
-                                        ? Colors.red.withValues(alpha: 0.03)
+                                        ? context.customColors.expense.withValues(alpha: 0.03)
                                         : cs.surfaceContainerLow),
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
@@ -556,7 +556,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                                     Checkbox(
                                       value: inst.isPaid,
                                       onChanged: (_) => _togglePaidStatus(inst),
-                                      activeColor: Colors.green.shade700,
+                                      activeColor: context.customColors.income,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(

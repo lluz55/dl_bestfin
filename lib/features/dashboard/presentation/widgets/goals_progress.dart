@@ -196,7 +196,7 @@ class _GoalItem extends StatelessWidget {
                         ?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: goal.isCompleted
-                              ? const Color(0xFF4CAF50)
+                              ? context.customColors.income
                               : cs.onSurface,
                         )
                         .merge(AppTypography.monospace),
@@ -227,7 +227,7 @@ class _GoalItem extends StatelessWidget {
                     '${goal.isCompleted ? ' · Concluído' : ''}',
                     style: tt.labelSmall?.copyWith(
                       color: goal.isCompleted
-                          ? const Color(0xFF4CAF50)
+                          ? context.customColors.income
                           : cs.onSurfaceVariant.withValues(alpha: 0.6),
                       fontWeight: goal.isCompleted
                           ? FontWeight.w700

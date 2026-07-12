@@ -279,7 +279,7 @@ class _SummaryBar extends StatelessWidget {
         : (totalSpent / totalBudget).clamp(0.0, 1.0);
     final progressColor = overBudget > 0
         ? cs.error
-        : (progress >= 0.75 ? Colors.amber.shade700 : cs.primary);
+        : (progress >= 0.75 ? context.customColors.warning : cs.primary);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -318,7 +318,7 @@ class _SummaryBar extends StatelessWidget {
                     style: tt.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: available >= 0
-                          ? const Color(0xFF4CAF50)
+                          ? context.customColors.income
                           : cs.error,
                     ),
                   ),

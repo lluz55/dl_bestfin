@@ -260,11 +260,11 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
                             minWidth: 64,
                           ),
                           selectedColor: _isProfit
-                              ? Colors.green.shade800
-                              : Colors.red.shade800,
+                              ? context.customColors.income
+                              : context.customColors.expense,
                           fillColor: _isProfit
-                              ? Colors.green.withValues(alpha: 0.1)
-                              : Colors.red.withValues(alpha: 0.1),
+                              ? context.customColors.income.withValues(alpha: 0.1)
+                              : context.customColors.expense.withValues(alpha: 0.1),
                           children: const [
                             Text(
                               'Lucro (+)',

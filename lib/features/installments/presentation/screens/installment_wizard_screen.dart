@@ -230,7 +230,9 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
                       Text('Parcelas 1 a ${_installments - 1}:'),
                       Text(
                         CurrencyFormatter.formatCents(_baseValue),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: context.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -241,7 +243,9 @@ class _InstallmentWizardSheetState extends State<InstallmentWizardSheet> {
                       const Text('Última parcela:'),
                       Text(
                         CurrencyFormatter.formatCents(_lastValue),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: context.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),

@@ -225,7 +225,7 @@ class _MediumLayoutState extends State<_MediumLayout> {
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 250),
                 opacity: _isExpanded ? 1.0 : 0.0,
-                child: Container(color: Colors.black45),
+                child: Container(color: cs.scrim.withValues(alpha: 0.45)),
               ),
             ),
           if (_isExpanded)
@@ -344,17 +344,23 @@ class _MediumOverlayDrawer extends StatelessWidget {
               right: 12,
               bottom: 12 + MediaQuery.paddingOf(context).bottom,
             ),
-            child: _DrawerItem(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings_rounded,
-              label: 'Configurações',
-              isSelected: false,
-              onTap: () {
-                if (onClose != null) onClose!();
-                context.push('/settings');
+            child: ListenableBuilder(
+              listenable: GoRouter.of(context).routerDelegate,
+              builder: (context, _) {
+                final isSettings = GoRouterState.of(context).uri.toString() == '/settings';
+                return _DrawerItem(
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings_rounded,
+                  label: 'Configurações',
+                  isSelected: isSettings,
+                  onTap: () {
+                    if (onClose != null) onClose!();
+                    context.push('/settings');
+                  },
+                  cs: cs,
+                  tt: tt,
+                );
               },
-              cs: cs,
-              tt: tt,
             ),
           ),
         ],
@@ -609,14 +615,20 @@ class _AnimatedNavigationDrawer extends StatelessWidget {
               right: 12,
               bottom: 12 + MediaQuery.paddingOf(context).bottom,
             ),
-            child: _DrawerItem(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings_rounded,
-              label: 'Configurações',
-              isSelected: false,
-              onTap: () => context.push('/settings'),
-              cs: cs,
-              tt: tt,
+            child: ListenableBuilder(
+              listenable: GoRouter.of(context).routerDelegate,
+              builder: (context, _) {
+                final isSettings = GoRouterState.of(context).uri.toString() == '/settings';
+                return _DrawerItem(
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings_rounded,
+                  label: 'Configurações',
+                  isSelected: isSettings,
+                  onTap: () => context.push('/settings'),
+                  cs: cs,
+                  tt: tt,
+                );
+              },
             ),
           ),
         ],
@@ -687,13 +699,19 @@ class _CollapsedDrawer extends StatelessWidget {
             padding: EdgeInsets.only(
               bottom: 12 + MediaQuery.paddingOf(context).bottom,
             ),
-            child: _CollapsedDrawerItem(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings_rounded,
-              label: 'Configurações',
-              isSelected: false,
-              onTap: () => context.push('/settings'),
-              cs: cs,
+            child: ListenableBuilder(
+              listenable: GoRouter.of(context).routerDelegate,
+              builder: (context, _) {
+                final isSettings = GoRouterState.of(context).uri.toString() == '/settings';
+                return _CollapsedDrawerItem(
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings_rounded,
+                  label: 'Configurações',
+                  isSelected: isSettings,
+                  onTap: () => context.push('/settings'),
+                  cs: cs,
+                );
+              },
             ),
           ),
         ],

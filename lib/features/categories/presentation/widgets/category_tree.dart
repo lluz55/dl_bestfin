@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
@@ -28,7 +27,6 @@ class CategoryTree extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncTree = ref.watch(categoriesTreeProvider);
     final reorder = ref.read(reorderCategoriesProvider);
-    final motion = context.motion;
     final isCompact = Breakpoints.isCompact(context);
 
     return asyncTree.when(
@@ -72,9 +70,6 @@ class CategoryTree extends ConsumerWidget {
               category: category,
               index: index,
               isReorderMode: isReorderMode,
-              delay: Duration(
-                milliseconds: index * motion.staggerInterval.inMilliseconds,
-              ),
               isSelected: isSelected,
               onTap: () => onSelect(category),
               onEdit: () => onEdit(category),

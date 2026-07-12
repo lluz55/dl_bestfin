@@ -102,7 +102,7 @@ class _BillItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = tx.category?.iconData ?? Icons.receipt_long_outlined;
     final isIncome = tx.type == TransactionType.income;
-    final amountColor = isIncome ? const Color(0xFF4CAF50) : cs.onSurface;
+    final amountColor = isIncome ? context.customColors.income : cs.onSurface;
 
     return Row(
       children: [

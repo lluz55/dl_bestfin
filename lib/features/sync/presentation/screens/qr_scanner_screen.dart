@@ -57,7 +57,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: Breakpoints.isCompact(context),
-        title: const Text('Escanear QR'),
+        title: Text('Escanear QR', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             onPressed: () => _controller.toggleTorch(),
@@ -91,7 +91,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
             child: Column(
               children: [
                 if (_processing) ...[
-                  const CircularProgressIndicator(color: Colors.white),
+                  CircularProgressIndicator(color: Colors.white),
                   const SizedBox(height: 12),
                   Text(
                     'Importando identidade...',
@@ -117,7 +117,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => setState(() => _error = null),
-                    child: const Text(
+                    child: Text(
                       'Tentar novamente',
                       style: TextStyle(color: Colors.white),
                     ),

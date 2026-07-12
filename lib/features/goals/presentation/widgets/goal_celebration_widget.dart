@@ -59,7 +59,7 @@ class _GoalCelebrationWidgetState extends State<GoalCelebrationWidget>
             AnimatedBuilder(
               animation: _confettiController,
               builder: (context, _) => CustomPaint(
-                painter: _ConfettiPainter(progress: _confettiController.value),
+                painter: _ConfettiPainter(progress: _confettiController.value, cs: cs),
               ),
             ),
 
@@ -129,35 +129,42 @@ class _GoalCelebrationWidgetState extends State<GoalCelebrationWidget>
 class _ConfettiPainter extends CustomPainter {
   final double progress;
   static final _random = math.Random(42);
-  static final _pieces = List.generate(80, (_) {
-    return _ConfettiPiece(
-      x: _random.nextDouble(),
-      startY: -0.1 - _random.nextDouble() * 0.3,
-      speedY: 0.3 + _random.nextDouble() * 0.5,
-      speedX: (_random.nextDouble() - 0.5) * 0.2,
-      rotation: _random.nextDouble() * math.pi * 2,
-      rotationSpeed: (_random.nextDouble() - 0.5) * 8,
-      size: 6 + _random.nextDouble() * 10,
-      color: _randomColor(_random),
-      shape: _random.nextInt(3),
-    );
-  });
+  static List<_ConfettiPiece> _pieces = [];
 
-  static Color _randomColor(math.Random r) {
+  static void ensurePieces(ColorScheme cs) {
+    if (_pieces.isNotEmpty) return;
+    _pieces = List.generate(80, (_) {
+      return _ConfettiPiece(
+        x: _random.nextDouble(),
+        startY: -0.1 - _random.nextDouble() * 0.3,
+        speedY: 0.3 + _random.nextDouble() * 0.5,
+        speedX: (_random.nextDouble() - 0.5) * 0.2,
+        rotation: _random.nextDouble() * math.pi * 2,
+        rotationSpeed: (_random.nextDouble() - 0.5) * 8,
+        size: 6 + _random.nextDouble() * 10,
+        color: _randomColor(_random, cs),
+        shape: _random.nextInt(3),
+      );
+    });
+  }
+
+  static Color _randomColor(math.Random r, ColorScheme cs) {
     final colors = [
-      const Color(0xFFE53935),
-      const Color(0xFF43A047),
-      const Color(0xFF1E88E5),
-      const Color(0xFFFDD835),
-      const Color(0xFFE91E63),
-      const Color(0xFF00ACC1),
-      const Color(0xFFFF7043),
-      const Color(0xFF7E57C2),
+      cs.error,
+      cs.primary,
+      cs.secondary,
+      cs.tertiary,
+      cs.errorContainer,
+      cs.primaryContainer,
+      cs.tertiaryContainer,
+      cs.secondaryContainer,
     ];
     return colors[r.nextInt(colors.length)];
   }
 
-  _ConfettiPainter({required this.progress});
+  _ConfettiPainter({required this.progress, required ColorScheme cs}) {
+    ensurePieces(cs);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -178,7 +185,7 @@ class _ConfettiPainter extends CustomPainter {
       canvas.rotate(p.rotation + p.rotationSpeed * t);
 
       switch (p.shape) {
-        case 0: // retângulo
+        case 0:
           canvas.drawRect(
             Rect.fromCenter(
               center: Offset.zero,
@@ -187,9 +194,9 @@ class _ConfettiPainter extends CustomPainter {
             ),
             paint,
           );
-        case 1: // círculo
+        case 1:
           canvas.drawCircle(Offset.zero, p.size / 2, paint);
-        default: // triângulo
+        default:
           final path = Path()
             ..moveTo(0, -p.size / 2)
             ..lineTo(p.size / 2, p.size / 2)

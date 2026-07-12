@@ -89,10 +89,10 @@ class InstallmentsListScreen extends ConsumerWidget {
         ),
         const VerticalDivider(width: 1, thickness: 0.5),
         Expanded(
-          child: const Center(
+          child: Center(
             child: Text(
               'Selecione um parcelamento',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
           ),
         ),

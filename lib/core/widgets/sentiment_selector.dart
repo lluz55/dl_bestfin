@@ -115,7 +115,7 @@ class _SentimentButton extends StatelessWidget {
                 child: Center(
                   child: Text(
                     sentiment.emoji,
-                    style: const TextStyle(fontSize: 28),
+                    style: Theme.of(context).textTheme.displaySmall,
                   ),
                 ),
               )

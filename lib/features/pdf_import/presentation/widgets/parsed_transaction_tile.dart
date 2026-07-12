@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:bestfin/core/theme/color_schemes.dart';
 import 'package:bestfin/features/pdf_import/domain/models/pdf_parsed_transaction.dart';
 
 class ParsedTransactionTile extends StatefulWidget {
@@ -41,7 +42,9 @@ class _ParsedTransactionTileState extends State<ParsedTransactionTile> {
     final tt = Theme.of(context).textTheme;
     final tx = widget.transaction;
     final isIncome = tx.type == 'income';
-    final amountColor = isIncome ? Colors.green.shade600 : cs.error;
+    final amountColor = isIncome
+        ? (Theme.of(context).extension<CustomColors>()?.income ?? cs.primary)
+        : cs.error;
     final amountFormatted = NumberFormat.currency(
       locale: 'pt_BR',
       symbol: 'R\$',

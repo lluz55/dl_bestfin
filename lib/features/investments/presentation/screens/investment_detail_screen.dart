@@ -76,11 +76,11 @@ class InvestmentDetailScreen extends ConsumerWidget {
                           minWidth: 50,
                         ),
                         selectedColor: isProfit
-                            ? Colors.green.shade800
-                            : Colors.red.shade800,
+                            ? context.customColors.income
+                            : context.customColors.expense,
                         fillColor: isProfit
-                            ? Colors.green.withValues(alpha: 0.1)
-                            : Colors.red.withValues(alpha: 0.1),
+                            ? context.customColors.income.withValues(alpha: 0.1)
+                            : context.customColors.expense.withValues(alpha: 0.1),
                         children: const [
                           Text(
                             'Lucro',
@@ -435,7 +435,9 @@ class InvestmentDetailScreen extends ConsumerWidget {
                           inv.maturityDate == null
                               ? 'Sem Vencimento'
                               : '${inv.maturityDate!.day.toString().padLeft(2, '0')}/${inv.maturityDate!.month.toString().padLeft(2, '0')}/${inv.maturityDate!.year}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: context.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const Divider(height: 16),

@@ -374,7 +374,7 @@ class _EntityAutocompleteState extends ConsumerState<EntityAutocomplete> {
                               Text(
                                 cat.label,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 10),
+                                style: Theme.of(context).textTheme.labelSmall,
                               ),
                             ],
                           ),

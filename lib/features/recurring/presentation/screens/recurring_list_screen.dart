@@ -130,7 +130,9 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
               Tab(text: 'Pausadas'),
               Tab(text: 'Finalizadas'),
             ],
-            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+            labelStyle: context.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           Expanded(
             child: TabBarView(

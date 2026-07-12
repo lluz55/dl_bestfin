@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/typography.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
@@ -25,13 +26,13 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
   late Animation<double> _animation;
   int? _touchedIndex;
 
-  static const _colors = [
-    Color(0xFF6750A4),
-    Color(0xFF00BCD4),
-    Color(0xFFFF7043),
-    Color(0xFF66BB6A),
-    Color(0xFFFFCA28),
-    Color(0xFF9E9E9E),
+  static List<Color> _palette(ColorScheme cs) => [
+    cs.primary,
+    cs.secondary,
+    cs.tertiary,
+    cs.primaryContainer,
+    cs.secondaryContainer,
+    cs.tertiaryContainer,
   ];
 
   @override
@@ -62,14 +63,14 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
     super.dispose();
   }
 
-  Color _colorFor(int index) {
+  Color _colorFor(int index, ColorScheme cs) {
     final item = widget.items[index];
     if (item.category != null) {
       try {
         return item.category!.parsedColor;
       } catch (_) {}
     }
-    return _colors[index % _colors.length];
+    return _palette(cs)[index % _palette(cs).length];
   }
 
   @override
@@ -112,7 +113,7 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
                           final isTouched = i == _touchedIndex;
                           return PieChartSectionData(
                             value: item.amountInCents.toDouble() * _animation.value,
-                            color: _colorFor(i),
+                            color: _colorFor(i, cs),
                             radius: isTouched ? 34 : 24,
                             showTitle: false,
                             badgeWidget: isTouched
@@ -169,7 +170,7 @@ class _DonutChartWidgetState extends State<DonutChartWidget>
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: _colorFor(i),
+                          color: _colorFor(i, cs),
                           shape: BoxShape.circle,
                         ),
                       ),

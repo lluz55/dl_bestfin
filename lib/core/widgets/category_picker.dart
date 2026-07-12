@@ -202,19 +202,77 @@ class _CategoryPickerTile extends StatelessWidget {
         parentColor: category.parentColor,
         size: 40,
       ),
-      title: Text(
-        category.displayName,
-        style: tt.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: isSelected ? cs.primary : cs.onSurface,
-        ),
-      ),
-      subtitle: Text(
-        category.typeLabel,
-        style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+      title: _TitleWithOptionalSubtitle(
+        displayName: category.displayName,
+        typeLabel: category.typeLabel,
+        isSelected: isSelected,
+        cs: cs,
+        tt: tt,
       ),
       trailing: trailing,
       onTap: onTap,
+    );
+  }
+}
+
+class _TitleWithOptionalSubtitle extends StatelessWidget {
+  const _TitleWithOptionalSubtitle({
+    required this.displayName,
+    required this.typeLabel,
+    required this.isSelected,
+    required this.cs,
+    required this.tt,
+  });
+
+  final String displayName;
+  final String typeLabel;
+  final bool isSelected;
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final namePainter = TextPainter(
+          text: TextSpan(
+            text: displayName,
+            style: tt.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isSelected ? cs.primary : cs.onSurface,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final showSubtitle = !namePainter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isSelected ? cs.primary : cs.onSurface,
+              ),
+            ),
+            if (showSubtitle)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  typeLabel,
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

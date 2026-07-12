@@ -390,7 +390,7 @@ class TransactionTile extends ConsumerWidget {
                   if (transaction.sentiment != null) ...[
                     Text(
                       transaction.sentiment!.emoji,
-                      style: const TextStyle(fontSize: 16),
+                      style: context.textTheme.bodyMedium,
                     ),
                     const SizedBox(width: 6),
                   ],

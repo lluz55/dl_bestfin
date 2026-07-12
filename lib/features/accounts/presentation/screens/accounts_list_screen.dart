@@ -241,10 +241,10 @@ class _AccountsListScreenState extends ConsumerState<AccountsListScreen> {
         const VerticalDivider(width: 1, thickness: 0.5),
         Expanded(
           child: selected == null
-              ? const Center(
+              ? Center(
                   child: Text(
                     'Selecione uma conta',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: cs.onSurfaceVariant),
                   ),
                 )
               : SingleChildScrollView(

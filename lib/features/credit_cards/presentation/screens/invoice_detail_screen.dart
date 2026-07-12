@@ -238,7 +238,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
             statusColor = colors.income;
             break;
           case 'closed':
-            statusColor = Colors.orange;
+            statusColor = colors.warning;
             break;
           case 'open':
           default:

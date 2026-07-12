@@ -312,17 +312,18 @@ class _AllocationDonutChart extends StatelessWidget {
 
   const _AllocationDonutChart({required this.summary});
 
-  static const _colors = [
-    Color(0xFF6750A4),
-    Color(0xFF0288D1),
-    Color(0xFFE65100),
-    Color(0xFF2E7D32),
-    Color(0xFFFBC02D),
-    Color(0xFF6A1B9A),
-    Color(0xFFC62828),
+  static List<Color> _palette(ColorScheme cs) => [
+    cs.primary,
+    cs.secondary,
+    cs.tertiary,
+    cs.primaryContainer,
+    cs.secondaryContainer,
+    cs.tertiaryContainer,
+    cs.error,
   ];
 
-  Color _colorForIndex(int idx) => _colors[idx % _colors.length];
+  Color _colorForIndex(int idx, ColorScheme cs) =>
+      _palette(cs)[idx % _palette(cs).length];
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +346,7 @@ class _AllocationDonutChart extends StatelessWidget {
                   sections: List.generate(keys.length, (idx) {
                     final pct = summary.allocationPercentages[keys[idx]] ?? 0.0;
                     return PieChartSectionData(
-                      color: _colorForIndex(idx),
+                      color: _colorForIndex(idx, cs),
                       value: pct * 100,
                       radius: 20,
                       showTitle: false,
@@ -371,7 +372,7 @@ class _AllocationDonutChart extends StatelessWidget {
                           width: 10,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: _colorForIndex(idx),
+                            color: _colorForIndex(idx, cs),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -463,13 +464,13 @@ class _InvestmentAssetCard extends StatelessWidget {
       case 'fiis':
         return cs.tertiary;
       case 'crypto':
-        return Colors.orange.shade700;
+        return cs.tertiary;
       case 'savings':
-        return Colors.teal.shade700;
+        return cs.primaryContainer;
       case 'cdb':
-        return Colors.blue.shade700;
+        return cs.secondary;
       case 'tesouro':
-        return Colors.deepPurple.shade700;
+        return cs.tertiaryContainer;
       default:
         return cs.onSurfaceVariant;
     }

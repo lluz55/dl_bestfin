@@ -695,7 +695,9 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
                       ),
                       title: Text(
                         child.name,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).pop(child),

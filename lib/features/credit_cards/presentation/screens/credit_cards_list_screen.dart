@@ -386,14 +386,14 @@ class _CreditCardListTile extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  Color get _baseColor {
+  Color _baseColor(ColorScheme cs) {
     if (card.color != null && card.color!.isNotEmpty) {
       final hex = card.color!.replaceFirst('#', '');
       if (hex.length == 6) {
         return Color(int.parse('ff$hex', radix: 16));
       }
     }
-    return const Color(0xFF1A73E8);
+    return cs.primary;
   }
 
   @override
@@ -414,12 +414,12 @@ class _CreditCardListTile extends StatelessWidget {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: _baseColor.withValues(alpha: 0.12),
+          color: _baseColor(cs).withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
           Icons.credit_card_rounded,
-          color: _baseColor.withValues(alpha: 0.7),
+          color: _baseColor(cs).withValues(alpha: 0.7),
           size: 22,
         ),
       ),

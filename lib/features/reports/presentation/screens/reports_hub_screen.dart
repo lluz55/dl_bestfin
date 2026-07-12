@@ -7,6 +7,7 @@ import 'package:bestfin/core/constants/transaction_types.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/providers/privacy_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/widgets/animated_detail_panel.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/reports/domain/models/report_models.dart';
 import 'package:bestfin/features/reports/presentation/providers/reports_provider.dart';
@@ -307,8 +308,8 @@ class _ReportsMasterDetailState extends State<_ReportsMasterDetail> {
                     constraints: const BoxConstraints(
                       maxWidth: _kReportContentMaxWidth,
                     ),
-                    child: KeyedSubtree(
-                      key: ValueKey(_selectedIndex),
+                    child: AnimatedDetailPanel(
+                      keyValue: _selectedIndex,
                       child: selected.buildContent(),
                     ),
                   ),

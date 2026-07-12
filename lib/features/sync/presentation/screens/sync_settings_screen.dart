@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bestfin/core/utils/byte_formatter.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/section_header.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/sync/data/services/sync_service.dart'
     show SyncPhaseKind;
@@ -18,8 +20,8 @@ class SyncSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
     final identityAsync = ref.watch(currentIdentityProvider);
     final syncState = ref.watch(syncStateProvider);
     final pendingAsync = ref.watch(pendingSyncCountProvider);
@@ -40,7 +42,7 @@ class SyncSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // ── Identity section ───────────────────────────────────────────────
-          _SectionHeader(title: 'Identidade', cs: cs, tt: tt),
+          const SectionHeader(title: 'Identidade'),
           identityAsync.when(
             data: (identity) => identity != null
                 ? _IdentityTile(
@@ -84,7 +86,7 @@ class SyncSettingsScreen extends ConsumerWidget {
           ],
 
           // ── Sync status card ───────────────────────────────────────────────
-          _SectionHeader(title: 'Status', cs: cs, tt: tt),
+          const SectionHeader(title: 'Status'),
           _SyncStatusCard(
             syncState: syncState,
             pendingAsync: pendingAsync,
@@ -96,7 +98,7 @@ class SyncSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // ── Relays ─────────────────────────────────────────────────────────
-          _SectionHeader(title: 'Relays', cs: cs, tt: tt),
+          const SectionHeader(title: 'Relays'),
           Text(
             'Servidores Nostr usados para sincronizar. São redundantes: basta '
             'um funcionando. Adicione os seus ou remova os que não quiser usar.',
@@ -107,7 +109,7 @@ class SyncSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // ── Households ─────────────────────────────────────────────────────
-          _SectionHeader(title: 'Colaboração', cs: cs, tt: tt),
+          const SectionHeader(title: 'Colaboração'),
           ListTile(
             leading: CircleAvatar(
               backgroundColor: cs.secondaryContainer,
@@ -383,35 +385,6 @@ class _SyncButton extends ConsumerWidget {
       expanded: true,
       loading: isSyncing,
       onPressed: () => ref.read(syncStateProvider.notifier).syncNow(),
-    );
-  }
-}
-
-// ── Shared widgets ────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    required this.cs,
-    required this.tt,
-  });
-
-  final String title;
-  final ColorScheme cs;
-  final TextTheme tt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-      child: Text(
-        title.toUpperCase(),
-        style: tt.labelSmall?.copyWith(
-          color: cs.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1,
-        ),
-      ),
     );
   }
 }

@@ -80,7 +80,7 @@ class _SentimentEmojiButtonState extends State<SentimentEmojiButton> {
           child: Center(
             child: Text(
               selected?.emoji ?? '😶',
-              style: const TextStyle(fontSize: 22),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
         ),
@@ -267,7 +267,7 @@ class _PickerEmojiButtonState extends State<_PickerEmojiButton> {
           child: Center(
             child: Text(
               widget.sentiment.emoji,
-              style: const TextStyle(fontSize: 24),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
         ),

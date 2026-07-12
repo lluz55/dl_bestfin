@@ -82,7 +82,7 @@ enum AppShortcut {
       case AppShortcut.ai:
         return cs.primary;
       case AppShortcut.gamification:
-        return Colors.orange;
+        return cs.tertiary;
     }
   }
 

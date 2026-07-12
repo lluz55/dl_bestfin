@@ -95,7 +95,7 @@ class _StreakCard extends StatelessWidget {
             streak.type == StreakType.recording
                 ? Icons.local_fire_department
                 : Icons.account_balance_wallet,
-            color: streak.isActive ? Colors.orange : cs.outline,
+            color: streak.isActive ? context.customColors.warning : cs.outline,
             size: 32,
           ),
           const SizedBox(height: 8),

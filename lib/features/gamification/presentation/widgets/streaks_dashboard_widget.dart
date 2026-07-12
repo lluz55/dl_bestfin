@@ -33,12 +33,12 @@ class StreaksDashboardWidget extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
+                  color: context.customColors.warning.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.local_fire_department,
-                  color: Colors.orange,
+                  color: context.customColors.warning,
                   size: 24,
                 ),
               ),

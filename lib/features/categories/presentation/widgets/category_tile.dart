@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
+import 'package:bestfin/core/widgets/name_with_badges.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 
 class CategoryTile extends StatefulWidget {
@@ -12,7 +12,6 @@ class CategoryTile extends StatefulWidget {
     this.isReorderMode = false,
     this.onEdit,
     this.onDelete,
-    this.delay = Duration.zero,
     this.initiallyExpanded = false,
     this.isSelected = false,
     this.onTap,
@@ -23,7 +22,6 @@ class CategoryTile extends StatefulWidget {
   final bool isReorderMode;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-  final Duration delay;
   final bool initiallyExpanded;
   final bool isSelected;
   final VoidCallback? onTap;
@@ -90,10 +88,7 @@ class _CategoryTileState extends State<CategoryTile> {
               sizeCurve: motion.morphCurve,
             ),
           ],
-        )
-        .animate(delay: widget.delay)
-        .fadeIn(duration: motion.fastDuration)
-        .slideX(begin: -0.05, end: 0, curve: Curves.easeOut);
+        );
   }
 }
 
@@ -147,23 +142,16 @@ class _TileRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            category.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: isSelected ? cs.primary : null,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _TypeBadge(
-                          label: category.typeLabel,
-                          color: category.type == 'both'
+                    NameWithOptionalBadges(
+                      name: category.name,
+                      nameStyle: tt.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? cs.primary : null,
+                      ),
+                      badges: [
+                        BadgeInfo(
+                          category.typeLabel,
+                          category.type == 'both'
                               ? cs.primary
                               : category.type == 'income'
                               ? context.customColors.income
@@ -171,14 +159,14 @@ class _TileRow extends StatelessWidget {
                               ? cs.error
                               : cs.secondary,
                         ),
-                        if (category.isSystem) ...[
-                          const SizedBox(width: 6),
-                          _TypeBadge(label: 'Sistema', color: cs.outline),
-                        ],
+                        if (category.isSystem)
+                          BadgeInfo('Sistema', cs.outline),
                       ],
                     ),
                     Text(
                       _subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   ],
@@ -272,30 +260,33 @@ class _SubcategoryTile extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        category.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                      child: NameWithOptionalBadges(
+                        name: category.name,
+                        nameStyle: tt.bodyMedium?.copyWith(
+                          color: cs.onSurface,
+                        ),
+                        badges: [
+                          BadgeInfo(
+                            category.typeLabel,
+                            category.type == 'both'
+                                ? cs.primary
+                                : category.type == 'income'
+                                ? context.customColors.income
+                                : category.type == 'expense'
+                                ? cs.error
+                                : cs.secondary,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    _TypeBadge(
-                      label: category.typeLabel,
-                      color: category.type == 'both'
-                          ? cs.primary
-                          : category.type == 'income'
-                          ? context.customColors.income
-                          : category.type == 'expense'
-                          ? cs.error
-                          : cs.secondary,
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 if (category.description != null &&
                     category.description!.trim().isNotEmpty)
                   Text(
                     category.description!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
               ],
@@ -349,31 +340,6 @@ class _MoreMenu extends StatelessWidget {
             child: Text('Categoria do sistema'),
           ),
       ],
-    );
-  }
-}
-
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
     );
   }
 }

@@ -540,10 +540,10 @@ class _BackupViewState extends ConsumerState<BackupView> {
                 'schema v${preview['schema_version']} • formato v${preview['version']}',
               ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Atenção: A restauração de dados irá substituir COMPLETAMENTE todas as informações atuais do banco de dados pelos dados deste backup.',
               style: TextStyle(
-                color: Colors.red,
+                color: context.colorScheme.error,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -697,7 +697,9 @@ class _BackupViewState extends ConsumerState<BackupView> {
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            style: context.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -861,7 +863,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
 
         if (_isLoading)
           Container(
-            color: Colors.black54,
+            color: context.colorScheme.scrim.withValues(alpha: 0.54),
             child: ImportProgressWidget(message: _loadingMessage),
           ),
       ],
@@ -977,7 +979,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
           icon: Icons.picture_as_pdf_rounded,
           label: 'Relatório Financeiro',
           format: 'PDF',
-          color: Colors.red.shade700,
+          color: context.colorScheme.error,
           onTap: _handleExportPdf,
         ),
         const SizedBox(height: 12),
@@ -985,7 +987,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
           icon: Icons.table_chart_rounded,
           label: 'Planilha de Transações',
           format: 'CSV',
-          color: Colors.green.shade700,
+          color: context.customColors.income,
           onTap: _handleExportCsv,
         ),
         const SizedBox(height: 12),
@@ -993,7 +995,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
           icon: Icons.code_rounded,
           label: 'Backup de Dados Estruturados',
           format: 'JSON',
-          color: Colors.orange.shade800,
+          color: context.customColors.warning,
           onTap: _handleExportJson,
         ),
       ],

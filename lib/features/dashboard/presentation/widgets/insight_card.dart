@@ -10,68 +10,78 @@ import 'package:bestfin/features/gamification/presentation/providers/gamificatio
 class InsightCard extends ConsumerWidget {
   const InsightCard({super.key});
 
-  Map<String, dynamic> _getCategoryInfo(InsightCategory? category) {
+  Color _categoryColor(InsightCategory? category, ColorScheme cs) {
     switch (category) {
       case InsightCategory.debt:
-        return {
-          'title': 'Dívidas',
-          'icon': Icons.payment,
-          'color': Colors.red,
-        };
+        return cs.error;
       case InsightCategory.savings:
-        return {
-          'title': 'Economia',
-          'icon': Icons.savings,
-          'color': Colors.green,
-        };
+        return cs.primary;
       case InsightCategory.budget:
-        return {
-          'title': 'Orçamento',
-          'icon': Icons.pie_chart,
-          'color': Colors.orange,
-        };
+        return cs.tertiary;
       case InsightCategory.cashflow:
-        return {
-          'title': 'Fluxo',
-          'icon': Icons.account_balance,
-          'color': Colors.blue,
-        };
+        return cs.secondary;
       case InsightCategory.investment:
-        return {
-          'title': 'Investimentos',
-          'icon': Icons.trending_up,
-          'color': Colors.purple,
-        };
+        return cs.primary;
       case InsightCategory.creditCard:
-        return {
-          'title': 'Cartão',
-          'icon': Icons.credit_card,
-          'color': Colors.indigo,
-        };
+        return cs.tertiary;
       case InsightCategory.subscription:
-        return {
-          'title': 'Assinaturas',
-          'icon': Icons.notifications,
-          'color': Colors.pink,
-        };
+        return cs.secondary;
       case InsightCategory.goal:
-        return {
-          'title': 'Metas',
-          'icon': Icons.flag,
-          'color': Colors.amber,
-        };
+        return cs.primary;
       case InsightCategory.behavior:
-        return {
-          'title': 'Comportamento',
-          'icon': Icons.psychology,
-          'color': Colors.teal,
-        };
+        return cs.secondary;
       default:
-        return {
-          'title': 'Dica',
-          'icon': Icons.lightbulb_outline,
-          'color': Colors.blue,
-        };
+        return cs.primary;
+    }
+  }
+
+  String _categoryTitle(InsightCategory? category) {
+    switch (category) {
+      case InsightCategory.debt:
+        return 'Dívidas';
+      case InsightCategory.savings:
+        return 'Economia';
+      case InsightCategory.budget:
+        return 'Orçamento';
+      case InsightCategory.cashflow:
+        return 'Fluxo';
+      case InsightCategory.investment:
+        return 'Investimentos';
+      case InsightCategory.creditCard:
+        return 'Cartão';
+      case InsightCategory.subscription:
+        return 'Assinaturas';
+      case InsightCategory.goal:
+        return 'Metas';
+      case InsightCategory.behavior:
+        return 'Comportamento';
+      default:
+        return 'Dica';
+    }
+  }
+
+  IconData _categoryIcon(InsightCategory? category) {
+    switch (category) {
+      case InsightCategory.debt:
+        return Icons.payment;
+      case InsightCategory.savings:
+        return Icons.savings;
+      case InsightCategory.budget:
+        return Icons.pie_chart;
+      case InsightCategory.cashflow:
+        return Icons.account_balance;
+      case InsightCategory.investment:
+        return Icons.trending_up;
+      case InsightCategory.creditCard:
+        return Icons.credit_card;
+      case InsightCategory.subscription:
+        return Icons.notifications;
+      case InsightCategory.goal:
+        return Icons.flag;
+      case InsightCategory.behavior:
+        return Icons.psychology;
+      default:
+        return Icons.lightbulb_outline;
     }
   }
 
@@ -88,10 +98,9 @@ class InsightCard extends ConsumerWidget {
     }
 
     final topInsight = gInsights.first;
-    final categoryInfo = _getCategoryInfo(topInsight.category);
-    final title = categoryInfo['title'] as String;
-    final iconData = categoryInfo['icon'] as IconData;
-    final categoryColor = categoryInfo['color'] as Color;
+    final title = _categoryTitle(topInsight.category);
+    final iconData = _categoryIcon(topInsight.category);
+    final categoryColor = _categoryColor(topInsight.category, cs);
     final message = topInsight.text;
     final iconEmoji = topInsight.icon;
     final bgIconColor = categoryColor.withValues(alpha: 0.1);

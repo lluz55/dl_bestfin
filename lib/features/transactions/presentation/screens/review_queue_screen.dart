@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
@@ -80,10 +81,10 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 const VerticalDivider(width: 1, thickness: 0.5),
                 Expanded(
                   child: _selectedTransaction == null
-                      ? const Center(
+                      ? Center(
                           child: Text(
                             'Selecione uma transação',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(color: cs.onSurfaceVariant),
                           ),
                         )
                       : Padding(
@@ -266,7 +267,7 @@ class _TransactionListTile extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: (isPositive ? Colors.green : cs.error)
+          color: (isPositive ? context.customColors.income : cs.error)
               .withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -274,7 +275,7 @@ class _TransactionListTile extends StatelessWidget {
           isPositive
               ? Icons.arrow_downward_rounded
               : Icons.arrow_upward_rounded,
-          color: isPositive ? Colors.green : cs.error,
+          color: isPositive ? context.customColors.income : cs.error,
           size: 20,
         ),
       ),
@@ -290,7 +291,7 @@ class _TransactionListTile extends StatelessWidget {
         'R\$ ${(amount.abs() / 100.0).toStringAsFixed(2).replaceAll('.', ',')}',
         style: tt.bodyMedium?.copyWith(
           fontWeight: FontWeight.w700,
-          color: isPositive ? Colors.green : cs.error,
+          color: isPositive ? context.customColors.income : cs.error,
         ),
       ),
     );

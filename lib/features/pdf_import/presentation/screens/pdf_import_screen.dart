@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/color_schemes.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/features/pdf_import/presentation/providers/pdf_import_provider.dart';
 
@@ -69,7 +70,8 @@ class _PdfImportScreenState extends ConsumerState<PdfImportScreen> {
         content: Text(msg),
         backgroundColor: error
             ? Theme.of(context).colorScheme.error
-            : Colors.green.shade700,
+            : (Theme.of(context).extension<CustomColors>()?.income ??
+                Theme.of(context).colorScheme.primary),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -198,7 +200,7 @@ class _SupportedFormatCard extends StatelessWidget {
           const SizedBox(height: 8),
           _FormatRow(
             icon: Icons.pix_rounded,
-            color: Colors.teal,
+            color: cs.primary,
             label: 'Nubank Comprovante / Pix',
             detail: 'Recibos de Pix e transferências',
             cs: cs,
@@ -207,7 +209,7 @@ class _SupportedFormatCard extends StatelessWidget {
           const SizedBox(height: 8),
           _FormatRow(
             icon: Icons.account_balance_rounded,
-            color: Colors.amber.shade700,
+            color: (Theme.of(context).extension<CustomColors>()?.warning ?? cs.tertiary),
             label: 'Banco do Brasil Comprovante',
             detail: 'Comprovantes de Pix e transferências',
             cs: cs,

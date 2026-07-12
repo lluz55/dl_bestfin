@@ -202,7 +202,7 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
                   value: s['value'],
                   child: Text(
                     s['label']!,
-                    style: const TextStyle(fontSize: 13),
+                    style: context.textTheme.bodySmall,
                   ),
                 );
               }).toList(),

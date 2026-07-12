@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/widgets/category_icon.dart';
+import 'package:bestfin/core/widgets/name_with_badges.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 
 class CategoryDetailPanel extends ConsumerWidget {
@@ -51,38 +52,60 @@ class _Header extends StatelessWidget {
       children: [
         CategoryIcon(icon: category.icon, color: category.color, size: 64),
         const SizedBox(width: 20),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                category.name,
-                style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth = constraints.maxWidth;
+
+            final namePainter = TextPainter(
+              text: TextSpan(
+                text: category.name,
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              const SizedBox(height: 6),
-              Row(
+              textDirection: TextDirection.ltr,
+              maxLines: 2,
+            )..layout(maxWidth: availableWidth);
+
+            final showBadges = !namePainter.didExceedMaxLines;
+
+            return Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Badge(
-                    label: category.typeLabel,
-                    color: category.type == 'both'
-                        ? cs.primary
-                        : category.type == 'income'
-                            ? context.customColors.income
-                            : category.type == 'expense'
-                                ? cs.error
-                                : cs.secondary,
+                  Text(
+                    category.name,
+                    style: tt.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 8),
-                  if (category.isSystem)
-                    _Badge(label: 'Sistema', color: cs.outline),
-                  if (category.isArchived)
-                    _Badge(label: 'Arquivada', color: cs.error),
+                  if (showBadges) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _Badge(
+                          label: category.typeLabel,
+                          color: category.type == 'both'
+                              ? cs.primary
+                              : category.type == 'income'
+                                  ? context.customColors.income
+                                  : category.type == 'expense'
+                                      ? cs.error
+                                      : cs.secondary,
+                        ),
+                        if (category.isSystem)
+                          _Badge(label: 'Sistema', color: cs.outline),
+                        if (category.isArchived)
+                          _Badge(label: 'Arquivada', color: cs.error),
+                      ],
+                    ),
+                  ],
                 ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );
@@ -288,22 +311,27 @@ class _SubcategoriesSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      child.name,
-                      style: tt.bodyMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: NameWithOptionalBadges(
+                      name: child.name,
+                      nameStyle: tt.bodyMedium,
+                      badges: [
+                        BadgeInfo(
+                          child.typeLabel,
+                          child.type == 'both'
+                              ? cs.primary
+                              : child.type == 'income'
+                                  ? context.customColors.income
+                                  : child.type == 'expense'
+                                      ? cs.error
+                                      : cs.secondary,
+                        ),
+                      ],
+                      badgePadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      badgeFontSize: 11,
                     ),
-                  ),
-                  _Badge(
-                    label: child.typeLabel,
-                    color: child.type == 'both'
-                        ? cs.primary
-                        : child.type == 'income'
-                            ? context.customColors.income
-                            : child.type == 'expense'
-                                ? cs.error
-                                : cs.secondary,
                   ),
                 ],
               ),

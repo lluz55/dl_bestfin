@@ -80,7 +80,7 @@ class _TimelineTile extends StatelessWidget {
         statusIcon = Icons.check_circle_rounded;
         break;
       case 'closed':
-        statusColor = Colors.orange; // Orange
+        statusColor = colors.warning;
         statusIcon = Icons.lock_rounded;
         break;
       case 'open':

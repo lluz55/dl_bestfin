@@ -9,6 +9,9 @@ class GenerateSankeyReport {
   GenerateSankeyReport(this._repository);
 
   Stream<SankeyData> call({
+    Color incomeColor = const Color(0xFF66BB6A),
+    Color expenseColor = const Color(0xFFFF7043),
+    Color merchantColor = const Color(0xFF78909C),
     required DateTime startDate,
     required DateTime endDate,
     List<String>? accountIds,
@@ -88,7 +91,7 @@ class GenerateSankeyReport {
                   id: 'inc_${e.key}',
                   label: e.value.name,
                   value: e.value.total,
-                  color: _parseHex(e.value.colorHex, const Color(0xFF66BB6A)),
+                  color: _parseHex(e.value.colorHex, incomeColor),
                   column: 0,
                 ),
               );
@@ -103,7 +106,7 @@ class GenerateSankeyReport {
                 id: 'inc__all',
                 label: 'Entradas',
                 value: totalExp,
-                color: const Color(0xFF66BB6A),
+                color: incomeColor,
                 column: 0,
               ),
             );
@@ -116,7 +119,7 @@ class GenerateSankeyReport {
                 id: 'cat_${e.key}',
                 label: e.value.name,
                 value: e.value.total,
-                color: _parseHex(e.value.colorHex, const Color(0xFFFF7043)),
+                color: _parseHex(e.value.colorHex, expenseColor),
                 column: 1,
               ),
             );
@@ -133,7 +136,7 @@ class GenerateSankeyReport {
                 value: e.value.total,
                 color: _parseHex(
                   catColor,
-                  const Color(0xFF78909C),
+                  merchantColor,
                 ).withValues(alpha: 0.75),
                 column: 2,
               ),

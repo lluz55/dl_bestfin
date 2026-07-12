@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/theme/color_schemes.dart';
 import 'package:bestfin/core/widgets/animated_card.dart';
 import 'package:bestfin/features/dashboard/presentation/widgets/balance_card.dart';
 
@@ -13,17 +14,18 @@ class FreeToSpendCard extends StatelessWidget {
     required this.percentage,
   });
 
-  Color _ringColor(ColorScheme cs) {
-    if (percentage >= 0.50) return const Color(0xFF4CAF50);
-    if (percentage >= 0.20) return const Color(0xFFFF9800);
-    return cs.error;
+  Color _ringColor(CustomColors custom) {
+    if (percentage >= 0.50) return custom.income;
+    if (percentage >= 0.20) return custom.warning;
+    return custom.expense;
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final tt = context.textTheme;
-    final ringColor = _ringColor(cs);
+    final custom = context.customColors;
+    final ringColor = _ringColor(custom);
 
     return AnimatedCard(
       margin: const EdgeInsets.symmetric(vertical: 8),

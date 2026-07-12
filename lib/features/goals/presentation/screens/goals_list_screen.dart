@@ -155,7 +155,9 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
                   Tab(text: 'Ativas'),
                   Tab(text: 'Concluídas'),
                 ],
-                labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+                labelStyle: context.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Expanded(
                 child: TabBarView(

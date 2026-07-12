@@ -73,7 +73,7 @@ class _PdfReviewScreenState extends ConsumerState<PdfReviewScreen> {
         content: Text(msg),
         backgroundColor: error
             ? context.colorScheme.error
-            : Colors.green.shade700,
+            : context.customColors.income,
         behavior: SnackBarBehavior.floating,
       ),
     );
