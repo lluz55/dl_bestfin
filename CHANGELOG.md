@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.14 (2026-07-12)
 
 ### Corrigido
 - `kDeveloperNostrPubkey` corrompido em `app_info.dart` (continha texto de log do Nix/Dart concatenado à chave hex) — corrigido para o valor correto
