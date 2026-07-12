@@ -232,8 +232,13 @@ except Exception as e:
                 fi
 
                 # 2. Descriptografa a Keystore binaria (android/bestfin-release.enc.jks)
+                # --input-type/--output-type binary são obrigatórios aqui: a extensão
+                # .enc.jks não é um formato que o SOPS reconhece automaticamente, e sem
+                # essas flags `sops -d` "funciona" (exit 0) mas escreve um arquivo vazio.
                 if [ -f android/bestfin-release.enc.jks ] && command -v sops >/dev/null 2>&1; then
-                  if sops -d android/bestfin-release.enc.jks > android/bestfin-release.tmp.jks 2>/dev/null; then
+                  if sops -d --input-type binary --output-type binary android/bestfin-release.enc.jks \
+                      > android/bestfin-release.tmp.jks 2>/dev/null \
+                      && [ -s android/bestfin-release.tmp.jks ]; then
                     mv android/bestfin-release.tmp.jks android/bestfin-release.jks
                     echo "✅ Keystore android/bestfin-release.jks atualizada via SOPS." >&2
                   else
