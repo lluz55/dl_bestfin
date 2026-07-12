@@ -233,9 +233,13 @@ except Exception as e:
 
                 # 2. Descriptografa a Keystore binaria (android/bestfin-release.enc.jks)
                 if [ -f android/bestfin-release.enc.jks ] && command -v sops >/dev/null 2>&1; then
-                  sops -d android/bestfin-release.enc.jks > android/bestfin-release.jks 2>/dev/null && \
-                    echo "✅ Keystore android/bestfin-release.jks atualizada via SOPS." >&2 || \
+                  if sops -d android/bestfin-release.enc.jks > android/bestfin-release.tmp.jks 2>/dev/null; then
+                    mv android/bestfin-release.tmp.jks android/bestfin-release.jks
+                    echo "✅ Keystore android/bestfin-release.jks atualizada via SOPS." >&2
+                  else
+                    rm -f android/bestfin-release.tmp.jks
                     echo "⚠️  Falha ao descriptografar keystore binaria." >&2
+                  fi
                 fi
               else
                 echo "ℹ️  Nenhuma chave privada (age ou SSH) encontrada para descriptografar segredos do SOPS." >&2

@@ -4,6 +4,7 @@
 # Android signing keystore (secrets — never commit; ver .github/workflows/release.yml)
 android/key.properties
 *.jks
+!*.enc.jks
 
 # Nix
 result
