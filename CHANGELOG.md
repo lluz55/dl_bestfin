@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Adicionado
+- Widget `SectionHeader` compartilhado (padronização visual em todo o app)
+- Widget `NameWithOptionalBadges` que prioriza nome da categoria sobre tags ao truncar
+- Widget `AnimatedDetailPanel` para transições suaves em painéis de detalhe
+- Seção "Sobre" no menu Mais com versão, changelog integrado, política de privacidade e licenças
+- Banner de atualização disponível com download direto no menu Mais
+- CI/CD pipeline de release via GitHub Actions com build Android e Linux
+- `devShells.ci` no flake.nix (shell enxuto para compilação no CI)
+- Script `scripts/extract_changelog.sh` para extração de notas de release
+- CHANGELOG.md adicionado como asset do Flutter (exibido no app)
+- Colaboração (grupos familiares) e sincronização realocadas nas Configurações
+
+### Melhorado
+- Cores hardcoded substituídas por `ColorScheme` do tema em donut_chart, goal_celebration, portfolio, insight_card e more_screen
+- Padronização de `Theme.of(context)` → `context.colorScheme`/`context.textTheme` via extension em múltiplas telas
+- `more_screen.dart` migrado para `ConsumerWidget` com seções dinâmicas
+- Painel de detalhe master-detail no More usa `AnimatedDetailPanel` em vez de `KeyedSubtree`
+- `scripts/release.sh` simplificado: só bump + tag + push (build/release delegado ao CI)
+- `settings_screen.dart` reorganizado: removeu Sobre/Ajuda, adicionou Sincronização
+
+### Removido
+- Telas de Sincronização e Grupos familiares do menu Mais (movidas para Configurações)
+- Widget `_UpdateAvailableTile` do settings_screen (movido para More como footer)
+- Classes `_SectionHeader` duplicadas em more, settings e sync_settings
+
+### Documentação
+- `AGENTS.md` seção 6 reescrita com fluxo de release CI/CD
+- `docs/okf/development/releases.md` atualizado com pipeline de CI/CD
+- `.gitignore` adicionado `android/key.properties` e `*.jks`
+
 ## v1.0.11 (2026-07-11)
 
 ### Corrigido
