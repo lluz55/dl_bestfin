@@ -1,0 +1,9 @@
+creation_rules:
+  - path_regex: secrets\.enc\.yaml$
+    key_groups:
+      - age:
+          - age1t7kguywwxu7kr8xkxud2upkzywqqync6l5qmqy8rhd88qg4yyg8skhteum
+  - path_regex: android/bestfin-release\.enc\.jks$
+    key_groups:
+      - age:
+          - age1t7kguywwxu7kr8xkxud2upkzywqqync6l5qmqy8rhd88qg4yyg8skhteum

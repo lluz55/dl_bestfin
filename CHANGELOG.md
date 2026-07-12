@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Adicionado
+- Gerenciamento de segredos locais via SOPS + age: `secrets.enc.yaml` criptografado pode ser versionado no Git; o `shellHook` do `flake.nix` descriptografa automaticamente para `.env` e `android/key.properties` ao entrar no `nix develop` (usa chave `age` em `~/.config/sops/age/keys.txt` ou converte a chave SSH local via `ssh-to-age`)
+- Suporte a descriptografia da keystore Android binária (`android/bestfin-release.enc.jks` → `android/bestfin-release.jks`) via SOPS
+- Pacotes `sops`, `age` e `ssh-to-age` no devShell padrão (`flake.nix`)
+- `.sops.yaml` com as regras de criptografia (chave `age` autorizada para `secrets.enc.yaml` e a keystore)
+- Guia `docs/okf/development/secrets-sops.md` documentando o fluxo de configuração, criptografia e pitfalls comuns do SOPS
+
+### Alterado
+- `AGENTS.md` §3.4 (nova): proíbe explicitamente o uso de `Co-authored-by` (ou similar) em mensagens de commit geradas por agentes de IA
+- `AGENTS.md`: seção de Otimização de Performance renumerada de §3.4 para §3.5
+
 ## v1.0.12 (2026-07-12)
 
 ### Adicionado

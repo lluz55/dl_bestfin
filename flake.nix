@@ -173,6 +173,10 @@
               pandas
               pydantic
             ]))
+            # SOPS / Secrets Management
+            sops
+            age
+            ssh-to-age
           ];
 
           env = {
@@ -189,7 +193,56 @@
             export LLAMA_LIBRARY_PATH="${llama-cpp-vulkan}/lib/libllama.so"
             export LLAMA_SERVER_BIN="${llama-cpp-vulkan}/bin/llama-server"
             export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
-            echo "🏦 BestFin dev environment ready"
+
+            # --- SOPS / Secrets configuration ---
+            export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+            if [ -f secrets.enc.yaml ] || [ -f android/bestfin-release.enc.jks ]; then
+              if [ -f "$SOPS_AGE_KEY_FILE" ] || [ -f "$HOME/.ssh/id_ed25519" ]; then
+                echo "🔑 [SOPS] Descriptografando segredos do projeto..." >&2
+                if [ ! -f "$SOPS_AGE_KEY_FILE" ] && [ -f "$HOME/.ssh/id_ed25519" ]; then
+                  if command -v ssh-to-age >/dev/null 2>&1; then
+                    export SOPS_AGE_KEY=$(ssh-to-age -private-key -i "$HOME/.ssh/id_ed25519" 2>/dev/null)
+                  fi
+                fi
+                
+                # 1. Descriptografa secrets.enc.yaml (gera .env e android/key.properties)
+                if [ -f secrets.enc.yaml ] && command -v sops >/dev/null 2>&1; then
+                  sops -d --output-type json secrets.enc.yaml 2>/dev/null | python3 -c '
+import sys, json, os
+try:
+    data = json.load(sys.stdin)
+    
+    # Gerar .env
+    with open(".env", "w") as f:
+        for k in ["BESTFIN_DEV_NOSTR_PUBKEY", "BESTFIN_DEV_NOSTR_PRIVKEY"]:
+            if k in data:
+                f.write(f"{k}={data[k]}\n")
+                
+    # Gerar android/key.properties
+    if os.path.exists("android"):
+        with open("android/key.properties", "w") as f:
+            f.write("storePassword={}\n".format(data.get("ANDROID_STORE_PASSWORD", "")))
+            f.write("keyPassword={}\n".format(data.get("ANDROID_KEY_PASSWORD", "")))
+            f.write("keyAlias={}\n".format(data.get("ANDROID_KEY_ALIAS", "")))
+            f.write("storeFile={}\n".format(data.get("ANDROID_STORE_FILE", "")))
+    print("✅ .env e android/key.properties gerados/atualizados via SOPS.")
+except Exception as e:
+    print("⚠️  Erro ao processar secrets.enc.yaml: {}".format(e))
+' >&2
+                fi
+
+                # 2. Descriptografa a Keystore binaria (android/bestfin-release.enc.jks)
+                if [ -f android/bestfin-release.enc.jks ] && command -v sops >/dev/null 2>&1; then
+                  sops -d android/bestfin-release.enc.jks > android/bestfin-release.jks 2>/dev/null && \
+                    echo "✅ Keystore android/bestfin-release.jks atualizada via SOPS." >&2 || \
+                    echo "⚠️  Falha ao descriptografar keystore binaria." >&2
+                fi
+              else
+                echo "ℹ️  Nenhuma chave privada (age ou SSH) encontrada para descriptografar segredos do SOPS." >&2
+              fi
+            fi
+
+            echo "🏦 BestFin dev environment ready" >&2
           '';
         };
 

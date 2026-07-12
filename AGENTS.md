@@ -107,44 +107,47 @@ Para garantir que o código seja legível, modular e fácil de manter por humano
 ### 3.3 Preservação de Comentários
 *   **Mantenha a integridade da documentação existente.** Nunca remova docstrings ou comentários explicativos a menos que a lógica subjacente seja alterada ou explicitamente pedido.
 
+### 3.4 Mensagens de Commit (Proibição de Co-authored-by)
+*   **NUNCA use Co-authored-by ou similares:** É **estritamente proibido** que qualquer LLM ou agente de IA utilize trailers ou menções como `Co-authored-by`, `Co-authored` ou similares em mensagens de commit. Esta regra é **mandatória** e precisa ser obedecida ao pé da letra por todos os agentes.
+
 ---
 
-## ⚡ 3.4 Otimização de Performance
+## ⚡ 3.5 Otimização de Performance
 
 Ao editar ou criar componentes UI, leve em conta as seguintes práticas para manter a performance do aplicativo:
 
-### 3.4.1 Widgets e Build Methods
+### 3.5.1 Widgets e Build Methods
 *   **Prefira `const` widgets sempre que possível:** `const Text('...')`, `const SizedBox()`, `const EdgeInsets.all(8)`. Isso evita rebuilds desnecessários.
 *   **Use `StatelessWidget` em vez de `StatefulWidget`** quando não precisar de estado interno.
 *   **Evite criar objetos dentro do método `build`:** Strings, listas, `TextStyle`, `BoxDecoration` ou funções anônimas criados em cada build geram novas referências e forçam rebuilds de filhos.
 *   **Use `AutomaticKeepAliveClientMixin`** para telas que devem preservar estado quando navegação não é desejada (ex: `TearDownScreen`, `TransactionListScreen`).
 
-### 3.4.2 ListView / Column com muitos itens
+### 3.5.2 ListView / Column com muitos itens
 *   **Para listas longas:** Use `ListView.builder` com `itemExtent` fixo quando possível, ou `ListView.custom` com `SliverChildBuilderDelegate`. Isso evita criar todos os itens de uma vez.
 *   **Para `Column` com muitos filhos dinâmicos:** Use `ListView` em vez de `Column` para evitar renderizar todos os itens na árvore.
 *   **Limite o número de itens renderizados:** Em listas de transações, limite a visualização inicial a ~50 itens e carregue mais sob demanda (pagination/infini-scroll).
 
-### 3.4.3 Evite rebuilds desnecessários
+### 3.5.3 Evite rebuilds desnecessários
 *   **Use `ConsumerWidget` ou `Consumer`** apenas nos trechos que precisam reagir a mudanças de provider, não em toda a árvore.
 *   **Separe lógica pesada em métodos fora do build:** Formatação de datas, cálculos de porcentagem, filtragem de listas — execute fora do `build` ou use `ref.watch(...).select((e) => e.neededValue)`.
 *   **Use `_memoized` ou variáveis de instância** para valores calculados que não mudam entre builds (ex: formatação de strings que dependem de parâmetros imutáveis).
 
-### 3.4.4 Animações e Efeitos Visuais
+### 3.5.4 Animações e Efeitos Visuais
 *   **Limite animações em listas longas:** Cada item animado adiciona overhead. Use `AnimatedList` ou `Dismissible` apenas quando necessário.
 *   **Evite `AnimatedContainer` em itens de lista:** Prefira `AnimatedSwitcher` ou `SmoothShadow` (do `flutter_animate`) para efeitos mais leves.
 *   **Use `const` em widgets de animação:** `const AnimatedOpacity(...)`, `const AnimatedPositioned(...)`.
 
-### 3.4.5 Imagens e Assets
+### 3.5.5 Imagens e Assets
 *   **Use `cached_network_image`** para imagens da web com cache automático.
 *   **Para ícones locais:** Use `IconTheme` e `Icon` com `size` definido, evitando `Image.asset` para ícones simples.
 *   **Prefira SVG via `flutter_svg`** para ícones escaláveis, mas cacheie-os com `CachedNetworkImage` quando usado dinamicamente.
 
-### 3.4.6 Context Watch e Providers
+### 3.5.6 Context Watch e Providers
 *   **Nunca chame `context.watch` ou `ref.watch` dentro de loops ou métodos executados no build.** Isso cria listeners extras para cada iteração.
 *   **Use `ref.listen` em `initState` ou `useEffect`** para efeitos colaterais, não dentro do `build`.
 *   **Para valores que não mudam comunicação:** Use `ref.read` em vez de `ref.watch` para evitar rebuilds automáticos.
 
-### 3.4.7 Testes de Performance
+### 3.5.7 Testes de Performance
 *   **Use o Flutter DevTools (Performance tab)** para identificar frames com tempo de build > 16ms (60 FPS).
 *   **Marque widgets pesados com `RepaintBoundary`** quando houver animações ou mudanças frequentes que não devem invalidar toda a árvore.
 *   **Evite `Opacity` com alpha < 1.0 em widgets complexos:** Use `FadeTransition` com `AnimationController` ou `AnimatedOpacity` com `vsync` para melhor performance.

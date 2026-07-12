@@ -21,6 +21,7 @@ BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) 
 * [Ambiente Nix](development/environment.md) - Comandos obrigatórios via `nix develop -c`
 * [Geração de Código](development/code-generation.md) - build_runner, Drift e Riverpod
 * [Convenções de Código](development/conventions.md) - Estilo Dart, imports, segurança
+* [Gerenciamento de Segredos com SOPS](development/secrets-sops.md) - Criptografia de segredos (.env) via SOPS integrada ao devShell Nix
 * [Modal Informativo](development/info-modal.md) - Exceção ao padrão de modais — `Dialog` centralizado para info de páginas
 * [Releases e Versão no App](development/releases.md) - Versão (`kAppVersion`) exibida e atualizada a cada release; fluxo de binários
 * [Workflow OKF para Agentes](development/okf-workflow.md) - Protocolo de 6 passos e integração com Claude Code e opencode
