@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.12 (2026-07-12)
 
 ### Adicionado
 - Widget `SectionHeader` compartilhado (padronização visual em todo o app)
