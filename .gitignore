@@ -1,6 +1,10 @@
 # Environment (secrets — never commit)
 .env
 
+# Android signing keystore (secrets — never commit; ver .github/workflows/release.yml)
+android/key.properties
+*.jks
+
 # Nix
 result
 

@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# release.sh -- Automatiza o fluxo completo de release do BestFin.
+# release.sh -- Prepara e dispara um release do BestFin.
 #
-# O que faz:
-#   1. Valida pré-condições (git limpo, env vars presentes)
+# O que faz (só a parte local -- o resto roda no GitHub Actions):
+#   1. Valida pré-condições (git limpo)
 #   2. Faz bump de versão em pubspec.yaml e app_info.dart
-#   3. Cria commit + tag vX.Y.Z e faz push
-#   4. Compila APK Android e bundle Linux via nix develop
-#   5. Empacota o bundle Linux em .tar.gz
-#   6. Cria o GitHub Release e anexa os binários
-#   7. Publica o evento de atualização nos relays Nostr
+#   3. Cria commit + tag anotada vX.Y.Z e faz push
+#
+# O push da tag dispara o workflow .github/workflows/release.yml, que
+# compila o APK Android e o bundle Linux via Nix, cria o GitHub Release com
+# os binários anexados e publica a notificação de atualização nos relays
+# Nostr. Esta máquina não precisa mais do keystore Android nem da chave
+# privada Nostr -- esses secrets vivem só no GitHub Actions.
 #
 # Uso:
-#   BESTFIN_DEV_NOSTR_PRIVKEY=<hex> ./scripts/release.sh <versão> [opções]
+#   ./scripts/release.sh <versão> [opções]
 #
 # Argumentos:
 #   <versão>              Versão no formato X.Y.Z (obrigatório)
@@ -30,31 +32,27 @@
 #   notas no CHANGELOG.md (e faça commit) antes de rodar o script.
 #   A seção Unreleased combina bem com --auto-bump: escreva as notas sem
 #   se preocupar com o número da versão.
-#   --critical               Marca como atualização crítica (banner vermelho no app)
-#   --nostr-key-file <path>  Lê a chave Nostr (hex) do arquivo em vez da env var
-#   --skip-build             Pula a compilação (útil se os binários já existem)
-#   --skip-nostr             Pula a publicação Nostr
+#   --critical               Marca a tag como atualização crítica -- o CI lê
+#                             isso na mensagem da tag e propaga para o
+#                             GitHub Release (banner) e para o evento Nostr
+#                             (--critical em publish_update.dart).
 #   --dry-run                Imprime os passos sem executar nada destrutivo
-#   --auto-bump              Se a versão for "patch|minor|major", faz bump automático
+#   --auto-bump               Se a versão for "patch|minor|major", faz bump automático
 #
 # Pré-requisitos:
-#   - BESTFIN_DEV_NOSTR_PRIVKEY exportada no ambiente (hex, nsec ou caminho de
-#     arquivo contendo a chave), ou use --nostr-key-file / --skip-nostr
-#   - android/key.properties e android/bestfin-release.jks presentes (APK assinado)
-#   - gh CLI autenticado (gh auth login)
 #   - git configurado com acesso de push
 #
+# Após o push da tag, acompanhe o build em:
+#   gh run watch  (ou aba Actions no GitHub)
+#
 # Exemplo:
-#   BESTFIN_DEV_NOSTR_PRIVKEY=abc123 ./scripts/release.sh 1.1.0 \
-#     --changelog "Melhoria de performance e correções de bugs"
+#   ./scripts/release.sh 1.1.0 --changelog "Melhoria de performance e correções de bugs"
 #
 # Ou usando um arquivo de changelog:
-#   BESTFIN_DEV_NOSTR_PRIVKEY=abc123 ./scripts/release.sh 1.1.0 \
-#     --changelog-file RELEASE_NOTES.md
+#   ./scripts/release.sh 1.1.0 --changelog-file RELEASE_NOTES.md
 #
 # Ou bump automático de versão (patch, minor, major):
-#   BESTFIN_DEV_NOSTR_PRIVKEY=abc123 ./scripts/release.sh minor \
-#     --auto-bump --changelog "Novas funcionalidades menores"
+#   ./scripts/release.sh minor --auto-bump --changelog "Novas funcionalidades menores"
 
 set -euo pipefail
 
@@ -68,35 +66,6 @@ ok()    { echo "[release] ✓ $*"; }
 err()   { echo "[release] ✗ $*" >&2; exit 1; }
 step()  { echo; echo "== $* =="; }
 
-# Filtra linhas de aviso de pacotes desatualizados do output do Flutter
-filter_flutter() {
-  grep -v 'have newer versions\|available)$'
-}
-
-# Executa build Flutter com saída filtrada e suporte a dry-run
-flutter_build() {
-  if $dry_run; then
-    echo "  [dry-run] nix develop -c flutter $*"
-    return 0
-  fi
-  echo "  -> nix develop -c flutter $*"
-  nix develop -c flutter "$@" 2>&1 | filter_flutter
-  local exit_code="${PIPESTATUS[0]}"
-  return "$exit_code"
-}
-
-# Executa dart run via nix com saída filtrada
-dart_run() {
-  if $dry_run; then
-    echo "  [dry-run] nix develop -c dart run $*"
-    return 0
-  fi
-  echo "  -> nix develop -c dart run $*"
-  nix develop -c dart run "$@" 2>&1 | filter_flutter
-  local exit_code="${PIPESTATUS[0]}"
-  return "$exit_code"
-}
-
 # Trap para mostrar em qual linha o script falhou
 error_trap() {
   local last_exit=$?
@@ -105,7 +74,7 @@ error_trap() {
 }
 trap 'error_trap $LINENO' ERR
 
-# -- Load .env (secrets, nunca commitado) --------------------------------------
+# -- Load .env (opcional, nunca commitado) -------------------------------------
 if [[ -f "$PROJECT_DIR/.env" ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -143,36 +112,18 @@ compute_auto_bump() {
   echo "${major}.${minor}.${patch}"
 }
 
-# Extrai uma seção do CHANGELOG.md
-extract_changelog_section() {
-  local file="$1" target="$2"
-  awk -v target="$target" '
-    /^## / {
-      if (found) exit
-      if ($2 == target) { found = 1; next }
-    }
-    found { print }
-  ' "$file" | sed -e '/./,$!d' | sed -e ':a' -e '/^[[:space:]]*$/{$d;N;ba' -e '}'
-}
-
-# -- Parse arguments -----------------------------------------------------------
+# -- Parse arguments -------------------------------------------------------------
 
 VERSION=""
 CHANGELOG=""
 CHANGELOG_FILE=""
 CRITICAL=false
-SKIP_BUILD=false
-SKIP_NOSTR=false
-NOSTR_KEY_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --changelog)      CHANGELOG="$2";      shift 2 ;;
     --changelog-file) CHANGELOG_FILE="$2"; shift 2 ;;
     --critical)       CRITICAL=true;       shift ;;
-    --nostr-key-file) NOSTR_KEY_FILE="$2"; shift 2 ;;
-    --skip-build)     SKIP_BUILD=true;     shift ;;
-    --skip-nostr)     SKIP_NOSTR=true;     shift ;;
     --dry-run)        dry_run=true;        shift ;;
     --auto-bump)      auto_bump=true;      shift ;;
     -*)            err "Opção desconhecida: $1" ;;
@@ -207,31 +158,17 @@ elif [[ -n "$CHANGELOG_FILE" ]]; then
   CHANGELOG="$(cat "$CHANGELOG_FILE")"
 else
   [[ -f "$CHANGELOG_MD" ]] || err "CHANGELOG.md não encontrado em $PROJECT_DIR"
-  CHANGELOG="$(extract_changelog_section "$CHANGELOG_MD" "v${VERSION}")"
-  if [[ -n "$CHANGELOG" ]]; then
+  if CHANGELOG="$("$SCRIPT_DIR/extract_changelog.sh" "v${VERSION}" "$CHANGELOG_MD")"; then
     info "Notas de release extraídas do CHANGELOG.md (seção v${VERSION})"
   else
-    CHANGELOG="$(extract_changelog_section "$CHANGELOG_MD" "Unreleased")"
-    [[ -n "$CHANGELOG" ]] \
+    CHANGELOG="$("$SCRIPT_DIR/extract_changelog.sh" "Unreleased" "$CHANGELOG_MD")" \
       || err "Nenhuma seção '## v${VERSION}' nem '## Unreleased' com conteúdo no CHANGELOG.md. Escreva as notas da versão antes do release, ou use --changelog/--changelog-file."
     RENAME_UNRELEASED=true
     info "Notas de release extraídas do CHANGELOG.md (seção Unreleased -> v${VERSION})"
   fi
 fi
 
-# Obtém o nome do repositório para a URL de download
-REPO_NAME=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
-if [[ -z "$REPO_NAME" ]]; then
-  # Tenta extrair do remote git
-  REPO_NAME=$(git remote get-url origin 2>/dev/null | grep -oP '(?<=github\.com/|github\.com:)[^/.]+/[^.]+' || echo "owner/bestfin")
-fi
-DOWNLOAD_URL="https://github.com/${REPO_NAME}/releases/tag/v${VERSION}"
-
-APK_NAME="bestfin-v${VERSION}-android.apk"
-LINUX_ARCHIVE="bestfin-v${VERSION}-linux-x64.tar.gz"
-APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
-
-# -- Validações ----------------------------------------------------------------
+# -- Validações ------------------------------------------------------------------
 
 step "Validando pré-condições"
 
@@ -242,40 +179,6 @@ if ! $dry_run && [[ -n "$(git status --porcelain)" ]]; then
   err "Working tree sujo. Faça commit ou stash das alterações antes do release."
 fi
 
-# Chave Nostr do desenvolvedor
-if ! $SKIP_NOSTR; then
-  if [[ -n "$NOSTR_KEY_FILE" ]]; then
-    [[ -f "$NOSTR_KEY_FILE" ]] \
-      || err "Arquivo da chave Nostr não encontrado: $NOSTR_KEY_FILE"
-    BESTFIN_DEV_NOSTR_PRIVKEY="$(tr -d '[:space:]' < "$NOSTR_KEY_FILE")"
-  elif [[ -f "${BESTFIN_DEV_NOSTR_PRIVKEY:-}" ]]; then
-    BESTFIN_DEV_NOSTR_PRIVKEY="$(tr -d '[:space:]' < "$BESTFIN_DEV_NOSTR_PRIVKEY")"
-  fi
-  export BESTFIN_DEV_NOSTR_PRIVKEY
-
-  [[ -n "${BESTFIN_DEV_NOSTR_PRIVKEY:-}" ]] \
-    || err "Chave Nostr não definida. Exporte BESTFIN_DEV_NOSTR_PRIVKEY (hex ou arquivo), use --nostr-key-file ou --skip-nostr."
-
-  # Valida se a chave parece válida (64 chars hex ou nsec)
-  if [[ "${#BESTFIN_DEV_NOSTR_PRIVKEY}" != 64 ]] && [[ "$BESTFIN_DEV_NOSTR_PRIVKEY" != nsec1* ]]; then
-    err "Chave Nostr parece inválida (deve ser 64 caracteres hex ou começar com nsec1)."
-  fi
-  ok "Chave Nostr configurada"
-fi
-
-# Credenciais de assinatura Android
-if ! $SKIP_BUILD; then
-  [[ -f "android/key.properties" ]] \
-    || err "android/key.properties não encontrado. Necessário para assinar o APK."
-  ok "Credenciais de assinatura Android OK"
-fi
-
-# gh CLI
-if ! command -v gh &>/dev/null; then
-  err "gh CLI não encontrado. Instale em https://cli.github.com."
-fi
-ok "gh CLI encontrado"
-
 # git configurado para push
 if ! git remote get-url origin &>/dev/null; then
   err "Remote 'origin' não configurado."
@@ -284,7 +187,7 @@ ok "Remote origin configurado"
 
 ok "Pré-condições OK"
 
-# -- Bump de versão ------------------------------------------------------------
+# -- Bump de versão ---------------------------------------------------------------
 
 step "Atualizando versão para ${VERSION}"
 
@@ -303,6 +206,7 @@ $dry_run || grep -q "kAppVersion = '${VERSION}'" lib/core/constants/app_info.dar
   || err "Falha ao atualizar kAppVersion em app_info.dart"
 
 # Atualiza kDeveloperNostrPubkey se a env var for diferente do que está no código
+# (é a chave pública -- não é sensível, só mantém o app_info.dart sincronizado)
 CURRENT_PUBKEY=$(grep -oP "kDeveloperNostrPubkey = '?\K[^';]+" lib/core/constants/app_info.dart | head -1 || echo "")
 PUBKEY="${BESTFIN_DEV_NOSTR_PUBKEY:-}"
 if [[ -n "$PUBKEY" && "$CURRENT_PUBKEY" != "$PUBKEY" ]]; then
@@ -339,81 +243,31 @@ fi
 
 ok "Versão atualizada"
 
-# -- Commit + tag --------------------------------------------------------------
+# -- Commit + tag ------------------------------------------------------------------
 
 step "Commit e tag v${VERSION}"
 
+# A mensagem da tag anotada é o sinal que o CI usa para saber se o release é
+# crítico (banner vermelho no GitHub Release + --critical no evento Nostr).
+TAG_MESSAGE="release"
+$CRITICAL && TAG_MESSAGE="critical"
+
 run git add "${BUMP_FILES[@]}"
 run git commit -m "chore(release): bump version para v${VERSION}"
-run git tag "v${VERSION}"
+run git tag -a "v${VERSION}" -m "$TAG_MESSAGE"
 
 # git push sem prompt interativo
 GIT_TERMINAL_PROMPT=0 run git push origin HEAD "v${VERSION}"
 
 ok "Commit e tag publicados (v${VERSION})"
 
-# -- Build ---------------------------------------------------------------------
-
-if $SKIP_BUILD; then
-  info "Build pulado (--skip-build)"
-  $dry_run || [[ -f "$APK_SRC" ]] || err "APK não encontrado em $APK_SRC. Compile antes de usar --skip-build."
-else
-  step "Compilando Android APK (pode levar vários minutos)"
-  flutter_build build apk --release
-  $dry_run || [[ -f "$APK_SRC" ]] || err "APK não foi gerado em $APK_SRC"
-  ok "APK gerado (${APK_SRC})"
-
-  step "Compilando Linux bundle (pode levar vários minutos)"
-  flutter_build build linux --release
-  $dry_run || [[ -d "build/linux/x64/release/bundle" ]] || err "Bundle Linux não foi gerado"
-  ok "Bundle Linux gerado"
-fi
-
-# -- Empacotar Linux -----------------------------------------------------------
-
-step "Empacotando bundle Linux"
-run tar -czf "$LINUX_ARCHIVE" -C build/linux/x64/release/bundle .
-$dry_run || [[ -f "$LINUX_ARCHIVE" ]] || err "Arquivo $LINUX_ARCHIVE não foi criado"
-ok "Arquivo: $LINUX_ARCHIVE"
-
-# -- GitHub Release -----------------------------------------------------------
-
-step "Criando GitHub Release v${VERSION}"
-
-CRITICAL_NOTE=""
-$CRITICAL && CRITICAL_NOTE=$'\n\n> **Atualização crítica:** recomenda-se atualizar o mais breve possível.'
-
-run gh release create "v${VERSION}" \
-  --title "BestFin v${VERSION}" \
-  --notes "${CHANGELOG}${CRITICAL_NOTE}" \
-  "${APK_SRC}#${APK_NAME}" \
-  "${LINUX_ARCHIVE}#${LINUX_ARCHIVE}"
-
-ok "Release criado: ${DOWNLOAD_URL}"
-
-# -- Publicar no Nostr ---------------------------------------------------------
-
-if $SKIP_NOSTR; then
-  info "Publicação Nostr pulada (--skip-nostr)"
-else
-  step "Publicando notificação de atualização via Nostr"
-
-  # Verifica se a chave privada está disponível (pode ter sido carregada do .env)
-  if [[ -z "${BESTFIN_DEV_NOSTR_PRIVKEY:-}" ]]; then
-    err "BESTFIN_DEV_NOSTR_PRIVKEY não está definida para publicação Nostr."
-  fi
-
-  NOSTR_ARGS=(--version "$VERSION" --changelog "$CHANGELOG" --download-url "$DOWNLOAD_URL")
-  $CRITICAL && NOSTR_ARGS+=(--critical)
-
-  dart_run scripts/publish_update.dart "${NOSTR_ARGS[@]}"
-  ok "Notificação Nostr publicada"
-fi
-
 # -- Concluído -----------------------------------------------------------------
 
 echo
 echo "=========================================="
-echo "  Release v${VERSION} concluído com sucesso!"
+echo "  Tag v${VERSION} publicada com sucesso!"
+echo "  O GitHub Actions vai compilar os binários,"
+echo "  criar o Release e publicar a notificação Nostr."
+echo "  Acompanhe em: gh run watch  (ou aba Actions)"
 $dry_run && echo "  (simulação -- nenhuma ação foi executada)"
 echo "=========================================="

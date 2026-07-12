@@ -1,0 +1,200 @@
+name: Release
+
+# Disparado pelo push de uma tag vX.Y.Z (criada por scripts/release.sh).
+# A partir daqui, tudo roda no CI: build Android + Linux via Nix, criação do
+# GitHub Release com os binários anexados e publicação da notificação de
+# atualização nos relays Nostr.
+#
+# Sinal de "release crítico": scripts/release.sh cria a tag anotada com a
+# mensagem "critical" (em vez de "release") quando rodado com --critical.
+# O job `release` lê essa mensagem para decidir o banner do GitHub Release
+# e o job `publish-nostr` para decidir a flag --critical do evento.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-ci-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-ci-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+
+      - name: Restaurar keystore de assinatura Android
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/bestfin-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=../bestfin-release.jks
+          EOF
+
+      - name: flutter build apk --release
+        run: nix develop .#ci -c flutter build apk --release
+
+      - name: Empacotar artefato
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "dist/bestfin-${{ github.ref_name }}-android.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/*.apk
+          retention-days: 1
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-ci-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-ci-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+
+      - name: flutter build linux --release
+        run: nix develop .#ci -c flutter build linux --release
+
+      - name: Empacotar artefato
+        run: |
+          mkdir -p dist
+          tar -czf "dist/bestfin-${{ github.ref_name }}-linux-x64.tar.gz" \
+            -C build/linux/x64/release/bundle .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundle
+          path: dist/*.tar.gz
+          retention-days: 1
+
+  release:
+    needs: [build-android, build-linux]
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.notes.outputs.notes }}
+      critical: ${{ steps.critical.outputs.critical }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-bundle
+          path: dist
+
+      - name: Extrair notas do CHANGELOG.md
+        id: notes
+        run: |
+          NOTES="$(./scripts/extract_changelog.sh "${{ github.ref_name }}" CHANGELOG.md)" || {
+            echo "::error::Seção '## ${{ github.ref_name }}' não encontrada em CHANGELOG.md. O commit taggeado precisa ter essa seção (scripts/release.sh cuida disso ao renomear Unreleased)."
+            exit 1
+          }
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Determinar se é release crítico
+        id: critical
+        run: |
+          MSG="$(git tag -l --format='%(contents)' "${{ github.ref_name }}")"
+          if [[ "$MSG" == *critical* ]]; then
+            echo "critical=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "critical=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Criar GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+          CRITICAL: ${{ steps.critical.outputs.critical }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          FULL_NOTES="$NOTES"
+          if [[ "$CRITICAL" == "true" ]]; then
+            FULL_NOTES="${FULL_NOTES}"$'\n\n> **Atualização crítica:** recomenda-se atualizar o mais breve possível.'
+          fi
+          gh release create "$TAG" \
+            --title "BestFin $TAG" \
+            --notes "$FULL_NOTES" \
+            "dist/bestfin-${TAG}-android.apk" \
+            "dist/bestfin-${TAG}-linux-x64.tar.gz"
+
+  publish-nostr:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-ci-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-ci-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+          save: false
+
+      - name: Publicar notificação de atualização via Nostr
+        env:
+          BESTFIN_DEV_NOSTR_PRIVKEY: ${{ secrets.BESTFIN_DEV_NOSTR_PRIVKEY }}
+          NOTES: ${{ needs.release.outputs.notes }}
+          CRITICAL: ${{ needs.release.outputs.critical }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          ARGS=(--version "$VERSION" --changelog "$NOTES" \
+            --download-url "https://github.com/${{ github.repository }}/releases/tag/${TAG}")
+          if [[ "$CRITICAL" == "true" ]]; then
+            ARGS+=(--critical)
+          fi
+          nix develop .#ci -c dart run scripts/publish_update.dart "${ARGS[@]}"

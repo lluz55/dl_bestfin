@@ -35,6 +35,22 @@
           cmake-3-22-1
         ]);
 
+        # Mesma composição do androidSdk, sem o emulator -- não é necessário
+        # para `flutter build apk` e é, de longe, o maior componente do SDK.
+        # Usado só pelo devShells.ci (mantém o cache do Nix Store no CI menor).
+        androidSdkCi = android-nixpkgs.sdk.${system} (sdkPkgs: with sdkPkgs; [
+          cmdline-tools-latest
+          platform-tools
+          build-tools-34-0-0
+          build-tools-35-0-0
+          platforms-android-33
+          platforms-android-34
+          platforms-android-35
+          platforms-android-36
+          ndk-28-2-13676358
+          cmake-3-22-1
+        ]);
+
         llama-cpp-vulkan = pkgs.llama-cpp.override { vulkanSupport = true; };
 
         flutterMcpToolkit = pkgs.stdenv.mkDerivation {
@@ -174,6 +190,47 @@
             export LLAMA_SERVER_BIN="${llama-cpp-vulkan}/bin/llama-server"
             export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
             echo "🏦 BestFin dev environment ready"
+          '';
+        };
+
+        # Shell enxuto usado só pelo CI (.github/workflows/release.yml) para
+        # `flutter build apk|linux --release` e `dart run scripts/publish_update.dart`.
+        # Sem emulator/zenity/llama-cpp/python/flutterMcpToolkit -- nada disso
+        # é necessário para compilar um release, e cada um infla bastante o
+        # fechamento cacheado em actions/cache. devShells.default (dev local)
+        # continua com tudo.
+        devShells.ci = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            flutter
+            jdk17
+            androidSdkCi
+            sqlite
+            # Linux desktop deps
+            cmake
+            ninja
+            clang
+            pkg-config
+            gtk3
+            pcre2
+            libepoxy
+            libsecret
+            libsysprof-capture
+            # Rust (required by rust_lib_ndk Flutter plugin)
+            cargo
+            rustc
+          ];
+
+          env = {
+            ANDROID_HOME = "${androidSdkCi}/share/android-sdk";
+            ANDROID_SDK_ROOT = "${androidSdkCi}/share/android-sdk";
+            JAVA_HOME = "${pkgs.jdk17}";
+          };
+
+          shellHook = ''
+            export GRADLE_USER_HOME="$HOME/.gradle"
+            export LD_LIBRARY_PATH="${pkgs.sqlite.out}/lib:$LD_LIBRARY_PATH"
+            export OPENSSL_ROOT_DIR="${opensslJoined}"
+            export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
           '';
         };
       });

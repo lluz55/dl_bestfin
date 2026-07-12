@@ -212,83 +212,88 @@ Ao receber uma tarefa de codificação no BestFin, siga este fluxo passo a passo
 ## 📦 6. Releases e Publicação de Binários
 
 > [!IMPORTANT]
-> **REGRA DE OURO DE RELEASE:** **Todo release DEVE incluir os binários compilados** anexados ao GitHub Release. Um release sem os binários de **Linux** e **Android** é considerado incompleto. Nunca crie a tag/release sem, na sequência, gerar e anexar os artefatos.
+> **REGRA DE OURO DE RELEASE:** **Todo release DEVE incluir os binários compilados** anexados ao GitHub Release. Um release sem os binários de **Linux** e **Android** é considerado incompleto.
 
-### 6.1 Fluxo de Release
-1.  **Bump de versão** em `pubspec.yaml` (`version: X.Y.Z+build`, incrementando também o `build`).
-1b. **Versão dentro do app:** atualize `kAppVersion` em `lib/core/constants/app_info.dart` para o mesmo `X.Y.Z`. **Todo release DEVE expor a versão no app** (Configurações › Sobre › Versão lê essa constante). Um release sem a versão visível/atualizada no app é considerado incompleto.
-2.  **Commit + tag** (`vX.Y.Z`) e `git push` do commit e da tag.
-3.  **Compilar os binários** (sempre via `nix develop -c`):
-    ```bash
-    nix develop -c flutter build apk --release      # Android → build/app/outputs/flutter-apk/app-release.apk
-    nix develop -c flutter build linux --release     # Linux → build/linux/x64/release/bundle/
-    ```
-4.  **Empacotar o Linux** (o build gera um diretório de bundle, não um arquivo único):
-    ```bash
-    tar -czf bestfin-vX.Y.Z-linux-x64.tar.gz -C build/linux/x64/release/bundle .
-    ```
-5.  **Criar o release e anexar os binários:**
-    ```bash
-    gh release create vX.Y.Z --title "BestFin vX.Y.Z" --notes "..." \
-      build/app/outputs/flutter-apk/app-release.apk#bestfin-vX.Y.Z-android.apk \
-      bestfin-vX.Y.Z-linux-x64.tar.gz
-    ```
-    *   Para releases já existentes, anexe com `gh release upload vX.Y.Z <arquivos>`.
+Desde que o CI/CD foi introduzido, o fluxo é dividido em duas metades:
 
-### 6.2 Publicar Notificação de Atualização via Nostr
+* **Local** (`scripts/release.sh`): só bump de versão + commit + tag anotada + push. Não precisa mais do keystore Android nem da chave privada Nostr.
+* **CI** (`.github/workflows/release.yml`, disparado pelo push da tag `vX.Y.Z`): compila Android + Linux via Nix, cria o GitHub Release com os binários anexados e publica a notificação Nostr. Todos os secrets sensíveis vivem só no GitHub Actions — nunca no disco do dev.
 
-Após criar o release no GitHub, publique o evento de atualização para que todos os dispositivos com o app instalado recebam o banner de nova versão automaticamente:
-
-```bash
-BESTFIN_DEV_NOSTR_PRIVKEY=<privkey> \
-  nix develop -c dart run scripts/publish_update.dart \
-    --version X.Y.Z \
-    --changelog "Descrição resumida das mudanças" \
-    --download-url "https://github.com/user/bestfin/releases/tag/vX.Y.Z"
+```
+release.sh (local)              GitHub Actions (push da tag v*.*.*)
+──────────────────              ─────────────────────────────────
+1. bump versão                  build-android ─┐
+2. commit + tag + push  ──tag──▶                ├─▶ release (gh release create)
+                                 build-linux   ─┘        │
+                                                          ▼
+                                                   publish-nostr
 ```
 
-Adicione `--critical` quando o release contiver uma quebra de compatibilidade de schema (ex: migração de banco que builds mais antigos não conseguem ler) — o banner será exibido em vermelho nos dispositivos.
-
-> [!IMPORTANT]
-> A chave privada (`BESTFIN_DEV_NOSTR_PRIVKEY`) é um secret de CI e **nunca deve ser commitada no repositório**. A chave pública correspondente está embutida em `lib/core/constants/app_info.dart` (`kDeveloperNostrPubkey`). Para uso local, exporte a variável no shell antes de rodar o script.
-
-O script publica um evento `kind:30078 d-tag:app_update` (NIP-33, replaceable) em plain JSON nos relays Nostr padrão. O evento substitui automaticamente o anterior nos relays compatíveis com NIP-33, portanto o app sempre lê apenas a versão mais recente.
-
-### 6.3 Script de Release Automatizado
-
-O script `scripts/release.sh` executa todos os passos acima em sequência. Uso:
+### 6.1 Rodar um release
 
 ```bash
-BESTFIN_DEV_NOSTR_PRIVKEY=<privkey> ./scripts/release.sh X.Y.Z \
-  --changelog "Descrição das mudanças"
+./scripts/release.sh X.Y.Z --changelog "Descrição das mudanças"
+# ou deixando o script extrair as notas da seção "## Unreleased"/"## vX.Y.Z" do CHANGELOG.md:
+./scripts/release.sh X.Y.Z
+# ou com bump automático:
+./scripts/release.sh minor --auto-bump --changelog "Novas funcionalidades menores"
 ```
+
+O script cuida de:
+1.  **Versão** em `pubspec.yaml` (`version: X.Y.Z+build`).
+1b. **`kAppVersion`** em `lib/core/constants/app_info.dart`, sincronizado com o mesmo `X.Y.Z` (Configurações › Sobre lê essa constante — release sem isso é incompleto).
+2.  Rename `## Unreleased` → `## vX.Y.Z (data)` no `CHANGELOG.md`, se aplicável.
+3.  Commit + **tag anotada** `vX.Y.Z` + `git push` do commit e da tag. A mensagem da tag (`"critical"` ou `"release"`) é o sinal que o CI lê para decidir se o release é crítico.
 
 Flags opcionais:
 
 | Flag | Efeito |
 |---|---|
-| `--critical` | Marca como atualização crítica (banner vermelho no app) |
-| `--nostr-key-file <path>` | Lê a chave Nostr (hex) de um arquivo em vez da env var |
-| `--skip-build` | Pula compilação (usa binários já gerados) |
-| `--skip-nostr` | Pula publicação Nostr |
+| `--changelog <texto>` / `--changelog-file <path>` | Sobrepõe a extração automática do CHANGELOG.md |
+| `--critical` | Marca a tag como crítica → banner vermelho no GitHub Release e `--critical` no evento Nostr |
+| `--auto-bump` | Combinado com `patch\|minor\|major` em vez de X.Y.Z, calcula a versão a partir do `pubspec.yaml` atual |
 | `--dry-run` | Imprime os passos sem executar nada |
 
-> A env var `BESTFIN_DEV_NOSTR_PRIVKEY` aceita tanto o valor hex literal quanto um **caminho de arquivo** contendo a chave — o script detecta automaticamente se o valor é um arquivo existente e lê o conteúdo dele.
+O push da tag dispara o workflow. Acompanhe com `gh run watch` ou pela aba **Actions** no GitHub.
 
-O script cuida de: bump de versão nos dois arquivos (`pubspec.yaml` + `app_info.dart`), commit + tag + push, build Android + Linux, empacotamento do bundle Linux, criação do GitHub Release com binários e publicação da notificação Nostr.
+### 6.2 O que o CI faz (`.github/workflows/release.yml`)
 
-### 6.4 Checklist Manual (quando não usar o script)
+Disparado por `push: tags: ["v*.*.*"]`. Jobs, em ordem de dependência:
+
+1.  **`build-android`** e **`build-linux`** (paralelos): compilam via `nix develop .#ci -c flutter build apk|linux --release`. O keystore é reconstruído a partir dos secrets `ANDROID_KEYSTORE_BASE64` (base64 do `.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`.
+2.  **`release`**: baixa os dois artefatos, extrai as notas da seção `## vX.Y.Z` do `CHANGELOG.md` (via `scripts/extract_changelog.sh`), lê a mensagem da tag para saber se é crítico, e roda `gh release create` anexando o APK e o `.tar.gz` do Linux.
+3.  **`publish-nostr`**: roda `nix develop .#ci -c dart run scripts/publish_update.dart` com a chave do secret `BESTFIN_DEV_NOSTR_PRIVKEY`, usando as notas e a flag `--critical` vindas do job anterior.
+
+`devShells.ci` (`flake.nix`) é uma variante enxuta do devShell de desenvolvimento — sem emulator Android, zenity, llama-cpp, python ou o toolkit de MCP — usada só pelo CI para manter o cache do Nix Store pequeno. O cache do `/nix/store` entre execuções usa `nix-community/cache-nix-action` (wrapper sobre `actions/cache`, sem serviço externo), chaveado pelo hash de `flake.lock`.
+
+> O evento Nostr é `kind:30078 d-tag:app_update` (NIP-33, replaceable) — reexecutar o job `publish-nostr` (ex: após uma falha) não duplica nada, só substitui o evento anterior nos relays.
+
+### 6.3 Secrets necessários no GitHub
+
+Configure com `gh secret set <NOME>` (ou pela aba Settings › Secrets and variables › Actions do repo):
+
+| Secret | Conteúdo |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 android/bestfin-release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | `storePassword` do `android/key.properties` |
+| `ANDROID_KEY_PASSWORD` | `keyPassword` do `android/key.properties` |
+| `ANDROID_KEY_ALIAS` | `keyAlias` do `android/key.properties` (`bestfin`) |
+| `BESTFIN_DEV_NOSTR_PRIVKEY` | Chave privada Nostr (hex ou nsec) — a mesma cuja pubkey está em `kDeveloperNostrPubkey` |
+
+`GITHUB_TOKEN`/`github.token` já é automático — não precisa de secret próprio para `gh release create`.
+
+### 6.4 Checklist Manual (quando não usar o script/CI)
 
 1. [ ] Bumpar `version` em `pubspec.yaml` (X.Y.Z+build)
 2. [ ] Atualizar `kAppVersion` em `lib/core/constants/app_info.dart`
-3. [ ] Commit + tag `vX.Y.Z` + push do commit e da tag
-4. [ ] `nix develop -c flutter build apk --release`
-5. [ ] `nix develop -c flutter build linux --release`
+3. [ ] Commit + tag anotada `vX.Y.Z` + push do commit e da tag
+4. [ ] `nix develop .#ci -c flutter build apk --release`
+5. [ ] `nix develop .#ci -c flutter build linux --release`
 6. [ ] `tar -czf bestfin-vX.Y.Z-linux-x64.tar.gz -C build/linux/x64/release/bundle .`
 7. [ ] `gh release create vX.Y.Z ...` com APK e `.tar.gz` anexados
 8. [ ] Publicar notificação Nostr via `scripts/publish_update.dart`
 
 ### 6.5 Observações
-*   O APK de release é assinado com `android/bestfin-release.jks` via `android/key.properties` (ambos fora do Git). Garanta que essas credenciais existam localmente antes de compilar.
-*   Nomeie os artefatos com a versão e a plataforma (ex: `bestfin-v1.0.6-android.apk`, `bestfin-v1.0.6-linux-x64.tar.gz`) — o script cuida disso automaticamente.
-*   A chave privada Nostr (`BESTFIN_DEV_NOSTR_PRIVKEY`) nunca deve ser commitada; guarde-a como secret no CI (GitHub Actions) e exporte localmente antes de rodar o script.
+*   `android/key.properties` e `*.jks` estão no `.gitignore` — nunca commitar. Necessários só localmente se você quiser compilar um APK assinado fora do CI.
+*   Nomeie os artefatos com a versão e a plataforma (ex: `bestfin-v1.0.6-android.apk`, `bestfin-v1.0.6-linux-x64.tar.gz`) — o workflow cuida disso automaticamente.
+*   A chave privada Nostr (`BESTFIN_DEV_NOSTR_PRIVKEY`) nunca deve ser commitada nem exportada localmente — vive só como secret do GitHub Actions (ver 6.3).
