@@ -1,23 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/notifications/notification_service.dart';
-import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
 
-class NotificationPermissionStep extends ConsumerStatefulWidget {
+class NotificationPermissionStep extends StatefulWidget {
   const NotificationPermissionStep({super.key, required this.onNext});
 
   final VoidCallback onNext;
 
   @override
-  ConsumerState<NotificationPermissionStep> createState() =>
+  State<NotificationPermissionStep> createState() =>
       _NotificationPermissionStepState();
 }
 
 class _NotificationPermissionStepState
-    extends ConsumerState<NotificationPermissionStep> {
+    extends State<NotificationPermissionStep> {
   bool _requesting = false;
 
   Future<void> _enableNotifications() async {
@@ -28,9 +26,6 @@ class _NotificationPermissionStepState
         // Permissão de EXIBIR notificações (POST_NOTIFICATIONS, Android 13+)
         // — diálogo do sistema, necessário para lembretes e alertas.
         await requestAndroidNotificationPermission();
-        // Acesso de LEITURA de notificações (captura de transações) — abre
-        // a tela de configurações do sistema.
-        await ref.read(androidNotificationServiceProvider).requestPermission();
       }
     } finally {
       if (mounted) {
@@ -74,9 +69,7 @@ class _NotificationPermissionStepState
           ),
           const SizedBox(height: 12),
           Text(
-            Platform.isAndroid
-                ? 'Capture transações automaticamente a partir de notificações do seu banco.'
-                : 'Receba lembretes de contas a vencer, alertas de gastos e resumos financeiros.',
+            'Receba lembretes de contas a vencer, alertas de gastos e resumos financeiros.',
             textAlign: TextAlign.center,
             style: tt.bodyLarge?.copyWith(
               color: cs.onSurfaceVariant,
@@ -108,32 +101,7 @@ class _NotificationPermissionStepState
             tt: tt,
           ),
           const Spacer(),
-          if (Platform.isLinux)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    color: cs.onSurfaceVariant,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Captura de notificações disponível apenas no Android.',
-                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
+          if (Platform.isAndroid)
             AppButton(
               label: 'Habilitar Notificações',
               icon: Icons.notifications_rounded,

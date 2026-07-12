@@ -62,14 +62,8 @@ enum NavShortcut {
   suggestions(
     id: 'suggestions',
     label: 'Sugestões',
-    icon: Icons.notifications_active_outlined,
-    route: '/notifications/review',
-  ),
-  notificationCapture(
-    id: 'notificationCapture',
-    label: 'Captura de notificações',
-    icon: Icons.tune_rounded,
-    route: '/notifications/settings',
+    icon: Icons.pending_actions_rounded,
+    route: '/transactions/pending',
   ),
   pdfImport(
     id: 'pdfImport',

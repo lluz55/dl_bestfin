@@ -3,7 +3,7 @@ type: Task Index
 title: "BestFin — Índice de Tarefas"
 description: "Status e progresso de todas as tarefas do projeto. Consultar antes de iniciar qualquer implementação (Passo 3 do protocolo OKF)."
 tags: [bestfin, tasks, tracking]
-timestamp: 2026-07-11T12:00:00Z
+timestamp: 2026-07-12T12:00:00Z
 ---
 
 # Índice de Tarefas
@@ -31,7 +31,7 @@ timestamp: 2026-07-11T12:00:00Z
 | 12 | [Objetivos Financeiros](12-goals.md) | ✅ | 18/18 |
 | 13 | [Relatórios e Gráficos](13-reports.md) | ✅ | 26/26 |
 | 14 | [Export e Backup](14-export.md) | ✅ | 31/31 |
-| 15 | [Captura de Notificações](15-notifications.md) | ✅ | 28/28 |
+| 15 | [Captura de Notificações](15-notifications.md) — removida 2026-07-12 | ✅ | 28/28 |
 | 16 | [Investimentos e Financiamentos](16-investments-financing.md) | ✅ | 37/37 |
 | 17 | [Gamificação](17-gamification.md) | ✅ | 30/31 |
 | 19 | [Sync Multi-Dispositivo e Colaboração](19-sync-collaboration.md) | ⬜ | 0/2 |
@@ -67,6 +67,8 @@ timestamp: 2026-07-11T12:00:00Z
 | 50 | [Perf — Dashboard em isolate e badges](50-perf-dashboard-isolate-e-badges.md) | ✅ | 8/8 |
 | 51 | [OKF para o opencode](51-okf-opencode.md) | ✅ | 8/8 |
 | 52 | [Padronização dos modais bottom sheet](52-padronizacao-modais-bottom-sheet.md) | ✅ | 10/10 |
+| 53 | [Padronização do SectionHeader](53-padronizacao-section-header.md) | ✅ | 10/10 |
+| 54 | [Priorizar nome da categoria sobre tags de tipo/sistema quando há truncamento](54-category-name-truncation.md) | ✅ | 3/3 |
 
 **Observações:**
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).

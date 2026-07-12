@@ -30,9 +30,17 @@ Em `main.dart` (`initState`), o provider `generateRecurringProvider` é lido. El
 
 `daily`, `weekly`, `biweekly`, `monthly`, `bimonthly`, `quarterly`, `semiannual`, `annual`
 
+## Confirmação Automática (`autoConfirm`)
+
+Cada regra tem um toggle `autoConfirm` (`recurring_wizard_sheet.dart`). Quando
+desligado, as ocorrências geradas nascem com `isConfirmed: false` e
+`isCompleted: false` (exceto transferências, sempre `false` nesses campos) —
+ver `recurring_rules_dao.dart`. Essas transações só aparecem na fila de
+"Sugestões" (ver [Transações](transactions.md) — seção Fila de Confirmação) até
+o usuário confirmar ou descartar.
+
 ## Dependências
 
-- [Transações](transactions.md) — gera `Transaction` para cada ocorrência
+- [Transações](transactions.md) — gera `Transaction` para cada ocorrência; fila de confirmação quando `autoConfirm: false`
 - [Contas](accounts.md) — conta de débito da regra
 - [Categorias](categories.md) — categoria da transação gerada
-- [LLM](llm.md) — detector de redundância planejado (Task 25 A2)

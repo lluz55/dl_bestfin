@@ -33,9 +33,6 @@ class ExportJsonUseCase {
     final installmentPlans = await _db.select(_db.installmentPlans).get();
     final investments = await _db.select(_db.investments).get();
     final invoices = await _db.select(_db.invoices).get();
-    final notificationPatterns = await _db
-        .select(_db.notificationPatterns)
-        .get();
     final recurringRules = await _db.select(_db.recurringRules).get();
     final streaks = await _db.select(_db.streaks).get();
     final transactions = await _db.select(_db.transactions).get();
@@ -67,9 +64,6 @@ class ExportJsonUseCase {
       'installment_plans': installmentPlans.map((x) => x.toJson()).toList(),
       'investments': investments.map((x) => x.toJson()).toList(),
       'invoices': invoices.map((x) => x.toJson()).toList(),
-      'notification_patterns': notificationPatterns
-          .map((x) => x.toJson())
-          .toList(),
       'recurring_rules': recurringRules.map((x) => x.toJson()).toList(),
       'streaks': streaks.map((x) => x.toJson()).toList(),
       'transactions': transactions.map((x) => x.toJson()).toList(),

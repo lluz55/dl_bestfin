@@ -42,6 +42,9 @@ Permite ao usuário registrar, editar, excluir e visualizar transações finance
 | `updateTransactionProvider` | idem |
 | `deleteTransactionProvider` | idem |
 | `deleteTransactionsProvider` | idem — exclusão em massa (seleção múltipla) |
+| `suggestedTransactionsProvider` | idem — stream de transações com `isConfirmed == false` |
+| `confirmSuggestionProvider` | idem — marca `isConfirmed = true` |
+| `discardSuggestionProvider` | idem — descarta (delega para `deleteTransactionProvider`) |
 
 ## Use Cases
 
@@ -103,6 +106,23 @@ vários lançamentos de uma vez:
   `_deleteSingleTx` (desfaz impacto em metas, remove entries, enfileira sync). Os
   saldos das contas — derivados das entries via stream — e os totais do período
   recalculam sozinhos assim que o stream re-emite. Não há recálculo manual.
+
+## Fila de Confirmação ("Sugestões")
+
+`presentation/screens/review_queue_screen.dart` + `presentation/widgets/suggestion_card.dart`
+mostram as transações com `isConfirmed == false` para o usuário confirmar, editar ou
+descartar. Rota `/transactions/pending`.
+
+A única origem atual dessas transações é [Recorrências](recurring.md) com
+`autoConfirm: false` — a regra gera a ocorrência já como `isConfirmed: false` e ela
+aparece aqui até o usuário confirmar (`confirmSuggestionProvider`) ou descartar
+(`discardSuggestionProvider`, que só chama `deleteTransaction`).
+
+> Histórico: esta tela também servia à captura automática de transações via
+> notificações bancárias (`NotificationListenerService`), removida em 2026-07-12 —
+> o Google Play Protect sinalizava o app por esse comportamento (permissão de
+> leitura de notificações do sistema + boot receiver), um padrão idêntico ao de
+> trojans bancários. Ver `docs/tasks/15-notifications.md`.
 
 ## Integração LLM
 

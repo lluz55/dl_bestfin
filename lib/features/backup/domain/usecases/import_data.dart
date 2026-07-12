@@ -380,7 +380,6 @@ class ImportDataUseCase {
       await _db.delete(_db.recurringRules).go();
       await _db.delete(_db.installmentPlans).go();
       await _db.delete(_db.goals).go();
-      await _db.delete(_db.notificationPatterns).go();
       await _db.delete(_db.holidays).go();
       await _db.delete(_db.entities).go();
       await _db.delete(_db.accounts).go();
@@ -397,8 +396,6 @@ class ImportDataUseCase {
       final accountsList = decoded['accounts'] as List? ?? [];
       final entitiesList = decoded['entities'] as List? ?? [];
       final holidaysList = decoded['holidays'] as List? ?? [];
-      final notificationPatternsList =
-          decoded['notification_patterns'] as List? ?? [];
       final goalsList = decoded['goals'] as List? ?? [];
       final installmentPlansList = decoded['installment_plans'] as List? ?? [];
       final recurringRulesList = decoded['recurring_rules'] as List? ?? [];
@@ -441,11 +438,6 @@ class ImportDataUseCase {
       }
       for (final item in holidaysList) {
         await _db.into(_db.holidays).insert(Holiday.fromJson(item));
-      }
-      for (final item in notificationPatternsList) {
-        await _db
-            .into(_db.notificationPatterns)
-            .insert(NotificationPattern.fromJson(item));
       }
       for (final item in goalsList) {
         await _db.into(_db.goals).insert(Goal.fromJson(item));

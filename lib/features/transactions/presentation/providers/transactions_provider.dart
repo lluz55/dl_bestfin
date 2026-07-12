@@ -311,3 +311,28 @@ final allTransactionsStreamProvider = StreamProvider<List<TransactionModel>>((
   final repository = ref.watch(transactionRepositoryProvider);
   return repository.watchAllTransactions();
 });
+
+// ── Fila de confirmação (transações geradas por recorrências sem
+// auto-confirmação — `isConfirmed == false`) ────────────────────────────────
+
+final suggestedTransactionsProvider = StreamProvider<List<TransactionModel>>((
+  ref,
+) {
+  return ref.watch(transactionRepositoryProvider).watchSuggestedTransactions();
+});
+
+final confirmSuggestionProvider = Provider<Future<void> Function(String)>((
+  ref,
+) {
+  return (String id) async {
+    await ref.read(transactionRepositoryProvider).confirmSuggestion(id);
+  };
+});
+
+final discardSuggestionProvider = Provider<Future<void> Function(String)>((
+  ref,
+) {
+  return (String id) async {
+    await ref.read(transactionRepositoryProvider).deleteTransaction(id);
+  };
+});

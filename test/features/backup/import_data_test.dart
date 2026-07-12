@@ -157,7 +157,6 @@ void main() {
           ],
           'entities': [],
           'holidays': [],
-          'notification_patterns': [],
           'goals': [],
           'installment_plans': [],
           'recurring_rules': [],

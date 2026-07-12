@@ -48,7 +48,6 @@ BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) 
 * [Financiamentos](features/financing.md) - Financiamentos com tabela Price
 * [Relatórios](features/reports.md) - Sankey, waterfall, heatmap, fluxo de caixa
 * [LLM On-device](features/llm.md) - llama.cpp, chat, insights, categorização
-* [Notificações](features/notifications.md) - Captura automática de transações
 * [Importação PDF](features/pdf-import.md) - Parsers Nubank, BB e fallback LLM
 * [Gamificação](features/gamification.md) - Streaks e badges
 * [Backup & Export](features/backup.md) - CSV, JSON, PDF, importação

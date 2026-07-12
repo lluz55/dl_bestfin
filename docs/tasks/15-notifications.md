@@ -1,5 +1,21 @@
 # Tarefa 15 — Captura de Notificações
 
+> **REMOVIDO (2026-07-12):** a captura automática via `NotificationListenerService`
+> (Android) e D-Bus (Linux) descrita abaixo foi removida do repositório. O Google
+> Play Protect sinalizava o app: o serviço declarado no Manifest + permissão
+> `BIND_NOTIFICATION_LISTENER_SERVICE` + boot receiver é um padrão comportamental
+> idêntico ao de trojans bancários (leitura de notificações de todo o sistema,
+> incluindo OTPs/2FA), independente de o app realmente abusar disso. A fila de
+> "Sugestões" (revisar/confirmar/descartar) foi **mantida**, pois também é usada
+> por recorrências com `autoConfirm: false` — ver
+> [`docs/okf/features/transactions.md`](../okf/features/transactions.md) (seção
+> Fila de Confirmação). Removidos: `android_notification_service.dart`,
+> `linux_notification_service.dart`, `notification_parser.dart`,
+> `notification_pattern.dart`, tabela Drift `notification_patterns`,
+> `notification_settings_screen.dart`, `pattern_editor.dart`,
+> `notification_repository.dart`, dependência `notification_listener_service`.
+> Este arquivo é mantido como histórico.
+
 > **Fase:** 3 — Automação
 > **Prioridade:** 🟡 Alta
 > **Estimativa:** Grande

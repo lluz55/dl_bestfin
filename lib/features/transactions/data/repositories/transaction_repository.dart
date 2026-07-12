@@ -59,21 +59,13 @@ abstract class TransactionRepository {
     String groupId,
     List<BulkTransactionItem> items,
   );
-  Future<String> createSuggestion({
-    required DateTime date,
-    required String description,
-    required String type,
-    required int amountInCents,
-    required String accountId,
-    String? categoryId,
-    String? merchant,
-  });
   Future<void> confirmSuggestion(String id);
 
   /// Marca uma transação pendente (futura, `isCompleted == false`) como
   /// concluída — ex.: uma parcela de recorrência ainda não paga. Diferente de
-  /// [confirmSuggestion], que resolve sugestões vindas de notificação, esta
-  /// ação fica disponível para qualquer transação pendente na UI principal.
+  /// [confirmSuggestion], que resolve sugestões geradas por recorrências sem
+  /// auto-confirmação, esta ação fica disponível para qualquer transação
+  /// pendente na UI principal.
   Future<void> markAsPaid(String id);
   Future<void> updateTransaction({
     required String id,
@@ -464,51 +456,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
       entries: entries,
       recurringRuleId: rule?.id,
     );
-  }
-
-  @override
-  Future<String> createSuggestion({
-    required DateTime date,
-    required String description,
-    required String type,
-    required int amountInCents,
-    required String accountId,
-    String? categoryId,
-    String? merchant,
-  }) async {
-    final transactionId = const Uuid().v4();
-
-    await _database.transaction(() async {
-      await _database
-          .into(_database.transactions)
-          .insert(
-            db.TransactionsCompanion.insert(
-              id: transactionId,
-              date: date,
-              description: description,
-              type: type,
-              categoryId: Value(categoryId),
-              isCompleted: const Value(false),
-              isConfirmed: const Value(false),
-              source: const Value('notification'),
-            ),
-          );
-
-      final entryType = type == 'income' ? 'debit' : 'credit';
-      await _database
-          .into(_database.entries)
-          .insert(
-            db.EntriesCompanion.insert(
-              id: const Uuid().v4(),
-              transactionId: transactionId,
-              accountId: accountId,
-              amount: amountInCents,
-              type: entryType,
-            ),
-          );
-    });
-
-    return transactionId;
   }
 
   @override

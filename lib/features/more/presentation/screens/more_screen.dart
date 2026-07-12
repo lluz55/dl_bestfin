@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/section_header.dart';
 import 'package:bestfin/features/accounts/presentation/screens/accounts_list_screen.dart';
 import 'package:bestfin/features/backup/presentation/screens/backup_screen.dart';
 import 'package:bestfin/features/budgets/presentation/screens/budgets_list_screen.dart';
@@ -13,8 +14,7 @@ import 'package:bestfin/features/financing/presentation/screens/financing_list_s
 import 'package:bestfin/features/gamification/presentation/screens/gamification_hub_screen.dart';
 import 'package:bestfin/features/goals/presentation/screens/goals_list_screen.dart';
 import 'package:bestfin/features/investments/presentation/screens/portfolio_screen.dart';
-import 'package:bestfin/features/notifications/presentation/screens/notification_settings_screen.dart';
-import 'package:bestfin/features/notifications/presentation/screens/review_queue_screen.dart';
+import 'package:bestfin/features/transactions/presentation/screens/review_queue_screen.dart';
 import 'package:bestfin/features/pdf_import/presentation/screens/pdf_import_screen.dart';
 import 'package:bestfin/features/recurring/presentation/screens/recurring_list_screen.dart';
 import 'package:bestfin/features/settings/presentation/screens/settings_screen.dart';
@@ -107,7 +107,7 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.account_balance_wallet_rounded,
           label: 'Orçamento',
           route: '/budgets',
-          colorFn: (_) => const Color(0xFF4CAF50),
+          colorFn: (cs) => cs.tertiary,
           buildScreen: () => const BudgetsListScreen(),
         ),
         _MoreItem(
@@ -148,7 +148,7 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.emoji_events_rounded,
           label: 'Conquistas',
           route: '/gamification',
-          colorFn: (_) => Colors.orange,
+          colorFn: (cs) => cs.primary,
           buildScreen: () => const GamificationHubScreen(),
         ),
       ],
@@ -157,16 +157,10 @@ class MoreScreen extends StatelessWidget {
       title: 'Automação',
       items: [
         _MoreItem(
-          icon: Icons.notifications_active_outlined,
+          icon: Icons.pending_actions_rounded,
           label: 'Sugestões',
-          route: '/notifications/review',
+          route: '/transactions/pending',
           buildScreen: () => const ReviewQueueScreen(),
-        ),
-        _MoreItem(
-          icon: Icons.tune_rounded,
-          label: 'Captura de notificações',
-          route: '/notifications/settings',
-          buildScreen: () => const NotificationSettingsScreen(),
         ),
         _MoreItem(
           icon: Icons.picture_as_pdf_rounded,
@@ -267,7 +261,7 @@ class _MenuColumnBody extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
         for (var i = 0; i < sections.length; i++) ...[
-          _SectionHeader(title: sections[i].title, isFirst: i == 0),
+          SectionHeader(title: sections[i].title, isFirst: i == 0),
           if (sections[i].isGrid)
             _MenuGrid(
               items: [
@@ -333,7 +327,7 @@ class _MoreMasterDetailState extends State<_MoreMasterDetail> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
               for (var s = 0; s < widget.sections.length; s++) ...[
-                _SectionHeader(
+                SectionHeader(
                   title: widget.sections[s].title,
                   isFirst: s == 0,
                 ),
@@ -421,31 +415,6 @@ class _MasterNavTile extends StatelessWidget {
 
 // ─── Widgets do menu mobile ──────────────────────────────────────────────────
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.isFirst = false});
-
-  final String title;
-  final bool isFirst;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colorScheme;
-    final tt = context.textTheme;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(4, isFirst ? 4 : 16, 4, 8),
-      child: Text(
-        title,
-        style: tt.titleSmall?.copyWith(
-          color: cs.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
 class _MenuGrid extends StatelessWidget {
   const _MenuGrid({required this.items});
 
@@ -503,8 +472,8 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
+    final cs = context.colorScheme;
+    final tt = context.textTheme;
 
     return GestureDetector(
       onTap: onTap,
@@ -555,7 +524,7 @@ class _MenuList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        color: context.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,

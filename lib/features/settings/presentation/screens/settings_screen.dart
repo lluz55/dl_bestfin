@@ -17,6 +17,8 @@ import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/utils/adaptive_modal.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
+import 'package:bestfin/core/widgets/section_header.dart';
+import 'package:bestfin/core/theme/custom_seed_provider.dart';
 import 'package:bestfin/core/theme/theme_provider.dart';
 import 'package:bestfin/core/theme/theme_settings_sheet.dart';
 import 'package:bestfin/features/onboarding/presentation/providers/onboarding_provider.dart';
@@ -183,7 +185,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await db.delete(db.goalCategories).go();
         await db.delete(db.goals).go();
         await db.delete(db.budgets).go();
-        await db.delete(db.notificationPatterns).go();
         await db.delete(db.holidays).go();
         await db.delete(db.entities).go();
         await db.delete(db.reconciliationCheckpoints).go();
@@ -271,9 +272,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(tutorialSeenProvider.notifier).set(false);
     ref.read(isLockedProvider.notifier).unlock();
 
+    // Limpa o SharedPreferences ANTES de invalidar os providers abaixo: tema,
+    // cor semente, atalhos do dashboard e widgets da home recarregam seu
+    // estado a partir do SharedPreferences dentro do próprio `build()`. Se o
+    // invalidate rodasse antes do clear (como antes), o reload liam os valores
+    // antigos ainda presentes no disco e o "reset" era só cosmético — o app
+    // parecia limpo até o próximo restart, quando os providers recarregavam
+    // do zero e traziam o tema antigo de volta.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (e) {
+      debugPrint('[ClearAll] prefs.clear falhou: $e');
+    }
+
     // Invalidate providers to force them to reload from the cleared state
     ref.invalidate(onboardingAccountDraftProvider);
     ref.invalidate(themeProvider);
+    ref.invalidate(customSeedProvider);
     ref.invalidate(valuesHiddenProvider);
     ref.invalidate(alwaysHideValuesProvider);
     ref.invalidate(homeWidgetsProvider);
@@ -293,12 +309,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await SecurityActions.clearPin();
       } catch (e) {
         debugPrint('[ClearAll] clearPin falhou: $e');
-      }
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
-      } catch (e) {
-        debugPrint('[ClearAll] prefs.clear falhou: $e');
       }
       if (profilePhotoPath != null) {
         try {
@@ -393,8 +403,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return [
       _SettingsSection(
         title: 'Perfil',
-        cs: cs,
-        tt: tt,
         tiles: [
           _ProfileTile(
             cs: cs,
@@ -410,8 +418,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       _SettingsSection(
         title: 'Aparência',
-        cs: cs,
-        tt: tt,
         tiles: [
           _SettingsTile(
             icon: Icons.palette_outlined,
@@ -430,8 +436,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       _SettingsSection(
         title: 'Privacidade',
-        cs: cs,
-        tt: tt,
         tiles: [
           _SettingsTile(
             icon: Icons.visibility_off_outlined,
@@ -450,8 +454,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (_biometricsAvailable)
         _SettingsSection(
           title: 'Segurança',
-          cs: cs,
-          tt: tt,
           tiles: [
             _SettingsTile(
               icon: Icons.fingerprint_rounded,
@@ -479,8 +481,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       _SettingsSection(
         title: 'Transações',
-        cs: cs,
-        tt: tt,
         tiles: [
           _DefaultAccountTile(
             cs: cs,
@@ -497,8 +497,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       _SettingsSection(
         title: 'Notificações',
-        cs: cs,
-        tt: tt,
         tiles: [
           _SettingsTile(
             icon: Icons.notifications_active_outlined,
@@ -536,8 +534,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       _SettingsSection(
         title: 'Dados',
-        cs: cs,
-        tt: tt,
+
         tiles: [
           _SettingsTile(
             icon: Icons.import_export_rounded,
@@ -565,8 +562,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       _SettingsSection(
         title: 'Ajuda',
-        cs: cs,
-        tt: tt,
+
         tiles: [
           _SettingsTile(
             icon: Icons.school_outlined,
@@ -580,8 +576,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       _SettingsSection(
         title: 'Sobre',
-        cs: cs,
-        tt: tt,
+
         tiles: [
           _SettingsTile(
             icon: Icons.info_outline_rounded,
@@ -866,8 +861,8 @@ class _DefaultAccountTile extends ConsumerWidget {
     showAdaptiveModal<void>(
       context: context,
       builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        final tt = Theme.of(ctx).textTheme;
+        final cs = ctx.colorScheme;
+        final tt = ctx.textTheme;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -1071,14 +1066,10 @@ class _SettingsSection extends StatelessWidget {
   const _SettingsSection({
     required this.title,
     required this.tiles,
-    required this.cs,
-    required this.tt,
   });
 
   final String title;
   final List<Widget> tiles;
-  final ColorScheme cs;
-  final TextTheme tt;
 
   @override
   Widget build(BuildContext context) {
@@ -1086,36 +1077,9 @@ class _SettingsSection extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(title: title, tt: tt, cs: cs),
+        SectionHeader(title: title),
         ...tiles,
       ],
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    required this.tt,
-    required this.cs,
-  });
-
-  final String title;
-  final TextTheme tt;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-      child: Text(
-        title,
-        style: tt.labelLarge?.copyWith(
-          color: cs.primary,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
-      ),
     );
   }
 }

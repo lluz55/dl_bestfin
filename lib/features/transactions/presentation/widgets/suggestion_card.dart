@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/utils/currency_formatter.dart';
-import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transaction_form_modal_provider.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 
 class SuggestionCard extends ConsumerWidget {
   final TransactionModel suggestion;
@@ -42,7 +42,7 @@ class SuggestionCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    Icons.notifications_rounded,
+                    Icons.repeat_rounded,
                     size: 20,
                     color: cs.onTertiaryContainer,
                   ),

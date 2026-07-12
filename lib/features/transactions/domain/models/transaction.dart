@@ -137,8 +137,8 @@ class TransactionModel {
   }
 
   /// Status derivado de [isCompleted] e [date] — não confundir com
-  /// [isConfirmed], que distingue transações revisadas de sugestões vindas
-  /// de notificação.
+  /// [isConfirmed], que distingue transações revisadas de sugestões geradas
+  /// por recorrências sem auto-confirmação.
   TransactionStatus get status =>
       TransactionStatus.fromFlags(isCompleted: isCompleted, date: date);
 

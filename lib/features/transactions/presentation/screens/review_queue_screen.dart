@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
-import 'package:bestfin/features/notifications/presentation/providers/notification_provider.dart';
-import 'package:bestfin/features/notifications/presentation/widgets/suggestion_card.dart';
+import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
+import 'package:bestfin/features/transactions/presentation/widgets/suggestion_card.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 
 class ReviewQueueScreen extends ConsumerStatefulWidget {
@@ -29,9 +29,9 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
       backgroundColor: cs.surface,
       appBar: AppPageAppBar(
         title: 'Sugestões',
-        infoDescription: 'Revise as transações capturadas automaticamente a partir de notificações bancárias. Confirme, edite ou descarte cada sugestão antes de importá-las.',
+        infoDescription: 'Revise as transações geradas automaticamente por recorrências sem confirmação automática. Confirme, edite ou descarte cada sugestão antes de importá-las.',
         infoFeatures: [
-          'Captura automática de notificações',
+          'Geradas por recorrências sem auto-confirmação',
           'Confirmação individual ou em lote',
           'Edição antes de importar',
         ],
@@ -217,7 +217,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none_rounded, size: 64, color: cs.outline),
+            Icon(Icons.pending_actions_rounded, size: 64, color: cs.outline),
             const SizedBox(height: 16),
             Text(
               'Nenhuma sugestão pendente',
@@ -226,7 +226,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Transações capturadas de notificações bancárias aparecerão aqui para você revisar.',
+              'Transações de recorrências sem auto-confirmação aparecerão aqui para você revisar.',
               style: tt.bodyMedium?.copyWith(color: cs.outline),
               textAlign: TextAlign.center,
             ),

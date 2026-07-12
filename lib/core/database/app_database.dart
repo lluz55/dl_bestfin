@@ -23,7 +23,6 @@ import 'tables/holidays.dart';
 import 'tables/installment_plans.dart';
 import 'tables/investments.dart';
 import 'tables/invoices.dart';
-import 'tables/notification_patterns.dart';
 import 'tables/recurring_rules.dart';
 import 'tables/scheduled_reminders.dart';
 import 'tables/transactions.dart';
@@ -49,7 +48,6 @@ import 'daos/financings_dao.dart';
 import 'daos/goals_dao.dart';
 import 'daos/investments_dao.dart';
 import 'daos/invoices_dao.dart';
-import 'daos/notification_patterns_dao.dart';
 import 'daos/recurring_rules_dao.dart';
 import 'daos/scheduled_reminders_dao.dart';
 import 'daos/transactions_dao.dart';
@@ -79,7 +77,6 @@ part 'app_database.g.dart';
     InstallmentPlans,
     Investments,
     Invoices,
-    NotificationPatterns,
     RecurringRules,
     ScheduledReminders,
     Transactions,
@@ -106,7 +103,6 @@ part 'app_database.g.dart';
     GoalsDao,
     InvestmentsDao,
     InvoicesDao,
-    NotificationPatternsDao,
     RecurringRulesDao,
     ScheduledRemindersDao,
     TransactionsDao,
@@ -125,7 +121,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration {
@@ -201,16 +197,6 @@ class AppDatabase extends _$AppDatabase {
         if (from < 5) {
           await m.addColumn(transactions, transactions.isConfirmed);
           await m.addColumn(transactions, transactions.source);
-          await m.addColumn(
-            notificationPatterns,
-            notificationPatterns.bankName,
-          );
-          await m.addColumn(
-            notificationPatterns,
-            notificationPatterns.isEnabled,
-          );
-          // Seed default bank patterns
-          await _seedDefaultNotificationPatterns();
         }
         if (from < 6) {
           await m.createTable(syncQueue);
@@ -244,8 +230,6 @@ class AppDatabase extends _$AppDatabase {
           await m.createIndex(goalsAccountIdx);
           await m.createIndex(installmentPlansOriginTransactionIdx);
           await m.createIndex(invoicesCreditCardIdx);
-          await m.createIndex(notificationPatternsCategoryIdx);
-          await m.createIndex(notificationPatternsAccountIdx);
           await m.createIndex(recurringRulesBaseTransactionIdx);
           await m.createIndex(transactionsConfirmedDateIdx);
           await m.createIndex(transactionsCategoryIdx);
@@ -365,6 +349,13 @@ class AppDatabase extends _$AppDatabase {
             "UPDATE budgets SET name = 'Orçamento' WHERE name = ''",
           );
         }
+        if (from < 25) {
+          // Feature de captura de notificações removida (Play Protect
+          // sinalizava BIND_NOTIFICATION_LISTENER_SERVICE como comportamento
+          // de trojan bancário). A fila de confirmação de recorrências sem
+          // auto-confirmação (isConfirmed=false) continua existindo.
+          await customStatement('DROP TABLE IF EXISTS notification_patterns');
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
@@ -400,87 +391,6 @@ class AppDatabase extends _$AppDatabase {
         await _seedDefaultStreaks();
       },
     );
-  }
-
-  Future<void> _seedDefaultNotificationPatterns() async {
-    const banks = [
-      (
-        'nubank',
-        'Nubank',
-        r'Compra aprovada de R\$\s*(?<amount>[\d.,]+)\s+em\s+(?<merchant>.+)',
-      ),
-      (
-        'nubank_2',
-        'Nubank',
-        r'Débito de R\$\s*(?<amount>[\d.,]+)\s+-\s*(?<merchant>.+)',
-      ),
-      (
-        'inter',
-        'Inter',
-        r'Débito R\$\s*(?<amount>[\d.,]+)\s*-\s*(?<merchant>.+)',
-      ),
-      (
-        'inter_pix',
-        'Inter',
-        r'PIX enviado de R\$\s*(?<amount>[\d.,]+)\s+para\s+(?<merchant>.+)',
-      ),
-      (
-        'itau',
-        'Itaú',
-        r'Compra no crédito de R\$\s*(?<amount>[\d.,]+)\s+em\s+(?<merchant>.+)',
-      ),
-      (
-        'itau_pix',
-        'Itaú',
-        r'Pix enviado: R\$\s*(?<amount>[\d.,]+)\s+para\s+(?<merchant>.+)',
-      ),
-      (
-        'bradesco',
-        'Bradesco',
-        r'Compra aprovada de R\$\s*(?<amount>[\d.,]+)\s+em\s+(?<merchant>.+)',
-      ),
-      (
-        'bradesco_pix',
-        'Bradesco',
-        r'Pix no valor de R\$\s*(?<amount>[\d.,]+)\s+enviado para\s+(?<merchant>.+)',
-      ),
-      (
-        'bb',
-        'Banco do Brasil',
-        r'Compra de R\$\s*(?<amount>[\d.,]+)\s+(?<merchant>.+)',
-      ),
-      (
-        'bb_pix',
-        'Banco do Brasil',
-        r'Pix enviado: R\$\s*(?<amount>[\d.,]+)\s+para\s+(?<merchant>.+)',
-      ),
-      (
-        'c6',
-        'C6 Bank',
-        r'Compra aprovada: R\$\s*(?<amount>[\d.,]+)\s+em\s+(?<merchant>.+)',
-      ),
-      (
-        'picpay',
-        'PicPay',
-        r'Você pagou R\$\s*(?<amount>[\d.,]+)\s+para\s+(?<merchant>.+)',
-      ),
-    ];
-
-    for (final (id, bankName, pattern) in banks) {
-      final exists = await (select(
-        notificationPatterns,
-      )..where((t) => t.id.equals('default_$id'))).getSingleOrNull();
-      if (exists == null) {
-        await into(notificationPatterns).insert(
-          NotificationPatternsCompanion.insert(
-            id: 'default_$id',
-            bankName: Value(bankName),
-            regexPattern: pattern,
-            isEnabled: const Value(true),
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _seedNewDefaultCategories() async {

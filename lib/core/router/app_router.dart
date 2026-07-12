@@ -36,8 +36,7 @@ import 'package:bestfin/features/investments/presentation/screens/investment_det
 import 'package:bestfin/features/financing/presentation/screens/financing_list_screen.dart';
 import 'package:bestfin/features/financing/presentation/screens/financing_form_screen.dart';
 import 'package:bestfin/features/financing/presentation/screens/financing_detail_screen.dart';
-import 'package:bestfin/features/notifications/presentation/screens/review_queue_screen.dart';
-import 'package:bestfin/features/notifications/presentation/screens/notification_settings_screen.dart';
+import 'package:bestfin/features/transactions/presentation/screens/review_queue_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/login_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/register_screen.dart';
 import 'package:bestfin/features/sync/presentation/screens/sync_settings_screen.dart';
@@ -353,14 +352,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: '/notifications/review',
+            path: '/transactions/pending',
             pageBuilder: (context, state) =>
                 _page(context, const ReviewQueueScreen()),
-          ),
-          GoRoute(
-            path: '/notifications/settings',
-            pageBuilder: (context, state) =>
-                _page(context, const NotificationSettingsScreen()),
           ),
           GoRoute(
             path: '/sync',

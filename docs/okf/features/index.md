@@ -26,7 +26,6 @@
 ## IA & Automação
 
 * [LLM On-device](llm.md) - Chat, insights, narrativas e categorização automática
-* [Notificações](notifications.md) - Captura automática e fila de revisão
 * [Importação PDF](pdf-import.md) - Parsers de extratos bancários
 
 ## App & Engajamento
