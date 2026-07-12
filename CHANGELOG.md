@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.13 (2026-07-12)
 
 ### Adicionado
 - Gerenciamento de segredos locais via SOPS + age: `secrets.enc.yaml` criptografado pode ser versionado no Git; o `shellHook` do `flake.nix` descriptografa automaticamente para `.env` e `android/key.properties` ao entrar no `nix develop` (usa chave `age` em `~/.config/sops/age/keys.txt` ou converte a chave SSH local via `ssh-to-age`)
