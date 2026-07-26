@@ -71,4 +71,3 @@ Future<List<Transaction>> transactionsByAccount(
 | `valuesHiddenProvider` | `core/providers/privacy_provider.dart` | Modo privacidade |
 | `defaultAccountProvider` | `core/providers/default_account_provider.dart` | Conta padrão |
 | `isLockedProvider` | `features/security/presentation/providers/security_provider.dart` | Lock screen |
-| `llmStateProvider` | `features/llm/presentation/providers/llm_provider.dart` | Estado do LLM |

@@ -60,7 +60,7 @@ Permite ao usuário registrar, editar, excluir e visualizar transações finance
 
 - [Contas](accounts.md) — para selecionar conta de origem/destino
 - [Categorias](categories.md) — para classificar a transação
-- [LLM](llm.md) — auto-categorização via `llmCategorizeProvider`
+- [Lançamento Rápido](quick-entry.md) — auto-categorização via recomendador estatístico (`predict_category`)
 - [Recorrências](recurring.md) — transações geradas automaticamente
 - [Cartões](credit-cards.md) — lança na fatura do cartão quando conta é do tipo crédito
 - [Gamificação](gamification.md) — atualiza streak ao criar transação
@@ -124,9 +124,11 @@ aparece aqui até o usuário confirmar (`confirmSuggestionProvider`) ou descarta
 > leitura de notificações do sistema + boot receiver), um padrão idêntico ao de
 > trojans bancários. Ver `docs/tasks/15-notifications.md`.
 
-## Integração LLM
+## Auto-categorização
 
-O formulário oferece auto-categorização: após preencher descrição, o `llmCategorizeProvider` sugere categoria. Implementado em `presentation/providers/llm_categorize_provider.dart`.
+Após preencher a descrição, um recomendador estatístico sugere a categoria mais provável a partir
+do histórico. Implementado em `domain/usecases/predict_category.dart` e exposto via
+`presentation/providers/quick_suggestions_provider.dart` (sem LLM — função pura e determinística).
 
 # Citations
 

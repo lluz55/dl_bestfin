@@ -51,4 +51,3 @@ Geração de relatórios financeiros avançados para análise de gastos, evoluç
 - [Transações](transactions.md) — dados base
 - [Contas](accounts.md) — patrimônio e saldos
 - [Investimentos](investments.md) — incluso no patrimônio
-- [LLM](llm.md) — narrativa planejada

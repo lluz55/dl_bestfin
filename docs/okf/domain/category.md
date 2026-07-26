@@ -34,9 +34,10 @@ timestamp: 2026-06-29T00:00:00Z
 
 Definidas em `lib/core/constants/default_categories.dart` — criadas automaticamente no onboarding.
 
-## Integração com LLM
+## Auto-categorização
 
-O LLM usa a lista de categorias para auto-categorização de transações. O contexto financeiro é construído em `lib/features/llm/domain/services/financial_context_builder.dart`.
+A lista de categorias alimenta o recomendador estatístico de categoria usado no lançamento
+rápido (`predict_category`), que sugere a categoria mais provável a partir do histórico.
 
 ## Arquivos
 

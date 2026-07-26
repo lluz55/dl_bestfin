@@ -34,4 +34,3 @@ Criadas no onboarding via `lib/core/constants/default_categories.dart`. Marcadas
 
 - [Domain Model: Categoria](../domain/category.md)
 - [Transações](transactions.md) — transações referenciam categoria
-- [LLM](llm.md) — lista de categorias é enviada ao LLM para auto-categorização
