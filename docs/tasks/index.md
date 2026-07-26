@@ -69,8 +69,24 @@ timestamp: 2026-07-12T12:00:00Z
 | 52 | [Padronização dos modais bottom sheet](52-padronizacao-modais-bottom-sheet.md) | ✅ | 10/10 |
 | 53 | [Padronização do SectionHeader](53-padronizacao-section-header.md) | ✅ | 10/10 |
 | 54 | [Priorizar nome da categoria sobre tags de tipo/sistema quando há truncamento](54-category-name-truncation.md) | ✅ | 3/3 |
+| 55 | [Higiene de dívida técnica — lints e APIs deprecadas](55-tech-debt-lint-hygiene.md) | ✅ | 6/6 |
+| 56 | [Metadados do pubspec e limpeza de artefatos](56-repo-metadata-cleanup.md) | 🔄 | 2/3 |
+| 57 | [Resolver branches obsoletas de AI/backend](57-resolve-stale-branches.md) | ✅ | 4/4 |
+| 58 | [Refatorar 'god files' (sync_service, transaction_repository)](58-refactor-god-files.md) | ⬜ | 0/4 |
+| 59 | [Perf — agregados incrementais no dashboard](59-perf-dashboard-incremental-aggregates.md) | ⬜ | 0/3 |
+| 60 | [Suporte a multi-moeda](60-multi-currency.md) | ⬜ | 0/5 |
+| 61 | [Internacionalização (i18n) real](61-i18n-localization.md) | ⬜ | 0/4 |
+| 62 | [Fortalecer categorização automática](62-strengthen-auto-categorization.md) | ⬜ | 0/4 |
+| 63 | [Cobertura de testes de widget/UI](63-widget-ui-test-coverage.md) | ⬜ | 0/4 |
+| 64 | [Auditoria de segurança do sync Nostr](64-sync-security-audit.md) | ⬜ | 0/4 |
+| 65 | [Métricas de cobertura e gates no CI](65-ci-coverage-gate.md) | ⬜ | 0/3 |
 
 **Observações:**
+* Tarefas 55–65 criadas em 2026-07-26 a partir de uma análise geral do projeto (sugestões de
+  melhorias, features e aprimoramentos). 55–57 são higiene de dívida técnica; 58–59 arquitetura/
+  perf; 60–62 features; 63–65 qualidade/segurança/CI.
+* Sugestão "fechar insights NLG e lançamento rápido" corresponde às tarefas **27** e **28**
+  (já existentes, ainda 🔄) — não foram duplicadas.
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).
 * Existem dois arquivos com o número 47; o segundo é referenciado como **47b**.
 * Tarefas 29, 30 e 32 estão com todos os checkboxes marcados mas `status: in_progress`
