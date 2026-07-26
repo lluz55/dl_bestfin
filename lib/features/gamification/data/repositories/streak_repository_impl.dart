@@ -1,6 +1,6 @@
-import '../../../../core/database/daos/streaks_dao.dart';
-import '../../domain/models/streak.dart';
-import '../../domain/repositories/streak_repository.dart';
+import 'package:bestfin/core/database/daos/streaks_dao.dart';
+import 'package:bestfin/features/gamification/domain/models/streak.dart';
+import 'package:bestfin/features/gamification/domain/repositories/streak_repository.dart';
 
 class StreakRepositoryImpl implements StreakRepository {
   final StreaksDao _streaksDao;

@@ -132,7 +132,7 @@ class _GoalsListScreenState extends ConsumerState<GoalsListScreen>
             title: 'Metas',
             showVisibilityToggle: true,
             infoDescription: 'Defina metas financeiras com valor alvo e prazo, acompanhe o progresso e mantenha o foco nos seus objetivos.',
-            infoFeatures: [
+            infoFeatures: const [
               'Metas com valor alvo e data limite',
               'Acompanhamento de progresso',
               'Celebração ao atingir a meta',

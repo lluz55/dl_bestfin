@@ -154,7 +154,9 @@ class _BackupViewState extends ConsumerState<BackupView> {
       final tempDir = await getTemporaryDirectory();
       final file = File(pJoin(tempDir.path, fileName));
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)], subject: shareSubject);
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], subject: shareSubject),
+      );
     } else {
       final savePath = await FilePicker.platform.saveFile(
         dialogTitle: 'Salvar arquivo',
@@ -532,7 +534,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
           children: [
             _buildPreviewRow(
               'Exportado em:',
-              '${_formatIsoString(preview['exported_at'])}',
+              _formatIsoString(preview['exported_at']),
             ),
             if (preview['schema_version'] != null)
               _buildPreviewRow(
@@ -590,6 +592,7 @@ class _BackupViewState extends ConsumerState<BackupView> {
       if (result == null || result.files.single.path == null) return;
 
       final filePath = result.files.single.path!;
+      if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) {

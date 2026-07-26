@@ -24,7 +24,7 @@ final activeAccountsProvider = Provider<List<Account>>((ref) {
   return accountsAsync.when(
     data: (list) => list.where((a) => a.isActive).toList(),
     loading: () => [],
-    error: (_, __) => [],
+    error: (_, _) => [],
   );
 });
 

@@ -50,7 +50,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     _PaymentType paymentType = _PaymentType.full;
     int paymentAmountCents = invoice.totalAmount;
 
-    int _calcAmount(_PaymentType type) => switch (type) {
+    int calcAmount(_PaymentType type) => switch (type) {
       _PaymentType.full => invoice.totalAmount,
       _PaymentType.minimum =>
         (invoice.totalAmount * card.minPaymentPercent / 100).round(),
@@ -135,7 +135,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                     onSelectionChanged: (Set<_PaymentType> selection) {
                       setModalState(() {
                         paymentType = selection.first;
-                        paymentAmountCents = _calcAmount(paymentType);
+                        paymentAmountCents = calcAmount(paymentType);
                       });
                     },
                   ),
@@ -150,7 +150,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                     child: Opacity(
                       opacity: paymentType == _PaymentType.custom ? 1.0 : 0.6,
                       child: AmountInput(
-                        amountInCents: _calcAmount(paymentType),
+                        amountInCents: calcAmount(paymentType),
                         color: cs.primary,
                         onChanged: (val) {
                           if (paymentType == _PaymentType.custom) {
@@ -169,7 +169,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                     onPressed: _selectedSourceAccountId == null
                         ? null
                         : () {
-                            final amount = _calcAmount(paymentType);
+                            final amount = calcAmount(paymentType);
                             if (amount <= 0) return;
                             Navigator.pop(context);
                             _executePayment(amount);
@@ -226,9 +226,9 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     return invoiceAsync.when(
       data: (invoice) {
         if (invoice == null) {
-          return Scaffold(
-            appBar: const AppPageAppBar(title: ''),
-            body: const Center(child: Text('Fatura não encontrada')),
+          return const Scaffold(
+            appBar: AppPageAppBar(title: ''),
+            body: Center(child: Text('Fatura não encontrada')),
           );
         }
 
@@ -422,11 +422,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                 ),
         );
       },
-      loading: () => Scaffold(
-        appBar: const AppPageAppBar(title: ''),
-        body: const Center(child: AppLoadingIndicator()),
+      loading: () => const Scaffold(
+        appBar: AppPageAppBar(title: ''),
+        body: Center(child: AppLoadingIndicator()),
       ),
-      error: (err, __) => Scaffold(
+      error: (err, _) => Scaffold(
         appBar: const AppPageAppBar(title: ''),
         body: Center(child: Text('Erro ao carregar fatura: $err')),
       ),

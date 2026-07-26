@@ -83,7 +83,7 @@ Future<bool> _showInstallmentSheet(
       title: 'Excluir parcela?',
       subtitle: 'Parcela $currentNumber de $total',
       options: [
-        _DeleteOption(value: 0, label: 'Somente esta parcela'),
+        const _DeleteOption(value: 0, label: 'Somente esta parcela'),
         _DeleteOption(
           value: 1,
           label: 'Esta e as $remaining parcelas restantes',
@@ -122,11 +122,11 @@ Future<bool> _showRecurringBaseSheet(
 
   final selected = await showAdaptiveModal<int>(
     context: context,
-    builder: (ctx) => _DeleteOptionSheet(
+    builder: (ctx) => const _DeleteOptionSheet(
       title: 'Excluir transação recorrente?',
       subtitle:
           'Esta é a transação base. A regra de recorrência também será excluída.',
-      options: const [
+      options: [
         _DeleteOption(
           value: 0,
           label: 'Somente esta',
@@ -170,9 +170,9 @@ Future<bool> _showRecurringCloneSheet(
 
   final selected = await showAdaptiveModal<int>(
     context: context,
-    builder: (ctx) => _DeleteOptionSheet(
+    builder: (ctx) => const _DeleteOptionSheet(
       title: 'Excluir ocorrência?',
-      options: const [
+      options: [
         _DeleteOption(value: 0, label: 'Somente esta ocorrência'),
         _DeleteOption(
           value: 1,
@@ -270,40 +270,45 @@ class _DeleteOptionSheetState extends State<_DeleteOptionSheet> {
                 ),
               ),
             const SizedBox(height: 12),
-            ...widget.options.map(
-              (opt) => InkWell(
-                onTap: () => setState(() => _selected = opt.value),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  child: Row(
-                    children: [
-                      Radio<int>(
-                        value: opt.value,
-                        groupValue: _selected,
-                        onChanged: (v) => setState(() => _selected = v!),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+            RadioGroup<int>(
+              groupValue: _selected,
+              onChanged: (v) => setState(() => _selected = v!),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...widget.options.map(
+                    (opt) => InkWell(
+                      onTap: () => setState(() => _selected = opt.value),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        child: Row(
                           children: [
-                            Text(opt.label, style: tt.bodyMedium),
-                            if (opt.description != null)
-                              Text(
-                                opt.description!,
-                                style: tt.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
+                            Radio<int>(value: opt.value),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(opt.label, style: tt.bodyMedium),
+                                  if (opt.description != null)
+                                    Text(
+                                      opt.description!,
+                                      style: tt.bodySmall?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                ],
                               ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 8),

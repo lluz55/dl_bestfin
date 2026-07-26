@@ -1,13 +1,13 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/sync_queue.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/sync_queue.dart';
 
 part 'sync_queue_dao.g.dart';
 
 @DriftAccessor(tables: [SyncQueue])
 class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     with _$SyncQueueDaoMixin {
-  SyncQueueDao(AppDatabase db) : super(db);
+  SyncQueueDao(super.db);
 
   Future<List<SyncQueueItem>> getPendingItems({int limit = 50}) {
     return (select(syncQueue)

@@ -38,7 +38,7 @@ class _AccountsListScreenState extends ConsumerState<AccountsListScreen> {
         title: 'Minhas Contas',
         showVisibilityToggle: true,
         infoDescription: 'Gerencie todas as suas contas financeiras: conta corrente, poupança, carteira e outras. Acompanhe o saldo total e individual de cada conta.',
-        infoFeatures: [
+        infoFeatures: const [
           'Saldo total consolidado de todas as contas',
           'Adicione contas de diferentes tipos',
           'Visualize o extrato de cada conta',
@@ -393,6 +393,8 @@ class _AccountListTile extends StatelessWidget {
     required this.account,
     required this.isSelected,
     required this.onTap,
+    // Estado visual opcional consumido em [isInactive]; mantido na API.
+    // ignore: unused_element_parameter
     this.isInactive = false,
   });
 

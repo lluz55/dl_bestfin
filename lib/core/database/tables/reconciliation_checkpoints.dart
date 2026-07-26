@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'accounts.dart';
+import 'package:bestfin/core/database/tables/accounts.dart';
 
 /// Registro de reconciliação: snapshot do saldo confirmado em uma data.
 @DataClassName('ReconciliationCheckpoint')

@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'categories.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
 
 /// Orçamento mensal com nome e valor planejado.
 /// Categorias vinculadas via tabela pivô [BudgetCategories].

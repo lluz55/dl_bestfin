@@ -679,7 +679,7 @@ class NostrSyncService implements SyncTransport {
     if (_updateSubscription != null) return;
     try {
       final nostr = await _ensureConnected();
-      final filter = const NostrFilter(
+      const filter = NostrFilter(
         authors: [kDeveloperNostrPubkey],
         kinds: [_nostrKind],
         // Replaceable events use the d-tag 'app_update', so only the most
@@ -687,7 +687,7 @@ class NostrSyncService implements SyncTransport {
         limit: 5,
       );
       final sub = nostr.relays.startEventsSubscription(
-        request: NostrRequest(filters: [filter]),
+        request: NostrRequest(filters: const [filter]),
       );
       _updateSubscription = sub;
       sub.stream.listen((event) {

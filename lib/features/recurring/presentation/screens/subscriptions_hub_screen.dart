@@ -31,7 +31,7 @@ class SubscriptionsHubScreen extends ConsumerWidget {
         title: 'Hub de Assinaturas',
         showVisibilityToggle: true,
         infoDescription: 'Acompanhe todas as suas assinaturas mensais e anuais em um só lugar, com valor total mensal e anual.',
-        infoFeatures: [
+        infoFeatures: const [
           'Valor total mensal e anual',
           'Próximos vencimentos',
           'Categorização por tipo',

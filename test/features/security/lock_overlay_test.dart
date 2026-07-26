@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,9 +55,11 @@ void main() {
       // (AnimatedSwitcher trocando a subárvore inteira) descartava o
       // Navigator aqui, disparando o assert `!_debugLocked` no dispose
       // quando havia navegação em andamento.
-      navKey.currentState!.push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('detalhe')),
+      unawaited(
+        navKey.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('detalhe')),
+          ),
         ),
       );
       container.read(isLockedProvider.notifier).lock();

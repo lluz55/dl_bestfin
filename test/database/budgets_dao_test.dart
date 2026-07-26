@@ -37,8 +37,8 @@ void main() {
   });
 
   test('getBudgetsWithSpending exposes both spent and pending', () async {
-    final year = 2026;
-    final month = 7;
+    const year = 2026;
+    const month = 7;
 
     await db.budgetsDao.insertBudget(
       name: 'Alimentação',
@@ -82,8 +82,8 @@ void main() {
   });
 
   test('getCategoryIdsForBudget returns linked categories', () async {
-    final year = 2026;
-    final month = 7;
+    const year = 2026;
+    const month = 7;
 
     final budget = await db.budgetsDao.insertBudget(
       name: 'Transporte',

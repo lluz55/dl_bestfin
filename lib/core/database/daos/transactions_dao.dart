@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/transactions.dart';
-import '../tables/entries.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
+import 'package:bestfin/core/database/tables/entries.dart';
 import 'package:uuid/uuid.dart';
 
 part 'transactions_dao.g.dart';
@@ -9,7 +9,7 @@ part 'transactions_dao.g.dart';
 @DriftAccessor(tables: [Transactions, Entries])
 class TransactionsDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionsDaoMixin {
-  TransactionsDao(AppDatabase db) : super(db);
+  TransactionsDao(super.db);
 
   Stream<List<Transaction>> watchAllTransactions() {
     return (select(transactions)

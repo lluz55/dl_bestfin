@@ -199,7 +199,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
         title: 'Detalhes do Ativo',
         showVisibilityToggle: true,
         infoDescription: 'Visualize todos os detalhes do investimento: valor aplicado, rentabilidade, histórico de cotações e composição.',
-        infoFeatures: [
+        infoFeatures: const [
           'Valor atual e rentabilidade',
           'Histórico de cotações em gráfico',
           'Quantidade e valor médio',
@@ -214,7 +214,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
                   .open(investment: inv),
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
           investmentAsync.when(
             data: (inv) => IconButton(
@@ -223,7 +223,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
               onPressed: () => _deleteInvestment(context, ref, inv),
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -457,7 +457,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => Center(child: AppLoadingIndicator()),
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (e, _) => Center(child: Text('Erro: $e')),
       ),
     );

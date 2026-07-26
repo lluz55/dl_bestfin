@@ -278,7 +278,7 @@ class _TitleWithOptionalSubtitle extends StatelessWidget {
 }
 
 class SubcategoryPickerSheet extends StatelessWidget {
-  const SubcategoryPickerSheet({required this.parent, this.selectedCategoryId});
+  const SubcategoryPickerSheet({super.key, required this.parent, this.selectedCategoryId});
 
   final CategoryModel parent;
   final String? selectedCategoryId;

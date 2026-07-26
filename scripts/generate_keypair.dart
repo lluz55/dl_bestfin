@@ -4,6 +4,9 @@
 ///   nix develop -c dart run scripts/generate_keypair.dart
 library;
 
+// Script de linha de comando: a saída via print() é a UI da ferramenta.
+// ignore_for_file: avoid_print
+
 import 'package:dart_nostr/dart_nostr.dart';
 
 void main() {

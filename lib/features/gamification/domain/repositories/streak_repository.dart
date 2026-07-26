@@ -1,4 +1,4 @@
-import '../models/streak.dart';
+import 'package:bestfin/features/gamification/domain/models/streak.dart';
 
 abstract class StreakRepository {
   Stream<List<StreakModel>> watchAllStreaks();

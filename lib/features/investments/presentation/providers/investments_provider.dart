@@ -77,7 +77,7 @@ final portfolioSummaryProvider = Provider<PortfolioSummary>((ref) {
       allocationAmounts: {},
       allocationPercentages: {},
     ),
-    error: (_, __) => const PortfolioSummary(
+    error: (_, _) => const PortfolioSummary(
       totalInvested: 0,
       totalYield: 0,
       totalValue: 0,

@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'credit_cards.dart';
+import 'package:bestfin/core/database/tables/credit_cards.dart';
 
 @TableIndex(name: 'invoices_credit_card_idx', columns: {#creditCardId})
 @DataClassName('Invoice')

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 // Note: We would import 'package:lottie/lottie.dart' here when ready for Lottie assets.
 
-import '../extensions/context_extensions.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({

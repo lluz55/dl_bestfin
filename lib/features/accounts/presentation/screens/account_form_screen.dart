@@ -246,7 +246,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<AccountType>(
-                      value: _type,
+                      initialValue: _type,
                       decoration: InputDecoration(
                         labelText: 'Tipo de Conta',
                         filled: true,

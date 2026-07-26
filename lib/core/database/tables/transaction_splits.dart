@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'transactions.dart';
-import 'categories.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
 
 /// Porções de uma transação dividida entre múltiplas categorias.
 /// Ativa quando transactions.is_split = true.

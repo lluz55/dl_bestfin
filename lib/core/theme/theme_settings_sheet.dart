@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../extensions/context_extensions.dart';
-import '../utils/adaptive_modal.dart';
-import 'custom_seed_provider.dart';
-import 'theme_provider.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/utils/adaptive_modal.dart';
+import 'package:bestfin/core/theme/custom_seed_provider.dart';
+import 'package:bestfin/core/theme/theme_provider.dart';
 
 void showThemeSettingsSheet(BuildContext context) {
   showAdaptiveModal<void>(
@@ -210,7 +210,7 @@ class _CustomColorPicker extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '#${color.value.toRadixString(16).substring(2).toUpperCase()}',
+                        '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurfaceVariant,
@@ -240,7 +240,7 @@ class _CustomColorPicker extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: preset,
                     borderRadius: BorderRadius.circular(10),
-                    border: color.value == preset.value
+                    border: color.toARGB32() == preset.toARGB32()
                         ? Border.all(color: cs.onSurface, width: 2.5)
                         : Border.all(color: cs.outlineVariant, width: 1),
                   ),

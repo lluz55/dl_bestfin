@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../extensions/context_extensions.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 
 class AppLoadingIndicator extends StatelessWidget {
   const AppLoadingIndicator({super.key, this.value, this.strokeWidth = 4.0});

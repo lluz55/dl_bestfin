@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import '../app_database.dart';
-import '../tables/investments.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/investments.dart';
 
 part 'investments_dao.g.dart';
 
 @DriftAccessor(tables: [Investments])
 class InvestmentsDao extends DatabaseAccessor<AppDatabase>
     with _$InvestmentsDaoMixin {
-  InvestmentsDao(AppDatabase db) : super(db);
+  InvestmentsDao(super.db);
 
   Stream<List<Investment>> watchAllInvestments() {
     return select(investments).watch();

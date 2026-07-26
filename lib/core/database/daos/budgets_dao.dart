@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import '../app_database.dart';
-import '../tables/budgets.dart';
-import '../tables/budget_categories.dart';
-import '../tables/transactions.dart';
-import '../tables/entries.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/budgets.dart';
+import 'package:bestfin/core/database/tables/budget_categories.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
+import 'package:bestfin/core/database/tables/entries.dart';
 
 part 'budgets_dao.g.dart';
 
@@ -76,11 +76,11 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     final start = DateTime(year, month);
     final end = DateTime(year, month + 1);
 
-    final confirmedExpr = CustomExpression<int>(
-      "COALESCE(SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END), 0)",
+    const confirmedExpr = CustomExpression<int>(
+      'COALESCE(SUM(CASE WHEN transactions.is_completed = 1 THEN entries.amount ELSE 0 END), 0)',
     );
-    final pendingExpr = CustomExpression<int>(
-      "COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)",
+    const pendingExpr = CustomExpression<int>(
+      'COALESCE(SUM(CASE WHEN transactions.is_completed = 0 THEN entries.amount ELSE 0 END), 0)',
     );
 
     // Buscar orçamentos do período.

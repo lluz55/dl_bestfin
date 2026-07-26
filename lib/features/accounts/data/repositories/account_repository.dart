@@ -51,7 +51,7 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Stream<List<Account>> watchAllAccounts() {
-    final balanceExpr = CustomExpression<int>(
+    const balanceExpr = CustomExpression<int>(
       "COALESCE(SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END), 0)",
     );
 
@@ -78,7 +78,7 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Stream<Account> watchAccountById(String id) {
-    final balanceExpr = CustomExpression<int>(
+    const balanceExpr = CustomExpression<int>(
       "COALESCE(SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END), 0)",
     );
 
@@ -107,7 +107,7 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Future<int> getAccountBalance(String id) async {
-    final balanceExpr = CustomExpression<int>(
+    const balanceExpr = CustomExpression<int>(
       "COALESCE(SUM(CASE WHEN type = 'debit' THEN amount ELSE -amount END), 0)",
     );
 

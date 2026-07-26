@@ -33,7 +33,7 @@ class CustomSeedNotifier extends Notifier<CustomSeedState> {
   Future<void> setSeedColor(Color color) async {
     state = CustomSeedState(seedColor: color);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keyCustomSeed, color.value);
+    await prefs.setInt(_keyCustomSeed, color.toARGB32());
   }
 
   ColorScheme generateLightScheme() {

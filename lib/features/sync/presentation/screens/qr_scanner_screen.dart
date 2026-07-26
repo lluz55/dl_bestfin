@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +34,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
     if (words.length != 24) return;
 
     setState(() => _processing = true);
-    _controller.stop();
+    unawaited(_controller.stop());
 
     try {
       await ref.read(nostrSyncServiceProvider).importIdentity(value.trim());
@@ -57,13 +59,13 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: Breakpoints.isCompact(context),
-        title: Text('Escanear QR', style: TextStyle(color: Colors.white)),
+        title: const Text('Escanear QR', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             onPressed: () => _controller.toggleTorch(),
             icon: ValueListenableBuilder(
               valueListenable: _controller,
-              builder: (_, state, __) => Icon(
+              builder: (_, state, _) => Icon(
                 state.torchState == TorchState.on
                     ? Icons.flash_on_rounded
                     : Icons.flash_off_rounded,
@@ -91,7 +93,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
             child: Column(
               children: [
                 if (_processing) ...[
-                  CircularProgressIndicator(color: Colors.white),
+                  const CircularProgressIndicator(color: Colors.white),
                   const SizedBox(height: 12),
                   Text(
                     'Importando identidade...',
@@ -117,7 +119,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => setState(() => _error = null),
-                    child: Text(
+                    child: const Text(
                       'Tentar novamente',
                       style: TextStyle(color: Colors.white),
                     ),
@@ -154,9 +156,9 @@ class _ViewfinderPainter extends CustomPainter {
     final h = size.height;
 
     // top-left
-    canvas.drawArc(Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14, 1.57, false, paint);
-    canvas.drawLine(Offset(r, 0), Offset(cornerLen, 0), paint);
-    canvas.drawLine(Offset(0, r), Offset(0, cornerLen), paint);
+    canvas.drawArc(const Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14, 1.57, false, paint);
+    canvas.drawLine(const Offset(r, 0), const Offset(cornerLen, 0), paint);
+    canvas.drawLine(const Offset(0, r), const Offset(0, cornerLen), paint);
 
     // top-right
     canvas.drawArc(

@@ -72,7 +72,7 @@ final financingSummaryProvider = Provider<FinancingSummary>((ref) {
       totalOutstandingBalance: 0,
       paidProgressPercentage: 0.0,
     ),
-    error: (_, __) => const FinancingSummary(
+    error: (_, _) => const FinancingSummary(
       totalOriginalAmount: 0,
       totalOutstandingBalance: 0,
       paidProgressPercentage: 0.0,

@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import '../app_database.dart';
-import '../tables/entities.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/entities.dart';
 
 part 'entities_dao.g.dart';
 
 @DriftAccessor(tables: [Entities])
 class EntitiesDao extends DatabaseAccessor<AppDatabase>
     with _$EntitiesDaoMixin {
-  EntitiesDao(AppDatabase db) : super(db);
+  EntitiesDao(super.db);
 
   Stream<List<Entity>> watchAllEntities() {
     return (select(entities)..orderBy([

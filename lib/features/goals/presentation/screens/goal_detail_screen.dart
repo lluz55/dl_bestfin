@@ -40,9 +40,9 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       error: (e, _) => Scaffold(body: Center(child: Text('Erro: $e'))),
       data: (goal) {
         if (goal == null) {
-          return Scaffold(
-            appBar: const AppPageAppBar(title: ''),
-            body: const Center(child: Text('Objetivo não encontrado.')),
+          return const Scaffold(
+            appBar: AppPageAppBar(title: ''),
+            body: Center(child: Text('Objetivo não encontrado.')),
           );
         }
 
@@ -82,7 +82,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         title: goal.name,
         showVisibilityToggle: true,
         infoDescription: 'Acompanhe o progresso detalhado da sua meta financeira com valor acumulado, evolução em gráfico e valor restante.',
-        infoFeatures: [
+        infoFeatures: const [
           'Progresso com gráfico de evolução',
           'Valor acumulado e restante',
           'Depósitos mensais recomendados',

@@ -129,7 +129,7 @@ void main() {
     test('detects budget overspending', () async {
       final now = DateTime.now();
       final accountId = const Uuid().v4();
-      final categoryId = 'cat_food';
+      const categoryId = 'cat_food';
 
       await db.accountsDao.insertAccount(
         AccountsCompanion.insert(
