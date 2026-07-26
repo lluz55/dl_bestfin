@@ -47,7 +47,7 @@ jobs:
         run: nix develop .#ci -c flutter pub get
 
       - name: Gerar código (Drift/Riverpod)
-        run: nix develop .#ci -c dart run build_runner build --delete-conflicting-outputs
+        run: nix develop .#ci -c flutter pub run build_runner build --delete-conflicting-outputs
 
       - name: flutter analyze (--fatal-infos)
         run: nix develop .#ci -c flutter analyze --fatal-infos
