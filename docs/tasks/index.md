@@ -8,7 +8,7 @@ timestamp: 2026-07-12T12:00:00Z
 
 # Índice de Tarefas
 
-**Legenda:** ✅ concluída · 🔄 em andamento · ⬜ não iniciada
+**Legenda:** ✅ concluída · 🔄 em andamento · ⬜ não iniciada · ⛔ não será feita (com justificativa na task)
 
 > Protocolo OKF — antes de codar, verifique aqui se já existe tarefa para o
 > trabalho e se ela tem dependências pendentes. Após implementar, atualize o
@@ -73,7 +73,7 @@ timestamp: 2026-07-12T12:00:00Z
 | 56 | [Metadados do pubspec e limpeza de artefatos](56-repo-metadata-cleanup.md) | 🔄 | 2/3 |
 | 57 | [Resolver branches obsoletas de AI/backend](57-resolve-stale-branches.md) | ✅ | 4/4 |
 | 58 | [Refatorar 'god files' (sync_service, transaction_repository)](58-refactor-god-files.md) | ⬜ | 0/4 |
-| 59 | [Perf — agregados incrementais no dashboard](59-perf-dashboard-incremental-aggregates.md) | ⬜ | 0/3 |
+| 59 | [Perf — agregados incrementais no dashboard](59-perf-dashboard-incremental-aggregates.md) — não justificada pelo baseline | ⛔ | 1/3 |
 | 60 | [Suporte a multi-moeda](60-multi-currency.md) | ⬜ | 0/5 |
 | 61 | [Internacionalização (i18n) real](61-i18n-localization.md) | ⬜ | 0/4 |
 | 62 | [Fortalecer categorização automática](62-strengthen-auto-categorization.md) | ⬜ | 0/4 |
