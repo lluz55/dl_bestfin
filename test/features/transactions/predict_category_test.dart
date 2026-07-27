@@ -223,4 +223,162 @@ void main() {
       );
     });
   });
+
+  group('predictCategory — casamento por n-gramas (Task 62)', () {
+    test('casa por sobreposição de tokens, não exige string idêntica', () {
+      final history = [
+        tx(
+          id: '1',
+          date: now,
+          description: 'Supermercado Extra 1234',
+          amount: 100,
+          categoryId: 'groceries',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'Uber viagem centro',
+          amount: 100,
+          categoryId: 'transport',
+        ),
+      ];
+      // Ordem e sufixo diferentes do treino — casamento exato falharia.
+      expect(
+        predictCategory(
+          history,
+          type: TransactionType.expense,
+          description: 'Extra Supermercado',
+          now: now,
+        ),
+        'groceries',
+      );
+    });
+
+    test('normaliza acentos e caixa', () {
+      final history = [
+        tx(
+          id: '1',
+          date: now,
+          description: 'Farmácia Drogasil',
+          amount: 100,
+          categoryId: 'health',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'Padaria Central',
+          amount: 100,
+          categoryId: 'food',
+        ),
+      ];
+      expect(
+        predictCategory(
+          history,
+          type: TransactionType.expense,
+          description: 'FARMACIA drogasil',
+          now: now,
+        ),
+        'health',
+      );
+    });
+
+    test('ignora stopwords e ruído de meio de pagamento', () {
+      // "conta de luz" e "conta de agua" compartilham só stopwords + "conta";
+      // o token discriminante ("luz") é que decide.
+      final history = [
+        tx(
+          id: '1',
+          date: now,
+          description: 'Conta de Luz Enel',
+          amount: 100,
+          categoryId: 'utilities-luz',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'Pix para João mercado',
+          amount: 100,
+          categoryId: 'groceries',
+        ),
+      ];
+      expect(
+        predictCategory(
+          history,
+          type: TransactionType.expense,
+          description: 'pagamento conta luz',
+          now: now,
+        ),
+        'utilities-luz',
+      );
+    });
+
+    test('feedback loop: correções recentes dominam o histórico antigo', () {
+      final history = <TransactionModel>[
+        // 8 lançamentos antigos de "mercado pao" rotulados como 'food'.
+        for (int i = 0; i < 8; i++)
+          tx(
+            id: 'old$i',
+            date: now.subtract(const Duration(days: 150)),
+            description: 'Mercado Pao de Acucar',
+            amount: 5000,
+            categoryId: 'food',
+          ),
+        // 2 correções recentes: o usuário passou a classificar como 'groceries'.
+        tx(
+          id: 'new1',
+          date: now,
+          description: 'Mercado Pao de Acucar',
+          amount: 5000,
+          categoryId: 'groceries',
+        ),
+        tx(
+          id: 'new2',
+          date: now.subtract(const Duration(days: 1)),
+          description: 'Mercado Pao de Acucar',
+          amount: 5000,
+          categoryId: 'groceries',
+        ),
+      ];
+      expect(
+        predictCategory(
+          history,
+          type: TransactionType.expense,
+          description: 'Mercado Pao de Acucar',
+          now: now,
+        ),
+        'groceries',
+      );
+    });
+
+    test('valor próximo desempata entre casamentos de descrição iguais', () {
+      // Duas categorias com a mesma descrição e mesma recência; o valor da
+      // consulta (≈ 20000) aproxima 'assinatura', desempatando.
+      final history = [
+        tx(
+          id: '1',
+          date: now,
+          description: 'Loja Online',
+          amount: 500, // muito menor
+          categoryId: 'avulso',
+        ),
+        tx(
+          id: '2',
+          date: now,
+          description: 'Loja Online',
+          amount: 20000, // próximo da consulta
+          categoryId: 'assinatura',
+        ),
+      ];
+      expect(
+        predictCategory(
+          history,
+          type: TransactionType.expense,
+          description: 'Loja Online',
+          amountInCents: 20500,
+          now: now,
+        ),
+        'assinatura',
+      );
+    });
+  });
 }

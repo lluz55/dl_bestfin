@@ -163,6 +163,7 @@ class _QuickTransactionSheetState extends ConsumerState<QuickTransactionSheet> {
       type: _type,
       entityId: _entityId,
       description: _descriptionController.text,
+      amountInCents: _amountInCents > 0 ? _amountInCents : null,
       now: DateTime.now(),
     );
     if (predicted == null || predicted == _categoryId) return;

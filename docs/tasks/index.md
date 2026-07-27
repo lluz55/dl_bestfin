@@ -76,7 +76,7 @@ timestamp: 2026-07-12T12:00:00Z
 | 59 | [Perf — agregados incrementais no dashboard](59-perf-dashboard-incremental-aggregates.md) — não justificada pelo baseline | ⛔ | 1/3 |
 | 60 | [Suporte a multi-moeda](60-multi-currency.md) | ⬜ | 0/5 |
 | 61 | [Internacionalização (i18n) real](61-i18n-localization.md) | ⬜ | 0/4 |
-| 62 | [Fortalecer categorização automática](62-strengthen-auto-categorization.md) | ⬜ | 0/4 |
+| 62 | [Fortalecer categorização automática](62-strengthen-auto-categorization.md) | ✅ | 4/4 |
 | 63 | [Cobertura de testes de widget/UI](63-widget-ui-test-coverage.md) | ⬜ | 0/4 |
 | 64 | [Auditoria de segurança do sync Nostr](64-sync-security-audit.md) | ⬜ | 0/4 |
 | 65 | [Métricas de cobertura e gates no CI](65-ci-coverage-gate.md) | ⬜ | 0/3 |
