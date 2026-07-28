@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.15 (2026-07-28)
 
 ### Adicionado
 - Funcionalidade no Android para remover/ocultar a pré-visualização do aplicativo na lista de aplicativos recentes (`FLAG_SECURE` e `setRecentsScreenshotEnabled(false)` no Android 13+)
