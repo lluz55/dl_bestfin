@@ -14,6 +14,7 @@ class TransactionItem {
     required this.icon,
     this.isCreditCard = false,
     this.isRecurring = false,
+    this.isSplit = false,
     this.rawTransaction,
   });
 
@@ -24,6 +25,7 @@ class TransactionItem {
   final IconData icon;
   final bool isCreditCard;
   final bool isRecurring;
+  final bool isSplit;
   final dynamic rawTransaction;
 }
 
@@ -86,6 +88,7 @@ class _TransactionTileState extends State<_TransactionTile> {
 
     final isCreditCard = widget.item.isCreditCard;
     final isRecurring = widget.item.isRecurring;
+    final isSplit = widget.item.isSplit;
 
     final baseIcon = Container(
       width: 44,
@@ -95,7 +98,7 @@ class _TransactionTileState extends State<_TransactionTile> {
     );
 
     Widget iconWidget;
-    if (isCreditCard || isRecurring) {
+    if (isCreditCard || isRecurring || isSplit) {
       iconWidget = SizedBox(
         width: 44,
         height: 44,
@@ -136,6 +139,26 @@ class _TransactionTileState extends State<_TransactionTile> {
                   child: Center(
                     child: Icon(
                       Icons.repeat_rounded,
+                      size: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            if (isSplit)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 17,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.call_split_rounded,
                       size: 11,
                       color: cs.onSurfaceVariant,
                     ),

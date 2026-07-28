@@ -43,9 +43,9 @@ timestamp: 2026-07-12T12:00:00Z
 | 27 | [Insights via Template NLG (sem LLM)](27-template-nlg-insights.md) | 🔄 | 4/6 |
 | 28 | [Lançamento Rápido com sugestões estatísticas](28-quick-transaction-entry.md) | 🔄 | 6/7 |
 | 29 | [Orçamento (multi-categorias)](29-envelope-budgeting.md) | ✅ | 26/26 |
-| 30 | [Reconciliação de Contas](30-account-reconciliation.md) | 🔄 | 8/8 |
-| 31 | [Split de Transações](31-split-transactions.md) | 🔄 | 8/9 |
-| 32 | [Projeção de Fluxo de Caixa (30/60/90 dias)](32-cashflow-projection.md) | 🔄 | 8/8 |
+| 30 | [Reconciliação de Contas](30-account-reconciliation.md) | ✅ | 8/8 |
+| 31 | [Split de Transações](31-split-transactions.md) | ✅ | 9/9 |
+| 32 | [Projeção de Fluxo de Caixa (30/60/90 dias)](32-cashflow-projection.md) | ✅ | 8/8 |
 | 33 | [Onboarding & Tutorial Inicial](33-onboarding-tutorial.md) | ✅ | 14/14 |
 | 34 | [Padronização Visual de Botões](34-button-standardization.md) | ✅ | 12/12 |
 | 35 | [Lote de Correções UX — Julho 2026](35-ux-fixes-batch-julho.md) | ✅ | 9/9 |
@@ -72,7 +72,7 @@ timestamp: 2026-07-12T12:00:00Z
 | 55 | [Higiene de dívida técnica — lints e APIs deprecadas](55-tech-debt-lint-hygiene.md) | ✅ | 6/6 |
 | 56 | [Metadados do pubspec e limpeza de artefatos](56-repo-metadata-cleanup.md) | 🔄 | 2/3 |
 | 57 | [Resolver branches obsoletas de AI/backend](57-resolve-stale-branches.md) | ✅ | 4/4 |
-| 58 | [Refatorar 'god files' (sync_service, transaction_repository)](58-refactor-god-files.md) | ⬜ | 0/4 |
+| 58 | [Refatorar 'god files' (sync_service, transaction_repository)](58-refactor-god-files.md) | ✅ | 4/4 |
 | 59 | [Perf — agregados incrementais no dashboard](59-perf-dashboard-incremental-aggregates.md) — não justificada pelo baseline | ⛔ | 1/3 |
 | 60 | [Suporte a multi-moeda](60-multi-currency.md) | ⬜ | 0/5 |
 | 61 | [Internacionalização (i18n) real](61-i18n-localization.md) | ⬜ | 0/4 |
@@ -89,5 +89,5 @@ timestamp: 2026-07-12T12:00:00Z
   (já existentes, ainda 🔄) — não foram duplicadas.
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).
 * Existem dois arquivos com o número 47; o segundo é referenciado como **47b**.
-* Tarefas 29, 30 e 32 estão com todos os checkboxes marcados mas `status: in_progress`
-  no frontmatter — confirmar no arquivo individual antes de considerá-las concluídas.
+* Tarefas 29, 30 e 32 estavam com todos os checkboxes marcados mas `status` desatualizado
+  no frontmatter — reconciliadas em 2026-07-26 para `done`/`completed` (✅).

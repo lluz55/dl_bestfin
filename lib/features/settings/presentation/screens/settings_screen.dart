@@ -259,6 +259,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     initialBiometricsEnabled = false;
     initialValuesHidden = false;
     initialAlwaysHideValues = false;
+    initialHideRecentsPreview = true;
     initialIsLocked = false;
     initialUserName = null;
     initialUserPhotoPath = null;
@@ -290,10 +291,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(customSeedProvider);
     ref.invalidate(valuesHiddenProvider);
     ref.invalidate(alwaysHideValuesProvider);
+    ref.invalidate(hideRecentsPreviewProvider);
     ref.invalidate(homeWidgetsProvider);
     ref.invalidate(shortcutsProvider);
     ref.invalidate(sidebarShortcutsProvider);
     ref.invalidate(userProfileProvider);
+
 
     // Navega imediatamente. `set(false)` acima já reabilita a rota /onboarding
     // no guard, então o go() não é rebatido para /home. Usa o router capturado
@@ -447,8 +450,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ref.read(alwaysHideValuesProvider.notifier).set(v),
             ),
           ),
+          if (Platform.isAndroid)
+            _SettingsTile(
+              icon: Icons.screen_lock_portrait_outlined,
+              title: 'Ocultar em aplicativos recentes',
+              subtitle: 'Ocultar pré-visualização do app na lista de recentes do Android',
+              cs: cs,
+              tt: tt,
+              trailing: Switch(
+                value: ref.watch(hideRecentsPreviewProvider),
+                onChanged: (v) =>
+                    ref.read(hideRecentsPreviewProvider.notifier).set(v),
+              ),
+            ),
         ],
       ),
+
       if (_biometricsAvailable)
         _SettingsSection(
           title: 'Segurança',

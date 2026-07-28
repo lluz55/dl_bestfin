@@ -2,8 +2,8 @@
 type: Task
 id: "30"
 title: "Reconciliação de Contas"
-status: in_progress
-timestamp: 2026-07-01T00:00:00Z
+status: done
+timestamp: 2026-07-26T13:00:00Z
 ---
 
 # Reconciliação de Contas

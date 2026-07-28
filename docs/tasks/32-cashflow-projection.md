@@ -2,8 +2,8 @@
 type: Task
 id: "32"
 title: "Projeção de Fluxo de Caixa (30/60/90 dias)"
-status: in_progress
-timestamp: 2026-07-01T00:00:00Z
+status: done
+timestamp: 2026-07-26T13:00:00Z
 ---
 
 # Projeção de Fluxo de Caixa

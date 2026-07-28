@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:bestfin/core/database/app_database.dart' as db;
 import 'package:bestfin/core/notifications/reminder_scheduler.dart';
+import 'package:bestfin/features/transactions/data/repositories/enriched_category_cache.dart';
 import 'package:bestfin/features/transactions/domain/models/bulk_transaction_item.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction.dart';
 import 'package:bestfin/features/transactions/domain/models/transaction_delete_context.dart';
 import 'package:bestfin/features/transactions/domain/models/entry.dart';
 import 'package:bestfin/features/transactions/domain/models/split_entry.dart';
-import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -116,27 +116,16 @@ class TransactionRepositoryImpl implements TransactionRepository {
   );
 
   // O mapa enriquecido de categorias (árvore pai/filho) é consultado a cada
-  // emissão dos streams de transação. Como categorias e seus relacionamentos
-  // mudam com pouca frequência, cacheamos o Future e o invalidamos apenas
-  // quando essas tabelas realmente mudam — evitando refazer a árvore inteira a
-  // cada gravação de transação. Guardar o Future (e não o Map) também dedupa
-  // reconstruções concorrentes disparadas por emissões simultâneas.
-  Future<Map<String, CategoryModel>>? _enrichedCategoriesFuture;
-  StreamSubscription<void>? _categoriesInvalidationSub;
-  StreamSubscription<void>? _relationshipsInvalidationSub;
+  // emissão dos streams de transação; a lógica de cache/invalidação vive em
+  // [EnrichedCategoryCache] (extraída na task 58).
+  late final EnrichedCategoryCache _categoryCache = EnrichedCategoryCache(
+    _database,
+  );
 
-  TransactionRepositoryImpl(this._database) {
-    _categoriesInvalidationSub = _database.categoriesDao
-        .watchAllCategories()
-        .listen((_) => _enrichedCategoriesFuture = null);
-    _relationshipsInvalidationSub = _database.categoriesDao
-        .watchAllRelationships()
-        .listen((_) => _enrichedCategoriesFuture = null);
-  }
+  TransactionRepositoryImpl(this._database);
 
   void dispose() {
-    unawaited(_categoriesInvalidationSub?.cancel());
-    unawaited(_relationshipsInvalidationSub?.cancel());
+    _categoryCache.dispose();
   }
 
   // Agendar/cancelar lembretes é um efeito colateral best-effort — uma falha
@@ -186,7 +175,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
           ]);
 
     return query.watch().asyncMap((rows) async {
-      final categoriesMap = await _loadEnrichedCategoriesMap();
+      final categoriesMap = await _categoryCache.load();
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -296,7 +285,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     ]);
 
     return query.watch().asyncMap((rows) async {
-      final categoriesMap = await _loadEnrichedCategoriesMap();
+      final categoriesMap = await _categoryCache.load();
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -372,7 +361,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
           ]);
 
     return query.watch().asyncMap((rows) async {
-      final categoriesMap = await _loadEnrichedCategoriesMap();
+      final categoriesMap = await _categoryCache.load();
       final txMap = <String, db.Transaction>{};
       final catMap = <String, db.Category?>{};
       final entMap = <String, db.Entity?>{};
@@ -448,7 +437,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         .map(EntryModel.fromDb)
         .toList();
 
-    final categoriesMap = await _loadEnrichedCategoriesMap();
+    final categoriesMap = await _categoryCache.load();
     return TransactionModel.fromDb(
       tx,
       category: cat != null ? categoriesMap[cat.id] : null,
@@ -1344,70 +1333,4 @@ class TransactionRepositoryImpl implements TransactionRepository {
     return row != null;
   }
 
-  Future<Map<String, CategoryModel>> _loadEnrichedCategoriesMap() {
-    return _enrichedCategoriesFuture ??= _buildEnrichedCategoriesMap();
-  }
-
-  Future<Map<String, CategoryModel>> _buildEnrichedCategoriesMap() async {
-    final flatList = await _database.categoriesDao.watchAllCategories().first;
-    final active = flatList.where((c) => !c.isArchived).toList();
-    final filteredIds = active.map((c) => c.id).toSet();
-    final relationships = await _database.categoriesDao.getAllRelationships();
-
-    final childToParentIds = <String, List<String>>{};
-    final parentToChildIds = <String, List<String>>{};
-    for (final rel in relationships) {
-      if (filteredIds.contains(rel.parentCategoryId) &&
-          filteredIds.contains(rel.childCategoryId)) {
-        childToParentIds
-            .putIfAbsent(rel.childCategoryId, () => [])
-            .add(rel.parentCategoryId);
-        parentToChildIds
-            .putIfAbsent(rel.parentCategoryId, () => [])
-            .add(rel.childCategoryId);
-      }
-    }
-
-    final allModels = <String, CategoryModel>{
-      for (final c in active)
-        c.id: CategoryModel.fromDb(c, parentIds: childToParentIds[c.id] ?? []),
-    };
-
-    final Map<String, CategoryModel> enrichedMap = {};
-    CategoryModel nest(
-      String id, {
-      String? parentName,
-      String? parentIcon,
-      String? parentColor,
-    }) {
-      final base = allModels[id]!;
-      final children = (parentToChildIds[id] ?? [])
-          .where(filteredIds.contains)
-          .map(
-            (cid) => nest(
-              cid,
-              parentName: base.name,
-              parentIcon: base.icon,
-              parentColor: base.color,
-            ),
-          )
-          .toList();
-      final enriched = base.copyWith(
-        children: children,
-        parentName: parentName,
-        parentIcon: parentIcon,
-        parentColor: parentColor,
-      );
-      enrichedMap[id] = enriched;
-      return enriched;
-    }
-
-    for (final model in allModels.values) {
-      if (model.isRoot) {
-        nest(model.id);
-      }
-    }
-
-    return enrichedMap;
-  }
 }

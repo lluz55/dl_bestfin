@@ -278,6 +278,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
             icon: tx.category?.iconData ?? Icons.receipt_long_outlined,
             isCreditCard: tx.creditCardId != null,
             isRecurring: tx.recurringRuleId != null,
+            isSplit: tx.isSplit,
             rawTransaction: tx,
           );
         }).toList();

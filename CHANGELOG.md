@@ -1,6 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Adicionado
+- Funcionalidade no Android para remover/ocultar a pré-visualização do aplicativo na lista de aplicativos recentes (`FLAG_SECURE` e `setRecentsScreenshotEnabled(false)` no Android 13+)
+- Opção "Ocultar em aplicativos recentes" em Configurações › Privacidade (habilitada por padrão)
+- Ocultação automática do conteúdo do app ao minimizar/pausar no Android
+- Suporte a contagem de referência e estado global em `SecureScreen` + testes unitários
+
+### Alterado
+- Refatoração dos módulos de sync e repositório de transações com extração de `remote_entity_merger.dart` e `enriched_category_cache.dart` (Tarefa 58)
+- Atualização do rastreamento de tarefas OKF em `docs/tasks/`
+
 ## v1.0.14 (2026-07-12)
+
 
 ### Corrigido
 - `kDeveloperNostrPubkey` corrompido em `app_info.dart` (continha texto de log do Nix/Dart concatenado à chave hex) — corrigido para o valor correto
