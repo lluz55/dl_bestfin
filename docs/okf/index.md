@@ -7,7 +7,7 @@ tags: [bestfin, flutter, finance, android, linux]
 timestamp: 2026-06-29T00:00:00Z
 ---
 
-BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) com Material Design 3 Expressive, contabilidade de partida dobrada, LLM on-device e sincronização E2E criptografada.
+BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) com Material Design 3 Expressive, contabilidade de partida dobrada e sincronização E2E criptografada.
 
 # Arquitetura & Padrões
 
@@ -48,8 +48,7 @@ BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) 
 * [Investimentos](features/investments.md) - Portfólio de investimentos
 * [Financiamentos](features/financing.md) - Financiamentos com tabela Price
 * [Relatórios](features/reports.md) - Sankey, waterfall, heatmap, fluxo de caixa
-* [LLM On-device](features/llm.md) - llama.cpp, chat, insights, categorização
-* [Importação PDF](features/pdf-import.md) - Parsers Nubank, BB e fallback LLM
+* [Importação PDF](features/pdf-import.md) - Parsers Nubank, BB e fallback heurístico
 * [Gamificação](features/gamification.md) - Streaks e badges
 * [Backup & Export](features/backup.md) - CSV, JSON, PDF, importação
 * [Segurança](features/security.md) - Biometria, PIN, lock overlay

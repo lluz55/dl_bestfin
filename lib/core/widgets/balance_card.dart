@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../extensions/context_extensions.dart';
-import 'amount_display.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
+import 'package:bestfin/core/widgets/amount_display.dart';
 
 class BalanceCard extends StatefulWidget {
   const BalanceCard({

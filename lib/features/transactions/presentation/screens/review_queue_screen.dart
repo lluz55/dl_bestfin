@@ -31,7 +31,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
       appBar: AppPageAppBar(
         title: 'Sugestões',
         infoDescription: 'Revise as transações geradas automaticamente por recorrências sem confirmação automática. Confirme, edite ou descarte cada sugestão antes de importá-las.',
-        infoFeatures: [
+        infoFeatures: const [
           'Geradas por recorrências sem auto-confirmação',
           'Confirmação individual ou em lote',
           'Edição antes de importar',
@@ -45,7 +45,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                   )
                 : const SizedBox.shrink(),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
         ],
       ),

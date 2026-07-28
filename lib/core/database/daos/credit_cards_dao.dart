@@ -1,13 +1,13 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/credit_cards.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/credit_cards.dart';
 
 part 'credit_cards_dao.g.dart';
 
 @DriftAccessor(tables: [CreditCards])
 class CreditCardsDao extends DatabaseAccessor<AppDatabase>
     with _$CreditCardsDaoMixin {
-  CreditCardsDao(AppDatabase db) : super(db);
+  CreditCardsDao(super.db);
 
   Stream<List<CreditCard>> watchAllCreditCards() {
     return select(creditCards).watch();

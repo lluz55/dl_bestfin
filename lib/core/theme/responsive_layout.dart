@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'breakpoints.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
 
 class ResponsiveLayout extends StatelessWidget {
   const ResponsiveLayout({

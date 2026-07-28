@@ -1,7 +1,4 @@
-import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/features/goals/domain/models/goal.dart';
-import 'package:bestfin/features/investments/domain/models/investment.dart';
-import 'package:bestfin/features/accounts/domain/models/account.dart';
 
 enum InsightCategory {
   debt,

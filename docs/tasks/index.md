@@ -8,7 +8,7 @@ timestamp: 2026-07-12T12:00:00Z
 
 # Índice de Tarefas
 
-**Legenda:** ✅ concluída · 🔄 em andamento · ⬜ não iniciada
+**Legenda:** ✅ concluída · 🔄 em andamento · ⬜ não iniciada · ⛔ não será feita (com justificativa na task)
 
 > Protocolo OKF — antes de codar, verifique aqui se já existe tarefa para o
 > trabalho e se ela tem dependências pendentes. Após implementar, atualize o
@@ -43,9 +43,9 @@ timestamp: 2026-07-12T12:00:00Z
 | 27 | [Insights via Template NLG (sem LLM)](27-template-nlg-insights.md) | 🔄 | 4/6 |
 | 28 | [Lançamento Rápido com sugestões estatísticas](28-quick-transaction-entry.md) | 🔄 | 6/7 |
 | 29 | [Orçamento (multi-categorias)](29-envelope-budgeting.md) | ✅ | 26/26 |
-| 30 | [Reconciliação de Contas](30-account-reconciliation.md) | 🔄 | 8/8 |
-| 31 | [Split de Transações](31-split-transactions.md) | 🔄 | 8/9 |
-| 32 | [Projeção de Fluxo de Caixa (30/60/90 dias)](32-cashflow-projection.md) | 🔄 | 8/8 |
+| 30 | [Reconciliação de Contas](30-account-reconciliation.md) | ✅ | 8/8 |
+| 31 | [Split de Transações](31-split-transactions.md) | ✅ | 9/9 |
+| 32 | [Projeção de Fluxo de Caixa (30/60/90 dias)](32-cashflow-projection.md) | ✅ | 8/8 |
 | 33 | [Onboarding & Tutorial Inicial](33-onboarding-tutorial.md) | ✅ | 14/14 |
 | 34 | [Padronização Visual de Botões](34-button-standardization.md) | ✅ | 12/12 |
 | 35 | [Lote de Correções UX — Julho 2026](35-ux-fixes-batch-julho.md) | ✅ | 9/9 |
@@ -69,9 +69,25 @@ timestamp: 2026-07-12T12:00:00Z
 | 52 | [Padronização dos modais bottom sheet](52-padronizacao-modais-bottom-sheet.md) | ✅ | 10/10 |
 | 53 | [Padronização do SectionHeader](53-padronizacao-section-header.md) | ✅ | 10/10 |
 | 54 | [Priorizar nome da categoria sobre tags de tipo/sistema quando há truncamento](54-category-name-truncation.md) | ✅ | 3/3 |
+| 55 | [Higiene de dívida técnica — lints e APIs deprecadas](55-tech-debt-lint-hygiene.md) | ✅ | 6/6 |
+| 56 | [Metadados do pubspec e limpeza de artefatos](56-repo-metadata-cleanup.md) | 🔄 | 2/3 |
+| 57 | [Resolver branches obsoletas de AI/backend](57-resolve-stale-branches.md) | ✅ | 4/4 |
+| 58 | [Refatorar 'god files' (sync_service, transaction_repository)](58-refactor-god-files.md) | ✅ | 4/4 |
+| 59 | [Perf — agregados incrementais no dashboard](59-perf-dashboard-incremental-aggregates.md) — não justificada pelo baseline | ⛔ | 1/3 |
+| 60 | [Suporte a multi-moeda](60-multi-currency.md) | ⬜ | 0/5 |
+| 61 | [Internacionalização (i18n) real](61-i18n-localization.md) | ⬜ | 0/4 |
+| 62 | [Fortalecer categorização automática](62-strengthen-auto-categorization.md) | ✅ | 4/4 |
+| 63 | [Cobertura de testes de widget/UI](63-widget-ui-test-coverage.md) | ⬜ | 0/4 |
+| 64 | [Auditoria de segurança do sync Nostr](64-sync-security-audit.md) | ⬜ | 0/4 |
+| 65 | [Métricas de cobertura e gates no CI](65-ci-coverage-gate.md) | ⬜ | 0/3 |
 
 **Observações:**
+* Tarefas 55–65 criadas em 2026-07-26 a partir de uma análise geral do projeto (sugestões de
+  melhorias, features e aprimoramentos). 55–57 são higiene de dívida técnica; 58–59 arquitetura/
+  perf; 60–62 features; 63–65 qualidade/segurança/CI.
+* Sugestão "fechar insights NLG e lançamento rápido" corresponde às tarefas **27** e **28**
+  (já existentes, ainda 🔄) — não foram duplicadas.
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).
 * Existem dois arquivos com o número 47; o segundo é referenciado como **47b**.
-* Tarefas 29, 30 e 32 estão com todos os checkboxes marcados mas `status: in_progress`
-  no frontmatter — confirmar no arquivo individual antes de considerá-las concluídas.
+* Tarefas 29, 30 e 32 estavam com todos os checkboxes marcados mas `status` desatualizado
+  no frontmatter — reconciliadas em 2026-07-26 para `done`/`completed` (✅).

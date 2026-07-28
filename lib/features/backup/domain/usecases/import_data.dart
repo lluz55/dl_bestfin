@@ -117,8 +117,9 @@ class ImportDataUseCase {
         final row = csvTable[i];
         if (row.length <= dateIdx ||
             row.length <= descIdx ||
-            row.length <= valIdx)
+            row.length <= valIdx) {
           continue;
+        }
 
         final dateRaw = row[dateIdx].toString().trim();
         final descRaw = row[descIdx].toString().trim();

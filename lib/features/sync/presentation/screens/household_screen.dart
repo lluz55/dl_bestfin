@@ -23,7 +23,7 @@ class HouseholdScreen extends ConsumerWidget {
       appBar: AppPageAppBar(
         title: 'Grupos familiares',
         infoDescription: 'Gerencie grupos familiares para compartilhar dados financeiros com segurança entre membros da família com sincronização E2E.',
-        infoFeatures: [
+        infoFeatures: const [
           'Criar e gerenciar grupos',
           'Convidar membros da família',
           'Permissões por membro',
@@ -140,10 +140,12 @@ class _HouseholdCard extends StatelessWidget {
                 if (isAdmin)
                   PopupMenuButton<String>(
                     onSelected: (v) {
-                      if (v == 'invite')
+                      if (v == 'invite') {
                         _showInviteDialog(context, ref, household);
-                      if (v == 'delete')
+                      }
+                      if (v == 'delete') {
                         _confirmDelete(context, ref, household);
+                      }
                     },
                     itemBuilder: (_) => [
                       const PopupMenuItem(
@@ -389,10 +391,11 @@ class _CreateHouseholdDialogState extends State<_CreateHouseholdDialog> {
           onPressed: () async {
             final name = _ctrl.text.trim();
             if (name.isEmpty) return;
+            final navigator = Navigator.of(context);
             await widget.ref
                 .read(householdRepositoryProvider)
                 .createHousehold(name, widget.creatorEmail);
-            if (mounted) Navigator.pop(context);
+            if (mounted) navigator.pop();
           },
           child: const Text('Criar'),
         ),
@@ -438,7 +441,7 @@ class _InviteDialogState extends State<_InviteDialog> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<MemberRole>(
-            value: _role,
+            initialValue: _role,
             decoration: const InputDecoration(
               labelText: 'Permissão',
               border: OutlineInputBorder(),
@@ -461,6 +464,7 @@ class _InviteDialogState extends State<_InviteDialog> {
           onPressed: () async {
             final email = _emailCtrl.text.trim();
             if (email.isEmpty || !email.contains('@')) return;
+            final navigator = Navigator.of(context);
             await widget.ref
                 .read(householdRepositoryProvider)
                 .inviteMember(
@@ -468,7 +472,7 @@ class _InviteDialogState extends State<_InviteDialog> {
                   email: email,
                   role: _role,
                 );
-            if (mounted) Navigator.pop(context);
+            if (mounted) navigator.pop();
           },
           child: const Text('Convidar'),
         ),

@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'transactions.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
 
 @TableIndex(name: 'attachments_transaction_idx', columns: {#transactionId})
 @DataClassName('Attachment')

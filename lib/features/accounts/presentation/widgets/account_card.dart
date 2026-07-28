@@ -48,7 +48,7 @@ class _AccountCardState extends State<AccountCard> {
     );
 
     // Asymmetric shape for Material 3 Expressive
-    final asymmetricShape = const BorderRadius.only(
+    const asymmetricShape = BorderRadius.only(
       topLeft: Radius.circular(28),
       topRight: Radius.circular(8),
       bottomLeft: Radius.circular(8),

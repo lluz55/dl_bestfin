@@ -1,5 +1,5 @@
 name: bestfin
-description: "A new Flutter project."
+description: "Finanças pessoais multiplataforma (Android, Linux, Web) com contabilidade de partida dobrada, criptografia em repouso e sync serverless E2E via Nostr."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.14+6
+version: 1.0.15+7
 
 environment:
   sdk: ^3.11.5
@@ -78,6 +78,8 @@ dependencies:
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
   url_launcher: ^6.3.2
+  # Usado transitivamente pela camada de UI (manipulação de grafemas em textos).
+  characters: any
 
 dev_dependencies:
   flutter_test:

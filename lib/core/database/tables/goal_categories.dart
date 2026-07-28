@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'goals.dart';
-import 'categories.dart';
+import 'package:bestfin/core/database/tables/goals.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
 
 @DataClassName('GoalCategory')
 class GoalCategories extends Table {

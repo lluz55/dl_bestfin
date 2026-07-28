@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'transactions.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
 
 @TableIndex(
   name: 'installment_plans_origin_transaction_idx',

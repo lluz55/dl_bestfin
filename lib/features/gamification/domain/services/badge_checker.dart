@@ -1,15 +1,15 @@
 import 'dart:async';
-import '../../../transactions/data/repositories/transaction_repository.dart';
-import '../../../goals/data/repositories/goal_repository.dart';
-import '../../../investments/data/repositories/investment_repository.dart';
-import '../../../financing/data/repositories/financing_repository.dart';
-import '../../../accounts/data/repositories/account_repository.dart';
-import '../../../categories/data/repositories/category_repository.dart';
-import '../../../credit_cards/data/repositories/credit_card_repository.dart';
-import '../../../../core/constants/transaction_types.dart';
-import '../repositories/streak_repository.dart';
-import '../../../../core/database/daos/badges_dao.dart';
-import '../models/streak.dart';
+import 'package:bestfin/features/transactions/data/repositories/transaction_repository.dart';
+import 'package:bestfin/features/goals/data/repositories/goal_repository.dart';
+import 'package:bestfin/features/investments/data/repositories/investment_repository.dart';
+import 'package:bestfin/features/financing/data/repositories/financing_repository.dart';
+import 'package:bestfin/features/accounts/data/repositories/account_repository.dart';
+import 'package:bestfin/features/categories/data/repositories/category_repository.dart';
+import 'package:bestfin/features/credit_cards/data/repositories/credit_card_repository.dart';
+import 'package:bestfin/core/constants/transaction_types.dart';
+import 'package:bestfin/features/gamification/domain/repositories/streak_repository.dart';
+import 'package:bestfin/core/database/daos/badges_dao.dart';
+import 'package:bestfin/features/gamification/domain/models/streak.dart';
 
 class BadgeChecker {
   final BadgesDao _badgesDao;

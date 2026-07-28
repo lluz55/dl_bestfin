@@ -33,7 +33,7 @@ class FinancingListScreen extends ConsumerWidget {
           title: 'Financiamentos',
           showVisibilityToggle: true,
           infoDescription: 'Controle seus financiamentos com tabela Price. Acompanhe saldo devedor, parcelas pagas, taxa de juros e projeções.',
-          infoFeatures: [
+          infoFeatures: const [
             'Saldo devedor total consolidado',
             'Tabela Price com parcelas detalhadas',
             'Projeção de amortização',
@@ -110,7 +110,7 @@ class FinancingListScreen extends ConsumerWidget {
                 ],
               );
             },
-            loading: () => Center(child: AppLoadingIndicator()),
+            loading: () => const Center(child: AppLoadingIndicator()),
             error: (e, _) => Center(child: Text('Erro: $e')),
           ),
         ),
@@ -415,7 +415,7 @@ class _FinancingContractCard extends ConsumerWidget {
                   );
                 },
                 loading: () => const SizedBox(height: 20),
-                error: (_, __) => const SizedBox(height: 20),
+                error: (_, _) => const SizedBox(height: 20),
               ),
             ],
           ),

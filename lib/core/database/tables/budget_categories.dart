@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'budgets.dart';
-import 'categories.dart';
+import 'package:bestfin/core/database/tables/budgets.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
 
 /// Tabela pivô: relaciona orçamentos a múltiplas categorias (1:N).
 @DataClassName('BudgetCategory')

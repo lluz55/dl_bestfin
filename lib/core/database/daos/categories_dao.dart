@@ -1,14 +1,14 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/categories.dart';
-import '../tables/category_parents.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
+import 'package:bestfin/core/database/tables/category_parents.dart';
 
 part 'categories_dao.g.dart';
 
 @DriftAccessor(tables: [Categories, CategoryParents])
 class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
-  CategoriesDao(AppDatabase db) : super(db);
+  CategoriesDao(super.db);
 
   Stream<List<Category>> watchAllCategories() {
     return select(categories).watch();

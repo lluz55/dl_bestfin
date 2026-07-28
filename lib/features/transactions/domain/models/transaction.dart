@@ -3,8 +3,8 @@ import 'package:bestfin/core/constants/sentiment_types.dart';
 import 'package:bestfin/core/constants/transaction_status.dart';
 import 'package:bestfin/features/categories/domain/models/category.dart';
 import 'package:bestfin/core/database/app_database.dart' as db;
-import 'entry.dart';
-import 'split_entry.dart';
+import 'package:bestfin/features/transactions/domain/models/entry.dart';
+import 'package:bestfin/features/transactions/domain/models/split_entry.dart';
 
 class TransactionModel {
   final String id;

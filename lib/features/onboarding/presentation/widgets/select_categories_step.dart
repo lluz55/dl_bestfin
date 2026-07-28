@@ -45,7 +45,7 @@ class SelectCategoriesStep extends ConsumerWidget {
                     .toList();
                 return ListView.separated(
                   itemCount: rootCategories.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
                   itemBuilder: (context, index) {
                     final cat = rootCategories[index];
                     return Container(
@@ -86,7 +86,7 @@ class SelectCategoriesStep extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: AppLoadingIndicator()),
-              error: (_, __) => Center(
+              error: (_, _) => Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

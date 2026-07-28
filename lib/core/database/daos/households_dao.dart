@@ -1,13 +1,13 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/households.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/households.dart';
 
 part 'households_dao.g.dart';
 
 @DriftAccessor(tables: [Households, HouseholdMembers])
 class HouseholdsDao extends DatabaseAccessor<AppDatabase>
     with _$HouseholdsDaoMixin {
-  HouseholdsDao(AppDatabase db) : super(db);
+  HouseholdsDao(super.db);
 
   Stream<List<Household>> watchAllHouseholds() {
     return select(households).watch();

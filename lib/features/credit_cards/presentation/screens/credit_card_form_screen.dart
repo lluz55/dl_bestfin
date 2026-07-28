@@ -230,7 +230,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                       Expanded(
                         child: _closingMode == ClosingDayMode.fixed
                             ? DropdownButtonFormField<int>(
-                                value: _closingDay,
+                                initialValue: _closingDay,
                                 decoration: const InputDecoration(
                                   labelText: 'Dia de Fechamento',
                                 ),
@@ -247,7 +247,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                                 },
                               )
                             : DropdownButtonFormField<int>(
-                                value: _closingOffset,
+                                initialValue: _closingOffset,
                                 decoration: const InputDecoration(
                                   labelText: 'Dias Antes',
                                 ),
@@ -271,7 +271,7 @@ class _CreditCardFormScreenState extends ConsumerState<CreditCardFormScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _dueDay,
+                          initialValue: _dueDay,
                           decoration: const InputDecoration(
                             labelText: 'Dia de Vencimento',
                           ),

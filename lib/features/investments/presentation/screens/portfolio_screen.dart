@@ -34,7 +34,7 @@ class PortfolioScreen extends ConsumerWidget {
           title: 'Meus Investimentos',
           showVisibilityToggle: true,
           infoDescription: 'Acompanhe seu portfólio de investimentos com cotações, rentabilidade e distribuição por tipo de ativo.',
-          infoFeatures: [
+          infoFeatures: const [
             'Visão geral do portfólio e saldo total',
             'Rentabilidade por ativo',
             'Distribuição por tipo de investimento',
@@ -142,7 +142,7 @@ class PortfolioScreen extends ConsumerWidget {
                 ],
               );
             },
-            loading: () => Center(child: AppLoadingIndicator()),
+            loading: () => const Center(child: AppLoadingIndicator()),
             error: (e, _) => Center(child: Text('Erro: $e')),
           ),
         ),

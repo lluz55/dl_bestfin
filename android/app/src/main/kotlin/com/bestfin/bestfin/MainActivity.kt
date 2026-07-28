@@ -1,5 +1,6 @@
 package com.bestfin.bestfin
 
+import android.os.Build
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -15,15 +16,26 @@ class MainActivity: FlutterFragmentActivity() {
             when (call.method) {
                 "setSecureScreen" -> {
                     val enabled = call.argument<Boolean>("enabled") ?: false
-                    if (enabled) {
-                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    } else {
-                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    }
+                    setSecureWindowFlags(enabled)
                     result.success(null)
                 }
                 else -> result.notImplemented()
             }
         }
     }
+
+    private fun setSecureWindowFlags(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                setRecentsScreenshotEnabled(false)
+            }
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                setRecentsScreenshotEnabled(true)
+            }
+        }
+    }
 }
+

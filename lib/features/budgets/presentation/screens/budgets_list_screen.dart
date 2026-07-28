@@ -138,7 +138,7 @@ class _BudgetsListScreenState extends ConsumerState<BudgetsListScreen> {
       appBar: AppPageAppBar(
         title: 'Orçamento',
         infoDescription: 'Defina orçamentos mensais por categoria. Acompanhe seus gastos e mantenha o controle financeiro.',
-        infoFeatures: [
+        infoFeatures: const [
           'Orçamento por categoria',
           'Rollover de saldo entre meses',
           'Acompanhamento de gastos em tempo real',

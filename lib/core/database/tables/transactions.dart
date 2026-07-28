@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
-import 'categories.dart';
-import 'credit_cards.dart';
-import 'entities.dart';
-import 'goals.dart';
-import 'invoices.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
+import 'package:bestfin/core/database/tables/credit_cards.dart';
+import 'package:bestfin/core/database/tables/entities.dart';
+import 'package:bestfin/core/database/tables/goals.dart';
+import 'package:bestfin/core/database/tables/invoices.dart';
 
 @TableIndex(
   name: 'transactions_confirmed_date_idx',

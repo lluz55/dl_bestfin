@@ -186,7 +186,7 @@ class _InvestmentFormScreenState extends ConsumerState<InvestmentFormScreen> {
 
             // Type Dropdown
             DropdownButtonFormField<String>(
-              value: _type,
+              initialValue: _type,
               decoration: InputDecoration(
                 labelText: 'Tipo de Ativo',
                 prefixIcon: const Icon(Icons.pie_chart_outline_rounded),

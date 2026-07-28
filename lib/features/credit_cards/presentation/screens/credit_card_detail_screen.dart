@@ -72,7 +72,7 @@ class CreditCardDetailScreen extends ConsumerWidget {
           title: card.name,
           showVisibilityToggle: true,
           infoDescription: 'Acompanhe o resumo completo do cartão de crédito: limite, fatura atual, próximas faturas e histórico completo.',
-          infoFeatures: [
+          infoFeatures: const [
             'Limite disponível e utilizado',
             'Fatura atual com detalhamento',
             'Linha do tempo de faturas',
@@ -118,7 +118,7 @@ class CreditCardDetailScreen extends ConsumerWidget {
                     child: AppLoadingIndicator(),
                   ),
                 ),
-                error: (err, __) => Center(
+                error: (err, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Text('Erro ao carregar faturas: $err'),

@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import '../app_database.dart';
-import '../tables/reconciliation_checkpoints.dart';
-import '../tables/entries.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/reconciliation_checkpoints.dart';
+import 'package:bestfin/core/database/tables/entries.dart';
 
 part 'reconciliation_dao.g.dart';
 

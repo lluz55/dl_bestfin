@@ -117,7 +117,7 @@ class AccountDetailScreen extends ConsumerWidget {
         title: 'Detalhes da Conta',
         showVisibilityToggle: true,
         infoDescription: 'Visualize o extrato detalhado da conta, acompanhe o saldo, movimentações recentes e a evolução do saldo ao longo do tempo.',
-        infoFeatures: [
+        infoFeatures: const [
           'Saldo atual e extrato detalhado',
           'Evolução do saldo em gráfico',
           'Filtro por período',
@@ -209,7 +209,7 @@ class AccountDetailScreen extends ConsumerWidget {
               ],
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
         ],
       ),

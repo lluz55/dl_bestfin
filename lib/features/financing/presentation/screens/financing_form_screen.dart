@@ -189,7 +189,7 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
 
             // Amortization System
             DropdownButtonFormField<String>(
-              value: _amortizationSystem,
+              initialValue: _amortizationSystem,
               decoration: InputDecoration(
                 labelText: 'Sistema de Amortização',
                 prefixIcon: const Icon(Icons.calculate_rounded),
@@ -281,7 +281,7 @@ class _FinancingFormScreenState extends ConsumerState<FinancingFormScreen> {
 
             // Linked Account
             DropdownButtonFormField<String>(
-              value: _selectedAccountId,
+              initialValue: _selectedAccountId,
               decoration: InputDecoration(
                 labelText: 'Conta Bancária Vinculada',
                 prefixIcon: const Icon(Icons.account_balance_wallet_rounded),

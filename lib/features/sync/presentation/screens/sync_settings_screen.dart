@@ -57,7 +57,7 @@ class SyncSettingsScreen extends ConsumerWidget {
               leading: CircleAvatar(child: AppLoadingIndicator()),
               title: Text('Carregando...'),
             ),
-            error: (_, __) => _SignInTile(cs: cs, tt: tt),
+            error: (_, _) => _SignInTile(cs: cs, tt: tt),
           ),
           const Divider(height: 1),
           const SizedBox(height: 16),
@@ -269,12 +269,12 @@ class _SyncStatusCard extends StatelessWidget {
               value: pendingAsync.when(
                 data: (n) => n == 0 ? 'Nenhum' : '$n item${n == 1 ? '' : 's'}',
                 loading: () => '...',
-                error: (_, __) => '?',
+                error: (_, _) => '?',
               ),
               valueColor: pendingAsync.when(
                 data: (n) => n > 0 ? cs.tertiary : null,
                 loading: () => null,
-                error: (_, __) => null,
+                error: (_, _) => null,
               ),
               icon: Icons.upload_rounded,
               cs: cs,

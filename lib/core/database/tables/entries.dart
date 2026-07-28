@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'accounts.dart';
-import 'transactions.dart';
+import 'package:bestfin/core/database/tables/accounts.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
 
 @TableIndex(name: 'entries_transaction_idx', columns: {#transactionId})
 @TableIndex(name: 'entries_account_idx', columns: {#accountId})

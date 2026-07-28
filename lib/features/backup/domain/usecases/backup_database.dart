@@ -88,9 +88,12 @@ class BackupDatabaseUseCase {
         ),
       );
       await source.copy(backupCopy.path);
-      await Share.shareXFiles([
-        XFile(backupCopy.path),
-      ], subject: 'Backup do Banco de Dados BestFin');
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(backupCopy.path)],
+          subject: 'Backup do Banco de Dados BestFin',
+        ),
+      );
     } finally {
       await _disposeExportSource(source);
     }
@@ -131,9 +134,12 @@ class BackupDatabaseUseCase {
       ),
     );
     await backupCopy.writeAsBytes(blob, flush: true);
-    await Share.shareXFiles([
-      XFile(backupCopy.path),
-    ], subject: 'Backup criptografado BestFin');
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(backupCopy.path)],
+        subject: 'Backup criptografado BestFin',
+      ),
+    );
   }
 
   /// Writes an encrypted backup to [destinationPath] (desktop "Salvar como").

@@ -354,60 +354,82 @@ class IconMapper {
       keys.map((k) => MapEntry(k, _map[k] ?? Icons.category)).toList();
 
   static IconData fromCodePoint(int codePoint) {
-    if (codePoint == Icons.account_balance_rounded.codePoint)
+    if (codePoint == Icons.account_balance_rounded.codePoint) {
       return Icons.account_balance_rounded;
-    if (codePoint == Icons.wallet_rounded.codePoint)
+    }
+    if (codePoint == Icons.wallet_rounded.codePoint) {
       return Icons.wallet_rounded;
-    if (codePoint == Icons.trending_up_rounded.codePoint)
+    }
+    if (codePoint == Icons.trending_up_rounded.codePoint) {
       return Icons.trending_up_rounded;
-    if (codePoint == Icons.savings_rounded.codePoint)
+    }
+    if (codePoint == Icons.savings_rounded.codePoint) {
       return Icons.savings_rounded;
-    if (codePoint == Icons.payments_rounded.codePoint)
+    }
+    if (codePoint == Icons.payments_rounded.codePoint) {
       return Icons.payments_rounded;
-    if (codePoint == Icons.credit_card_rounded.codePoint)
+    }
+    if (codePoint == Icons.credit_card_rounded.codePoint) {
       return Icons.credit_card_rounded;
-    if (codePoint == Icons.monetization_on_rounded.codePoint)
+    }
+    if (codePoint == Icons.monetization_on_rounded.codePoint) {
       return Icons.monetization_on_rounded;
-    if (codePoint == Icons.attach_money_rounded.codePoint)
+    }
+    if (codePoint == Icons.attach_money_rounded.codePoint) {
       return Icons.attach_money_rounded;
-    if (codePoint == Icons.shield_rounded.codePoint)
+    }
+    if (codePoint == Icons.shield_rounded.codePoint) {
       return Icons.shield_rounded;
-    if (codePoint == Icons.account_balance_wallet_rounded.codePoint)
+    }
+    if (codePoint == Icons.account_balance_wallet_rounded.codePoint) {
       return Icons.account_balance_wallet_rounded;
+    }
 
     if (codePoint == Icons.home_rounded.codePoint) return Icons.home_rounded;
-    if (codePoint == Icons.directions_car_rounded.codePoint)
+    if (codePoint == Icons.directions_car_rounded.codePoint) {
       return Icons.directions_car_rounded;
-    if (codePoint == Icons.restaurant_rounded.codePoint)
+    }
+    if (codePoint == Icons.restaurant_rounded.codePoint) {
       return Icons.restaurant_rounded;
-    if (codePoint == Icons.shopping_cart_rounded.codePoint)
+    }
+    if (codePoint == Icons.shopping_cart_rounded.codePoint) {
       return Icons.shopping_cart_rounded;
-    if (codePoint == Icons.favorite_rounded.codePoint)
+    }
+    if (codePoint == Icons.favorite_rounded.codePoint) {
       return Icons.favorite_rounded;
-    if (codePoint == Icons.school_rounded.codePoint)
+    }
+    if (codePoint == Icons.school_rounded.codePoint) {
       return Icons.school_rounded;
+    }
     if (codePoint == Icons.movie_rounded.codePoint) return Icons.movie_rounded;
     if (codePoint == Icons.work_rounded.codePoint) return Icons.work_rounded;
-    if (codePoint == Icons.person_rounded.codePoint)
+    if (codePoint == Icons.person_rounded.codePoint) {
       return Icons.person_rounded;
-    if (codePoint == Icons.family_restroom_rounded.codePoint)
+    }
+    if (codePoint == Icons.family_restroom_rounded.codePoint) {
       return Icons.family_restroom_rounded;
+    }
 
     if (codePoint == Icons.star_rounded.codePoint) return Icons.star_rounded;
     if (codePoint == Icons.store_rounded.codePoint) return Icons.store_rounded;
-    if (codePoint == Icons.flight_rounded.codePoint)
+    if (codePoint == Icons.flight_rounded.codePoint) {
       return Icons.flight_rounded;
-    if (codePoint == Icons.sports_esports_rounded.codePoint)
+    }
+    if (codePoint == Icons.sports_esports_rounded.codePoint) {
       return Icons.sports_esports_rounded;
+    }
     if (codePoint == Icons.lock_rounded.codePoint) return Icons.lock_rounded;
     if (codePoint == Icons.build_rounded.codePoint) return Icons.build_rounded;
     if (codePoint == Icons.pets_rounded.codePoint) return Icons.pets_rounded;
-    if (codePoint == Icons.local_gas_station_rounded.codePoint)
+    if (codePoint == Icons.local_gas_station_rounded.codePoint) {
       return Icons.local_gas_station_rounded;
-    if (codePoint == Icons.phone_iphone_rounded.codePoint)
+    }
+    if (codePoint == Icons.phone_iphone_rounded.codePoint) {
       return Icons.phone_iphone_rounded;
-    if (codePoint == Icons.local_hospital_rounded.codePoint)
+    }
+    if (codePoint == Icons.local_hospital_rounded.codePoint) {
       return Icons.local_hospital_rounded;
+    }
 
     return Icons.help_outline;
   }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../extensions/context_extensions.dart';
+import 'package:bestfin/core/extensions/context_extensions.dart';
 
 /// Wrapper para o painel de detalhe em layouts master-detail.
 ///

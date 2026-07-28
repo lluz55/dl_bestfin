@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'transactions.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
 
 @TableIndex(
   name: 'recurring_rules_base_transaction_idx',

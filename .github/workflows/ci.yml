@@ -1,0 +1,56 @@
+name: CI
+
+# Verificação estática e testes em cada push/PR na master.
+# O gate `flutter analyze --fatal-infos` impede que novos lints (mesmo nível
+# `info`) sejam mesclados — mantém o analyze em zero issues (ver task 55).
+# Os arquivos gerados (*.g.dart) são gitignored, então o codegen roda antes.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-ci-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-ci-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+
+      - name: flutter pub get
+        run: nix develop .#ci -c flutter pub get
+
+      - name: Gerar código (Drift/Riverpod)
+        run: nix develop .#ci -c flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: flutter analyze (--fatal-infos)
+        run: nix develop .#ci -c flutter analyze --fatal-infos
+
+      - name: flutter test
+        run: nix develop .#ci -c flutter test

@@ -41,7 +41,7 @@ class _CreditCardsListScreenState extends ConsumerState<CreditCardsListScreen> {
             title: 'Meus Cartões',
             showVisibilityToggle: true,
             infoDescription: 'Cadastre e gerencie seus cartões de crédito. Acompanhe limite disponível, data de fechamento, vencimento e histórico de faturas.',
-            infoFeatures: [
+            infoFeatures: const [
               'Limite total e disponível por cartão',
               'Fatura atual e próximas faturas',
               'Histórico completo de faturas',

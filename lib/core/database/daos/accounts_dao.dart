@@ -1,15 +1,15 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/accounts.dart';
-import '../tables/entries.dart';
-import '../tables/transactions.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/accounts.dart';
+import 'package:bestfin/core/database/tables/entries.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
 
 part 'accounts_dao.g.dart';
 
 @DriftAccessor(tables: [Accounts, Entries, Transactions])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
-  AccountsDao(AppDatabase db) : super(db);
+  AccountsDao(super.db);
 
   Stream<List<Account>> watchAllAccounts() {
     return select(accounts).watch();
@@ -50,7 +50,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   /// Calculates the current balance of an account by summing its entries
   Stream<int> watchAccountBalance(String accountId) {
-    final balanceExpr = CustomExpression<int>(
+    const balanceExpr = CustomExpression<int>(
       "SUM(CASE WHEN type = 'debit' THEN amount ELSE -amount END)",
     );
 
@@ -64,7 +64,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   /// Sums the balance across every account in a single query, instead of
   /// running one [watchAccountBalance] query per account.
   Future<int> getTotalBalance() async {
-    final balanceExpr = CustomExpression<int>(
+    const balanceExpr = CustomExpression<int>(
       "SUM(CASE WHEN type = 'debit' THEN amount ELSE -amount END)",
     );
 
@@ -80,7 +80,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   /// [getTotalBalance], que deliberadamente inclui pendentes para telas que
   /// mostram saldo disponível "com pendentes embutidos" (ex.: freeToSpend).
   Future<int> getConfirmedBalance() async {
-    final balanceExpr = CustomExpression<int>(
+    const balanceExpr = CustomExpression<int>(
       "SUM(CASE WHEN entries.type = 'debit' THEN entries.amount ELSE -entries.amount END)",
     );
 

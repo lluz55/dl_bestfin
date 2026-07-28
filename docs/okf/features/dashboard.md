@@ -69,5 +69,4 @@ Reutiliza o `TransactionTile` da tela de Transações (`transactions/presentatio
 - [Transações](transactions.md) — dados base para saldos e totais
 - [Metas](goals.md) — widget de progresso
 - [Recorrências](recurring.md) — widget de próximas contas
-- [LLM](llm.md) — `InsightCard` e narrativa gerada
 - [Gamificação](gamification.md) — widget de streak

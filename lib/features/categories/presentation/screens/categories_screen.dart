@@ -92,7 +92,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       appBar: AppPageAppBar(
         title: 'Categorias',
         infoDescription: 'Organize suas finanças com categorias e subcategorias personalizadas. Atribua ícones e cores para identificar visualmente cada tipo de transação.',
-        infoFeatures: [
+        infoFeatures: const [
           'Categorias pai e filho hierárquicas',
           'Ícones e cores personalizados',
           'Reordenação por arrasto',

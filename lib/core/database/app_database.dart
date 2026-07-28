@@ -5,59 +5,59 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
-import '../constants/default_categories.dart';
-import 'db_encryption.dart';
+import 'package:bestfin/core/constants/default_categories.dart';
+import 'package:bestfin/core/database/db_encryption.dart';
 
 // Tables
-import 'tables/accounts.dart';
-import 'tables/app_settings.dart';
-import 'tables/attachments.dart';
-import 'tables/categories.dart';
-import 'tables/credit_cards.dart';
-import 'tables/entities.dart';
-import 'tables/entries.dart';
-import 'tables/financing_installments.dart';
-import 'tables/financings.dart';
-import 'tables/goals.dart';
-import 'tables/holidays.dart';
-import 'tables/installment_plans.dart';
-import 'tables/investments.dart';
-import 'tables/invoices.dart';
-import 'tables/recurring_rules.dart';
-import 'tables/scheduled_reminders.dart';
-import 'tables/transactions.dart';
-import 'tables/sync_queue.dart';
-import 'tables/households.dart';
-import 'tables/nostr_event_log.dart';
-import 'tables/streaks.dart';
-import 'tables/badges.dart';
-import 'tables/category_parents.dart';
-import 'tables/goal_categories.dart';
-import 'tables/chat_messages.dart';
-import 'tables/budgets.dart';
-import 'tables/budget_categories.dart';
-import 'tables/transaction_splits.dart';
-import 'tables/reconciliation_checkpoints.dart';
+import 'package:bestfin/core/database/tables/accounts.dart';
+import 'package:bestfin/core/database/tables/app_settings.dart';
+import 'package:bestfin/core/database/tables/attachments.dart';
+import 'package:bestfin/core/database/tables/categories.dart';
+import 'package:bestfin/core/database/tables/credit_cards.dart';
+import 'package:bestfin/core/database/tables/entities.dart';
+import 'package:bestfin/core/database/tables/entries.dart';
+import 'package:bestfin/core/database/tables/financing_installments.dart';
+import 'package:bestfin/core/database/tables/financings.dart';
+import 'package:bestfin/core/database/tables/goals.dart';
+import 'package:bestfin/core/database/tables/holidays.dart';
+import 'package:bestfin/core/database/tables/installment_plans.dart';
+import 'package:bestfin/core/database/tables/investments.dart';
+import 'package:bestfin/core/database/tables/invoices.dart';
+import 'package:bestfin/core/database/tables/recurring_rules.dart';
+import 'package:bestfin/core/database/tables/scheduled_reminders.dart';
+import 'package:bestfin/core/database/tables/transactions.dart';
+import 'package:bestfin/core/database/tables/sync_queue.dart';
+import 'package:bestfin/core/database/tables/households.dart';
+import 'package:bestfin/core/database/tables/nostr_event_log.dart';
+import 'package:bestfin/core/database/tables/streaks.dart';
+import 'package:bestfin/core/database/tables/badges.dart';
+import 'package:bestfin/core/database/tables/category_parents.dart';
+import 'package:bestfin/core/database/tables/goal_categories.dart';
+import 'package:bestfin/core/database/tables/chat_messages.dart';
+import 'package:bestfin/core/database/tables/budgets.dart';
+import 'package:bestfin/core/database/tables/budget_categories.dart';
+import 'package:bestfin/core/database/tables/transaction_splits.dart';
+import 'package:bestfin/core/database/tables/reconciliation_checkpoints.dart';
 
 // DAOs (To be added later)
-import 'daos/accounts_dao.dart';
-import 'daos/categories_dao.dart';
-import 'daos/credit_cards_dao.dart';
-import 'daos/entities_dao.dart';
-import 'daos/financings_dao.dart';
-import 'daos/goals_dao.dart';
-import 'daos/investments_dao.dart';
-import 'daos/invoices_dao.dart';
-import 'daos/recurring_rules_dao.dart';
-import 'daos/scheduled_reminders_dao.dart';
-import 'daos/transactions_dao.dart';
-import 'daos/sync_queue_dao.dart';
-import 'daos/households_dao.dart';
-import 'daos/nostr_event_log_dao.dart';
-import 'daos/streaks_dao.dart';
-import 'daos/badges_dao.dart';
-import 'daos/budgets_dao.dart';
-import 'daos/reconciliation_dao.dart';
+import 'package:bestfin/core/database/daos/accounts_dao.dart';
+import 'package:bestfin/core/database/daos/categories_dao.dart';
+import 'package:bestfin/core/database/daos/credit_cards_dao.dart';
+import 'package:bestfin/core/database/daos/entities_dao.dart';
+import 'package:bestfin/core/database/daos/financings_dao.dart';
+import 'package:bestfin/core/database/daos/goals_dao.dart';
+import 'package:bestfin/core/database/daos/investments_dao.dart';
+import 'package:bestfin/core/database/daos/invoices_dao.dart';
+import 'package:bestfin/core/database/daos/recurring_rules_dao.dart';
+import 'package:bestfin/core/database/daos/scheduled_reminders_dao.dart';
+import 'package:bestfin/core/database/daos/transactions_dao.dart';
+import 'package:bestfin/core/database/daos/sync_queue_dao.dart';
+import 'package:bestfin/core/database/daos/households_dao.dart';
+import 'package:bestfin/core/database/daos/nostr_event_log_dao.dart';
+import 'package:bestfin/core/database/daos/streaks_dao.dart';
+import 'package:bestfin/core/database/daos/badges_dao.dart';
+import 'package:bestfin/core/database/daos/budgets_dao.dart';
+import 'package:bestfin/core/database/daos/reconciliation_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -118,7 +118,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  AppDatabase.forTesting(QueryExecutor e) : super(e);
+  AppDatabase.forTesting(super.e);
 
   @override
   int get schemaVersion => 25;
@@ -341,7 +341,7 @@ class AppDatabase extends _$AppDatabase {
           );
           await customStatement(
             'UPDATE budgets SET name = '
-            "(SELECT c.name FROM categories c WHERE c.id = budgets.category_id) "
+            '(SELECT c.name FROM categories c WHERE c.id = budgets.category_id) '
             "WHERE name = ''",
           );
           // Fallback para orçamentos sem categoria.

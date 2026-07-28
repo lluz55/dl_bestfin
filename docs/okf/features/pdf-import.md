@@ -46,7 +46,6 @@ Arquivo futuro: `data/parsers/llm_fallback_parser.dart`
 
 - [Transações](transactions.md) — transações confirmadas são criadas
 - [Categorias](categories.md) — auto-categorização das transações importadas
-- [LLM](llm.md) — fallback LLM planejado
 
 # Citations
 

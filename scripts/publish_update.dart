@@ -1,7 +1,7 @@
 /// Publica um evento de notificação de nova versão nos relays Nostr.
 ///
 /// Uso:
-///   BESTFIN_DEV_NOSTR_PRIVKEY=<hex|nsec> dart run scripts/publish_update.dart \
+///   BESTFIN_DEV_NOSTR_PRIVKEY=`<hex|nsec>` dart run scripts/publish_update.dart \
 ///     --version 1.2.0 \
 ///     [--changelog "Descrição das mudanças"] \
 ///     [--download-url "https://github.com/user/bestfin/releases/tag/v1.2.0"] \
@@ -12,12 +12,15 @@
 /// Aceita hex (64 chars), nsec (bech32) ou caminho de arquivo.
 ///
 /// Modo utilitário:
-///   dart run scripts/publish_update.dart --to-hex <npub|nsec|hex>
+///   dart run scripts/publish_update.dart --to-hex `<npub|nsec|hex>`
 ///   Converte qualquer formato de chave para hex e imprime na stdout.
 ///
 /// Evento kind:30078, d-tag 'app_update' (NIP-33, replaceable).
 /// Conteúdo em JSON plain-text — sem cifragem: são anúncios públicos.
 library;
+
+// Script de linha de comando: a saída via print() é a UI da ferramenta.
+// ignore_for_file: avoid_print
 
 import 'dart:convert';
 import 'dart:io';
@@ -99,8 +102,8 @@ Future<void> main(List<String> args) async {
 
   final payload = jsonEncode({
     'version': version,
-    if (changelog != null) 'changelog': changelog,
-    if (downloadUrl != null) 'download_url': downloadUrl,
+    'changelog': ?changelog,
+    'download_url': ?downloadUrl,
     'published_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     'is_critical': isCritical,
   });

@@ -131,9 +131,10 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
     if (confirm == true) {
       await repo.deleteFinancing(fin.id);
       ref.invalidate(financingsStreamProvider);
-      if (context.mounted) {
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
         context.pop();
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Contrato excluído com sucesso.')),
         );
       }
@@ -157,7 +158,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
         title: 'Detalhes do Contrato',
         showVisibilityToggle: true,
         infoDescription: 'Acompanhe o financiamento em detalhes: saldo devedor, parcelas, amortização, juros e projeções futuras.',
-        infoFeatures: [
+        infoFeatures: const [
           'Valor total e saldo devedor',
           'Taxa de juros e CET',
           'Cronograma de parcelas',
@@ -171,7 +172,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
               onPressed: () => _deleteContract(fin),
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -506,7 +507,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                           ],
                         );
                       },
-                      loading: () => Center(child: AppLoadingIndicator()),
+                      loading: () => const Center(child: AppLoadingIndicator()),
                       error: (e, _) => Center(child: Text('Erro: $e')),
                     ),
 
@@ -646,7 +647,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
                           },
                         );
                       },
-                      loading: () => Center(child: AppLoadingIndicator()),
+                      loading: () => const Center(child: AppLoadingIndicator()),
                       error: (e, _) => Center(child: Text('Erro: $e')),
                     ),
                   ],
@@ -655,7 +656,7 @@ class _FinancingDetailScreenState extends ConsumerState<FinancingDetailScreen>
             ],
           );
         },
-        loading: () => Center(child: AppLoadingIndicator()),
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (e, _) => Center(child: Text('Erro: $e')),
       ),
     );

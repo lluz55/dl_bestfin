@@ -1,0 +1,10 @@
+# Declaração de tags de teste do projeto.
+#
+# `benchmark` marca sondas de performance (ex.: baseline da agregação do
+# dashboard — Task 59). Rodam junto com a suíte por padrão (são baratas e não
+# têm assert de threshold), mas podem ser isoladas com:
+#   flutter test --tags benchmark
+# ou excluídas com:
+#   flutter test --exclude-tags benchmark
+tags:
+  benchmark:

@@ -75,10 +75,10 @@ void main() {
       );
 
       // Sum all debits and credits
-      final sumDebitsExpr = CustomExpression<int>(
+      const sumDebitsExpr = CustomExpression<int>(
         "SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END)",
       );
-      final sumCreditsExpr = CustomExpression<int>(
+      const sumCreditsExpr = CustomExpression<int>(
         "SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END)",
       );
 

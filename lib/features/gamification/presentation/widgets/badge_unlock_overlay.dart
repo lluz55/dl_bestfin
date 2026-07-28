@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/extensions/context_extensions.dart';
@@ -36,10 +38,12 @@ class BadgeUnlockOverlay extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => _UnlockDialog(badge: badge),
+    unawaited(
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => _UnlockDialog(badge: badge),
+      ),
     );
   }
 }

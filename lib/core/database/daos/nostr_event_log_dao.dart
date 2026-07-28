@@ -1,13 +1,13 @@
 import 'package:drift/drift.dart';
-import '../app_database.dart';
-import '../tables/nostr_event_log.dart';
+import 'package:bestfin/core/database/app_database.dart';
+import 'package:bestfin/core/database/tables/nostr_event_log.dart';
 
 part 'nostr_event_log_dao.g.dart';
 
 @DriftAccessor(tables: [NostrEventLog])
 class NostrEventLogDao extends DatabaseAccessor<AppDatabase>
     with _$NostrEventLogDaoMixin {
-  NostrEventLogDao(AppDatabase db) : super(db);
+  NostrEventLogDao(super.db);
 
   Future<void> save(NostrEventLogItem item) async {
     await into(nostrEventLog).insertOnConflictUpdate(item);

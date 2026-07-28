@@ -31,9 +31,9 @@ String encodeSyncEnvelope(
 }) => jsonEncode({
   'v': schemaVersion,
   'payload': payload,
-  if (entityType != null) 't': entityType,
-  if (entityId != null) 'id': entityId,
-  if (isDeleted != null) 'del': isDeleted,
+  't': ?entityType,
+  'id': ?entityId,
+  'del': ?isDeleted,
 });
 
 /// Inverse of [encodeSyncEnvelope]. Events published before the envelope

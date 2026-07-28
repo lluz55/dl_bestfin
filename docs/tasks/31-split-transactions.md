@@ -2,8 +2,8 @@
 type: Task
 id: "31"
 title: "Split de Transações"
-status: in_progress
-timestamp: 2026-07-01T00:00:00Z
+status: done
+timestamp: 2026-07-26T13:00:00Z
 ---
 
 # Split de Transações
@@ -20,4 +20,4 @@ Permite dividir uma única transação entre múltiplas categorias.
 - [x] Atualizar TransactionRepository (createTransaction + splits)
 - [x] Criar SplitEditorSheet (modal bottom sheet)
 - [x] Atualizar TransactionFormScreen (botão + estado de splits na página 1)
-- [ ] Indicador de split no StaggeredTransactionList (opcional — backlog)
+- [x] Indicador de split no StaggeredTransactionList (badge `call_split` no ícone)

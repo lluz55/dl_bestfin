@@ -5,7 +5,6 @@ import 'package:bestfin/core/extensions/context_extensions.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
 import 'package:bestfin/core/widgets/app_page_appbar.dart';
 import 'package:bestfin/core/widgets/app_button.dart';
-import 'package:bestfin/core/widgets/amount_display.dart';
 import 'package:bestfin/core/widgets/empty_state.dart';
 import 'package:bestfin/core/widgets/loading_indicator.dart';
 import 'package:bestfin/features/recurring/domain/models/recurring_rule.dart';
@@ -92,7 +91,6 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
-    final tt = context.textTheme;
     final isExpanded = Breakpoints.isExpanded(context);
 
     return Scaffold(
@@ -100,7 +98,7 @@ class _RecurringListScreenState extends ConsumerState<RecurringListScreen>
       appBar: AppPageAppBar(
         title: 'Recorrentes',
         infoDescription: 'Gerencie transações recorrentes como assinaturas, mensalidades e contas fixas. Configure a frequência e a renovação automática.',
-        infoFeatures: [
+        infoFeatures: const [
           'Transações com renovação automática',
           'Frequência: diária, semanal, mensal, anual',
           'Hub de assinaturas dedicado',

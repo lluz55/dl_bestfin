@@ -38,6 +38,9 @@ class _MoreItem {
     this.colorFn,
     this.onTap,
     this.subtitle,
+    // Hook opcional (badge de atualização) já consumido em [trailingBuilder];
+    // mantido na API mesmo sem caller atual.
+    // ignore: unused_element_parameter
     this.trailingBuilder,
   });
 
@@ -250,7 +253,7 @@ class MoreScreen extends ConsumerWidget {
             icon: Icons.privacy_tip_outlined,
             label: 'Política de Privacidade',
             subtitle: 'Seus dados ficam apenas no dispositivo',
-            buildScreen: () => _InfoDetailScreen(
+            buildScreen: () => const _InfoDetailScreen(
               icon: Icons.privacy_tip_outlined,
               title: 'Política de Privacidade',
               value: 'Seus dados ficam apenas no dispositivo',
@@ -459,9 +462,6 @@ class _MoreMasterDetailState extends State<_MoreMasterDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = context.colorScheme;
-    final tt = context.textTheme;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -873,7 +873,7 @@ class _VersionDetailScreenState extends State<_VersionDetailScreen> {
         continue;
       }
       if (line.startsWith('## Unreleased')) {
-        current = _ChangelogEntry(version: 'Próximo', changes: []);
+        current = const _ChangelogEntry(version: 'Próximo', changes: []);
         entries.add(current);
         continue;
       }

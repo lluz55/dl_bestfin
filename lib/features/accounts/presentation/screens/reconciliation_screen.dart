@@ -228,7 +228,7 @@ class _ReconciliationScreenState extends ConsumerState<ReconciliationScreen> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _items.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
       itemBuilder: (context, index) {
         final item = _items[index];

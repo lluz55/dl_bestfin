@@ -1,5 +1,5 @@
-import '../repositories/streak_repository.dart';
-import 'badge_checker.dart';
+import 'package:bestfin/features/gamification/domain/repositories/streak_repository.dart';
+import 'package:bestfin/features/gamification/domain/services/badge_checker.dart';
 
 class GamificationService {
   final StreakRepository _streakRepository;

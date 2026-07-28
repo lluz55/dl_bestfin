@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../theme/breakpoints.dart';
-import '../theme/color_schemes.dart';
-import '../theme/motion.dart';
-import '../theme/shapes.dart';
+import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/core/theme/color_schemes.dart';
+import 'package:bestfin/core/theme/motion.dart';
+import 'package:bestfin/core/theme/shapes.dart';
 
 extension ThemeContextExtension on BuildContext {
   ThemeData get theme => Theme.of(this);

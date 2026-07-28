@@ -37,6 +37,7 @@ import 'package:bestfin/core/notifications/reminder_provider.dart';
 import 'package:bestfin/core/notifications/reminder_scheduler.dart';
 import 'package:bestfin/features/security/presentation/providers/security_provider.dart';
 import 'package:bestfin/features/security/presentation/widgets/lock_overlay.dart';
+import 'package:bestfin/core/utils/secure_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
@@ -71,6 +72,9 @@ void main() async {
   } else {
     initialValuesHidden = prefs.getBool(kValuesHiddenKey) ?? false;
   }
+  initialHideRecentsPreview = prefs.getBool(kHideRecentsPreviewKey) ?? true;
+  await SecureScreen.setGlobalEnabled(initialHideRecentsPreview);
+
   initialDefaultAccountId = prefs.getString(kDefaultAccountIdKey);
   initialSidebarCollapsed = prefs.getBool(kSidebarCollapsedKey) ?? false;
   initialRemindersEnabled = prefs.getBool(kRemindersEnabledKey) ?? true;
@@ -80,6 +84,7 @@ void main() async {
   initialUserPhotoPath = prefs.getString(kUserPhotoPathKey);
   runApp(const ProviderScope(child: BestFinApp()));
 }
+
 
 class BestFinApp extends ConsumerStatefulWidget {
   const BestFinApp({super.key});
@@ -220,6 +225,9 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      unawaited(SecureScreen.enable());
+    }
     if (state == AppLifecycleState.paused) {
       _backgroundedAt = DateTime.now();
       // Relax the periodic safety-net poll while backgrounded to save
@@ -227,6 +235,7 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
       // below cover freshness the rest of the time.
       ref.read(syncStateProvider.notifier).onAppPaused();
     } else if (state == AppLifecycleState.resumed) {
+      unawaited(SecureScreen.disable());
       final biometricsEnabled = ref.read(biometricsEnabledProvider);
       if (biometricsEnabled && _backgroundedAt != null) {
         final elapsed = DateTime.now().difference(_backgroundedAt!);
@@ -240,6 +249,7 @@ class _BestFinAppState extends ConsumerState<BestFinApp>
       unawaited(ref.read(syncStateProvider.notifier).syncNow(background: true));
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -321,7 +321,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
             const SizedBox(height: 24),
 
             // ── Recorrência ──────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.repeat_rounded, label: 'Recorrência'),
+            const _SectionHeader(icon: Icons.repeat_rounded, label: 'Recorrência'),
             const SizedBox(height: 8),
             SwitchListTile.adaptive(
               value: _isRecurring,
@@ -360,7 +360,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
             const SizedBox(height: 24),
 
             // ── Categorias absorvidas ─────────────────────────────────────────
-            _SectionHeader(
+            const _SectionHeader(
               icon: Icons.category_outlined,
               label: 'Absorção automática',
             ),
