@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:bestfin/core/theme/breakpoints.dart';
+import 'package:bestfin/features/sync/data/services/e2e_crypto_service.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 
 class QrScannerScreen extends ConsumerStatefulWidget {
@@ -13,7 +16,10 @@ class QrScannerScreen extends ConsumerStatefulWidget {
 }
 
 class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
-  final _controller = MobileScannerController();
+  final _controller = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+    detectionSpeed: DetectionSpeed.normal,
+  );
   bool _processing = false;
   String? _error;
 
@@ -25,21 +31,39 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_processing) return;
-    final value = capture.barcodes.firstOrNull?.rawValue;
-    if (value == null) return;
+    String? mnemonic;
+    for (final barcode in capture.barcodes) {
+      final raw = barcode.rawValue;
+      if (raw == null || raw.trim().isEmpty) continue;
+      mnemonic = E2ECryptoService.qrPayloadToMnemonic(raw);
+      if (mnemonic != null) break;
+    }
+    if (mnemonic == null) {
+      // Só sinaliza erro se algum código foi realmente lido — caso contrário é
+      // apenas um frame sem QR e a câmera continua tentando.
+      if (capture.barcodes.isNotEmpty && mounted && _error == null) {
+        setState(
+          () => _error =
+              'Este QR não é um pareamento do BestFin. Gere o QR em '
+              'Configurações › Sincronização no outro dispositivo.',
+        );
+      }
+      return;
+    }
 
-    final words = value.trim().split(RegExp(r'\s+'));
-    if (words.length != 24) return;
-
-    setState(() => _processing = true);
-    _controller.stop();
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
+    unawaited(_controller.stop());
 
     try {
-      await ref.read(nostrSyncServiceProvider).importIdentity(value.trim());
+      await ref.read(nostrSyncServiceProvider).importIdentity(mnemonic);
       if (mounted) context.go('/sync');
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = 'QR inválido ou frase incorreta. Tente novamente.';
+        _error = 'Falha ao importar a identidade deste QR. Tente novamente.';
         _processing = false;
       });
       await _controller.start();
@@ -57,13 +81,13 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: Breakpoints.isCompact(context),
-        title: Text('Escanear QR', style: TextStyle(color: Colors.white)),
+        title: const Text('Escanear QR', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             onPressed: () => _controller.toggleTorch(),
             icon: ValueListenableBuilder(
               valueListenable: _controller,
-              builder: (_, state, __) => Icon(
+              builder: (_, state, _) => Icon(
                 state.torchState == TorchState.on
                     ? Icons.flash_on_rounded
                     : Icons.flash_off_rounded,
@@ -91,7 +115,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
             child: Column(
               children: [
                 if (_processing) ...[
-                  CircularProgressIndicator(color: Colors.white),
+                  const CircularProgressIndicator(color: Colors.white),
                   const SizedBox(height: 12),
                   Text(
                     'Importando identidade...',
@@ -117,7 +141,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => setState(() => _error = null),
-                    child: Text(
+                    child: const Text(
                       'Tentar novamente',
                       style: TextStyle(color: Colors.white),
                     ),
@@ -154,9 +178,9 @@ class _ViewfinderPainter extends CustomPainter {
     final h = size.height;
 
     // top-left
-    canvas.drawArc(Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14, 1.57, false, paint);
-    canvas.drawLine(Offset(r, 0), Offset(cornerLen, 0), paint);
-    canvas.drawLine(Offset(0, r), Offset(0, cornerLen), paint);
+    canvas.drawArc(const Rect.fromLTWH(0, 0, r * 2, r * 2), 3.14, 1.57, false, paint);
+    canvas.drawLine(const Offset(r, 0), const Offset(cornerLen, 0), paint);
+    canvas.drawLine(const Offset(0, r), const Offset(0, cornerLen), paint);
 
     // top-right
     canvas.drawArc(

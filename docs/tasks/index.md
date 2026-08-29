@@ -69,8 +69,10 @@ timestamp: 2026-07-12T12:00:00Z
 | 52 | [Padronização dos modais bottom sheet](52-padronizacao-modais-bottom-sheet.md) | ✅ | 10/10 |
 | 53 | [Padronização do SectionHeader](53-padronizacao-section-header.md) | ✅ | 10/10 |
 | 54 | [Priorizar nome da categoria sobre tags de tipo/sistema quando há truncamento](54-category-name-truncation.md) | ✅ | 3/3 |
+| 80 | [Pareamento por QR entre Linux e Android](80-sync-qr-pairing-compat.md) | ✅ | 7/7 |
 
 **Observações:**
+* Tarefa 80 criada em 2026-08-29 (bug: QR de pareamento gerado no Linux não era decodificado pelo scanner Android — payload do QR trocado para formato alfanumérico compacto).
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).
 * Existem dois arquivos com o número 47; o segundo é referenciado como **47b**.
 * Tarefas 29, 30 e 32 estão com todos os checkboxes marcados mas `status: in_progress`

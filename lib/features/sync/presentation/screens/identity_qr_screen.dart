@@ -19,11 +19,13 @@ class _IdentityQrScreenState extends State<IdentityQrScreen> {
   bool _revealed = false;
   bool _copied = false;
   late final String _mnemonic;
+  late final String _qrPayload;
 
   @override
   void initState() {
     super.initState();
     _mnemonic = E2ECryptoService.masterKeyToMnemonic(widget.masterKey);
+    _qrPayload = E2ECryptoService.masterKeyToQrPayload(widget.masterKey);
     SecureScreen.enable();
   }
 
@@ -93,20 +95,20 @@ class _IdentityQrScreenState extends State<IdentityQrScreen> {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(24),
                     child: QrImageView(
-                      data: _mnemonic,
+                      data: _qrPayload,
                       version: QrVersions.auto,
-                      size: 240,
-                      errorCorrectionLevel: QrErrorCorrectLevel.M,
+                      size: 280,
+                      errorCorrectionLevel: QrErrorCorrectLevel.Q,
                     ),
                   ),
                   if (!_revealed)
                     GestureDetector(
                       onTap: () => setState(() => _revealed = true),
                       child: Container(
-                        width: 272,
-                        height: 272,
+                        width: 328,
+                        height: 328,
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHighest.withValues(
                             alpha: 0.95,

@@ -138,6 +138,57 @@ class E2ECryptoService {
     return bip340.getPublicKey(privkeyHex);
   }
 
+  // ── Pareamento por QR ──────────────────────────────────────────────────────
+  //
+  // O QR de pareamento NÃO carrega o mnemônico em texto: 24 palavras (~160
+  // chars minúsculos) forçam o QR para o modo *byte*, gerando uma matriz densa
+  // (versão ~11) que a câmera do Android falha em decodificar a partir de um
+  // monitor. O payload abaixo usa apenas caracteres do alfabeto alfanumérico do
+  // QR (0-9 A-Z e ':'), habilitando o modo alfanumérico e reduzindo a matriz
+  // para ~versão 5 — muito mais tolerante a distância, brilho e moiré de tela.
+  //
+  //   BESTFIN:1:<64 chars hex maiúsculo da masterKey>
+  static const String qrPayloadPrefix = 'BESTFIN:1:';
+
+  /// Codifica a masterKey no payload de pareamento por QR.
+  static String masterKeyToQrPayload(List<int> masterKey) {
+    if (masterKey.length != 32) {
+      throw ArgumentError('masterKey must be 32 bytes, got ${masterKey.length}');
+    }
+    final hex = masterKey
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join()
+        .toUpperCase();
+    return '$qrPayloadPrefix$hex';
+  }
+
+  /// Decodifica o conteúdo lido de um QR de pareamento em um mnemônico BIP39.
+  ///
+  /// Aceita, nesta ordem:
+  /// 1. `BESTFIN:1:<hex>` — formato atual;
+  /// 2. mnemônico BIP39 de 24 palavras — QRs gerados por versões anteriores.
+  ///
+  /// Retorna `null` se o conteúdo não for um pareamento BestFin válido.
+  static String? qrPayloadToMnemonic(String raw) {
+    final value = raw.trim();
+
+    if (value.toUpperCase().startsWith(qrPayloadPrefix)) {
+      final hex = value.substring(qrPayloadPrefix.length).trim();
+      if (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(hex)) return null;
+      final bytes = Uint8List(32);
+      for (var i = 0; i < 32; i++) {
+        bytes[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
+      }
+      return masterKeyToMnemonic(bytes);
+    }
+
+    final words = value.toLowerCase().split(RegExp(r'\s+'));
+    if (words.length != 24) return null;
+    final mnemonic = words.join(' ');
+    if (!bip39.validateMnemonic(mnemonic)) return null;
+    return mnemonic;
+  }
+
   // Generate a new masterKey and return both the mnemonic and masterKey bytes.
   static ({String mnemonic, Uint8List masterKey}) generateIdentity() {
     final masterKey = generateMasterKey();
