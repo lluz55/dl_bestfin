@@ -57,6 +57,21 @@ Não existe servidor próprio. `backend/` (Go + SQLite) foi removido — a sincr
 | `presentation/widgets/relay_manager_section.dart` | UI para adicionar/remover relays e restaurar os padrões (usa `relayListProvider`) |
 | `presentation/providers/sync_provider.dart` | `SyncStateNotifier` (auto-sync); `relayListProvider`/`RelayListNotifier` (lista de relays configurável) |
 
+
+## Pareamento por QR
+
+O QR de pareamento **não** contém o mnemônico em texto. Payload versionado e
+restrito ao alfabeto alfanumérico do QR (modo alfanumérico → matriz ~versão 5,
+legível de tela para câmera):
+
+```
+BESTFIN:1:<64 chars hex MAIÚSCULO da masterKey>
+```
+
+`E2ECryptoService.masterKeyToQrPayload` gera; `qrPayloadToMnemonic` decodifica e
+também aceita o formato legado (24 palavras BIP39, com validação de checksum),
+retornando `null` para conteúdo inválido. Ver [[tasks/80-sync-qr-pairing-compat]].
+
 ## Modelo de Dados (Nostr)
 
 - **Kind 30078** (NIP-78, "application-specific data", replaceable por `d`-tag).
