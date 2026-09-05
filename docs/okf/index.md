@@ -4,7 +4,7 @@ type: Bundle Index
 title: BestFin — Knowledge Bundle
 description: Curated context about the BestFin Flutter app for AI agents and developers.
 tags: [bestfin, flutter, finance, android, linux]
-timestamp: 2026-06-29T00:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) com Material Design 3 Expressive, contabilidade de partida dobrada, LLM on-device e sincronização E2E criptografada.
@@ -55,3 +55,4 @@ BestFin é um aplicativo de finanças pessoais multiplataforma (Android, Linux) 
 * [Segurança](features/security.md) - Biometria, PIN, lock overlay
 * [Sincronização](features/sync.md) - Serverless via relays Nostr + AES-256-GCM E2E
 * [Onboarding & Tutorial](features/onboarding.md) - Wizard de 6 steps + coach marks pós-onboarding
+* [TUI/CLI](features/tui.md) - `bestfin tui/add/sync` — o app completo no terminal, reusando os repositórios da GUI

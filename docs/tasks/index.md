@@ -3,7 +3,7 @@ type: Task Index
 title: "BestFin — Índice de Tarefas"
 description: "Status e progresso de todas as tarefas do projeto. Consultar antes de iniciar qualquer implementação (Passo 3 do protocolo OKF)."
 tags: [bestfin, tasks, tracking]
-timestamp: 2026-08-29T12:00:00Z
+timestamp: 2026-09-05T00:00:00Z
 ---
 
 # Índice de Tarefas
@@ -71,9 +71,22 @@ timestamp: 2026-08-29T12:00:00Z
 | 54 | [Priorizar nome da categoria sobre tags de tipo/sistema quando há truncamento](54-category-name-truncation.md) | ✅ | 3/3 |
 | 55 | [Lançamento Rápido via CLI/TUI (linguagem natural, mesmo binário)](55-cli-tui-transaction-entry.md) | 🔄 | 18/19 |
 | 56 | [TUI completa — todas as funcionalidades do app pelo terminal](56-tui-completa.md) | ✅ | 27/27 |
+| 57 | [TUI residente — sincronismo contínuo + gestão no mesmo modo](57-tui-modo-residente-sync-continuo.md) | 🔄 | 18/20 |
+| 58 | [Paridade de lançamentos na TUI — sugestões, bulk e split](58-tui-paridade-lancamentos.md) | ✅ | 12/12 |
+| 59 | [Reconciliação de contas na TUI](59-tui-reconciliacao.md) | ✅ | 5/5 |
+| 60 | [Chat/insights do LLM on-device na TUI](60-tui-llm-chat.md) | ✅ | 4/4 |
 | 80 | [Pareamento por QR entre Linux e Android](80-sync-qr-pairing-compat.md) | ✅ | 7/7 |
 
 **Observações:**
+* Tarefas 57–60 criadas em 2026-09-05 a partir do plano de paridade UI↔TUI: a
+  57 é o "modo residente" (sync contínuo dentro da TUI, substituindo a ideia
+  de um sync daemon headless) e fecha o último checkbox pendente da 55; 58–60
+  cobrem a paridade restante de lançamentos, reconciliação e LLM. Conceito
+  curado em `docs/okf/features/tui.md`.
+* Tarefas 57–60 implementadas em 2026-09-05 (`flutter analyze` sem erros e
+  `flutter test` passando): 58, 59 e 60 concluídas; a 57 falta apenas a
+  verificação manual com dois dispositivos reais (que fecha também o último
+  checkbox da 55).
 * Tarefa 80 criada em 2026-08-29 (bug: QR de pareamento gerado no Linux não era decodificado pelo scanner Android — payload do QR trocado para formato alfanumérico compacto).
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).
 * Existem dois arquivos com o número 47; o segundo é referenciado como **47b**.
