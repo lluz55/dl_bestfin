@@ -41,9 +41,15 @@ Definidos em `lib/features/llm/domain/models/ai_model_type.dart`:
 | Ferramentas LLM (tool use) | `domain/services/llm_tools_service.dart` |
 | Avaliador matemático | `domain/services/math_evaluator.dart` |
 
+## Funcionalidades Implementadas (cont.)
+
+| Funcionalidade | Arquivo / Task |
+|---|---|
+| Entrada por linguagem natural (CLI/TUI) | `lib/cli/` — Task 55 (`bestfin add "frase"`) — parser heurístico + refinamento opcional via LLM (`:8087`) |
+
 ## Funcionalidades Planejadas (Task 25 — pendentes)
 
-- **A1** — Entrada de transação por linguagem natural ("Gastei 47 no iFood")
+- **A1** — Entrada de transação por linguagem natural ("Gastei 47 no iFood") — ✅ implementada via CLI/TUI (Task 55)
 - **A2** — Detector de redundância em assinaturas
 - **A3** — Parser PDF com fallback LLM
 - **A4** — Narrador de relatório mensal

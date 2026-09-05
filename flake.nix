@@ -95,10 +95,41 @@
           export JAVA_HOME="${pkgs.jdk17}"
           export GRADLE_USER_HOME="$HOME/.gradle"
           export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
-          export PATH="${pkgs.lib.makeBinPath [ pkgs.pkg-config ]}:$PATH"
+          # xdg-utils fornece `xdg-user-dir`, usado pelo path_provider_linux
+          # para resolver o diretório de documentos. Sem ele, getApplicationDocumentsDirectory
+          # lança MissingPlatformDirectoryException.
+          export PATH="${pkgs.lib.makeBinPath [ pkgs.pkg-config pkgs.xdg-utils ]}:$PATH"
           export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" linuxDesktopDeps}"
           export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath ([ pkgs.sqlite ] ++ linuxDesktopDeps)}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          # sqlcipher_flutter_libs precisa achar o OpenSSL estático no configure
+          # do CMake; sem isso, `flutter build linux` fora do devShell (ex: via
+          # `nix run .#bestfin`) falha com "Could NOT find OpenSSL".
+          export OPENSSL_ROOT_DIR="${opensslJoined}"
           exec ${pkgs.flutter}/bin/flutter "$@"
+        '';
+
+        # Recompila o bundle sempre que o código-fonte (lib/, pubspec.*, linux/)
+        # tiver arquivos mais novos que o binário já buildado. Evita reusar um
+        # bundle obsoleto (ex: builds antigos que ainda tinham o bug do
+        # MissingPlatformDirectoryException) e evita rebuild a cada `nix run`
+        # quando nada mudou.
+        ensureFreshBundleScript = ''
+          BUNDLE="build/linux/x64/release/bundle/bestfin"
+          NEEDS_BUILD=1
+          if [ -x "$BUNDLE" ]; then
+            # linux/flutter/ephemeral/ é regenerado pelo próprio `flutter
+            # build` a cada execução (ver linux/.gitignore) — se entrar no
+            # find, o bundle nunca fica "fresco" e todo `nix run` recompila.
+            STALE="$(find lib pubspec.yaml pubspec.lock linux -type f -newer "$BUNDLE" -not -path 'linux/flutter/ephemeral/*' 2>/dev/null | head -n1)"
+            if [ -z "$STALE" ]; then
+              NEEDS_BUILD=0
+            fi
+          fi
+          if [ "$NEEDS_BUILD" = "1" ]; then
+            echo "⚙️  Código-fonte mudou (ou bundle não existe), recompilando (flutter build linux --release)..." >&2
+            ${flutterBuildEnv}/bin/flutter-build build linux --release
+          fi
+          BIN="$BUNDLE"
         '';
       in {
         packages.flutter-mcp-toolkit = flutterMcpToolkit;
@@ -120,6 +151,55 @@
           program = "${pkgs.writeShellScriptBin "build-linux" ''
             exec ${flutterBuildEnv}/bin/flutter-build build linux "$@"
           ''}/bin/build-linux";
+        };
+
+        # BestFin CLI/TUI — mesmo binário da GUI, mas em modo CLI (sem janela)
+        # Uso: nix run .#bestfin -- add "mercado 50"
+        #      nix run .#bestfin -- tui
+        #      nix run .#bestfin -- --help
+        #      nix run .#tui  (atalho para bestfin tui)
+        apps.bestfin = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "bestfin-app" ''
+            set -euo pipefail
+            ${ensureFreshBundleScript}
+            # path_provider_linux chama `xdg-user-dir` para resolver o
+            # diretório de documentos. Sem isso no PATH, lança
+            # MissingPlatformDirectoryException (app_database.dart:640). O
+            # helper app_paths.dart tem fallback para ~/Documents, mas é
+            # melhor deixar o XDG resolver quando possível.
+            export PATH="${pkgs.lib.makeBinPath [ pkgs.xdg-utils ]}:$PATH"
+            export XDG_DOCUMENTS_DIR="''${XDG_DOCUMENTS_DIR:-$HOME/Documents}"
+            mkdir -p "$XDG_DOCUMENTS_DIR"
+            # No compositor cosmic-comp (COSMIC desktop), o embedder GTK/Flutter
+            # do Linux estoura "Protocol error 2 (invalid_size) on wl_surface"
+            # ao criar a superfície nativa Wayland e a janela nunca aparece,
+            # sem nenhum erro do lado do Dart. cosmic-session já exporta
+            # GDK_BACKEND=wayland,x11 por padrão — GDK tenta "wayland"
+            # primeiro, e como o handshake inicial não falha (só o commit do
+            # wl_surface, depois), nunca cai para o fallback x11 da lista.
+            # Por isso é atribuição direta, não "''${GDK_BACKEND:-x11}".
+            export GDK_BACKEND=x11
+            exec "$BIN" "$@"
+          ''}/bin/bestfin-app";
+        };
+
+        apps.tui = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "bestfin-tui" ''
+            set -euo pipefail
+            ${ensureFreshBundleScript}
+            export PATH="${pkgs.lib.makeBinPath [ pkgs.xdg-utils ]}:$PATH"
+            export XDG_DOCUMENTS_DIR="''${XDG_DOCUMENTS_DIR:-$HOME/Documents}"
+            mkdir -p "$XDG_DOCUMENTS_DIR"
+            # COSMIC (cosmic-session) já exporta GDK_BACKEND=wayland,x11 por
+            # padrão — GDK tenta "wayland" primeiro, e como o handshake
+            # inicial não falha (só o commit do wl_surface, depois), nunca
+            # cai para o fallback x11 da lista. Por isso aqui é atribuição
+            # direta, não "''${GDK_BACKEND:-x11}".
+            export GDK_BACKEND=x11
+            exec "$BIN" tui "$@"
+          ''}/bin/bestfin-tui";
         };
 
         apps.llm-server = {
@@ -193,6 +273,26 @@
             export LLAMA_LIBRARY_PATH="${llama-cpp-vulkan}/lib/libllama.so"
             export LLAMA_SERVER_BIN="${llama-cpp-vulkan}/bin/llama-server"
             export GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
+
+            # path_provider_linux exige XDG_DOCUMENTS_DIR para
+            # getApplicationDocumentsDirectory(); sem ele, abre o SQLite com
+            # MissingPlatformDirectoryException (app_database.dart:640).
+            # Definimos um fallback em $HOME/Documents caso o usuário esteja
+            # num ambiente sem XDG (ex: headless, container).
+            export XDG_DOCUMENTS_DIR="''${XDG_DOCUMENTS_DIR:-$HOME/Documents}"
+            mkdir -p "$XDG_DOCUMENTS_DIR"
+
+            # No compositor cosmic-comp (COSMIC desktop), o embedder GTK/Flutter
+            # do Linux estoura "Protocol error 2 (invalid_size) on wl_surface"
+            # ao criar a superfície nativa Wayland — a janela nunca aparece e
+            # não há nenhum erro do lado do Dart (a conexão Wayland só morre
+            # em silêncio). Forçar GDK a usar Xwayland contorna o bug.
+            # COSMIC (cosmic-session) já exporta GDK_BACKEND=wayland,x11 por
+            # padrão — GDK tenta "wayland" primeiro, e como o handshake
+            # inicial não falha (só o commit do wl_surface, depois), nunca
+            # cai para o fallback x11 da lista. Por isso aqui é atribuição
+            # direta, não "''${GDK_BACKEND:-x11}".
+            export GDK_BACKEND=x11
 
             # --- SOPS / Secrets configuration ---
             export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"

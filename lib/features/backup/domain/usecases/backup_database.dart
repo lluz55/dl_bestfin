@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bestfin/core/database/app_database.dart';
 import 'package:bestfin/core/database/database_provider.dart';
+import 'package:bestfin/core/utils/app_paths.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
@@ -20,7 +21,7 @@ class BackupDatabaseUseCase {
 
   /// Locates the active SQLite database file in the application document directory
   Future<File> getDatabaseFile() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
+    final dbFolder = await getAppDocumentsDirectory();
     return File(p.join(dbFolder.path, 'bestfin.sqlite'));
   }
 

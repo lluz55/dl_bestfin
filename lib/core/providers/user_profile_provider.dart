@@ -4,8 +4,9 @@ import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../utils/app_paths.dart';
 
 const kUserNameKey = 'user_name';
 const kUserPhotoPathKey = 'user_photo_path';
@@ -65,7 +66,7 @@ class UserProfileNotifier extends Notifier<UserProfile> {
   /// anterior. O nome do arquivo leva timestamp para invalidar o cache de
   /// imagens do Flutter, que é indexado pelo caminho.
   Future<void> setPhoto(String sourcePath) async {
-    final docs = await getApplicationDocumentsDirectory();
+    final docs = await getAppDocumentsDirectory();
     final ext = p.extension(sourcePath).isEmpty
         ? '.jpg'
         : p.extension(sourcePath);

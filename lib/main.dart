@@ -42,8 +42,37 @@ import 'package:bestfin/features/sync/domain/models/app_update_info.dart';
 import 'package:bestfin/features/sync/presentation/providers/sync_provider.dart';
 import 'package:bestfin/features/transactions/presentation/providers/transactions_provider.dart';
 import 'package:mcp_toolkit/mcp_toolkit.dart';
+import 'package:bestfin/cli/cli_main.dart';
 
-void main() async {
+void main(List<String> args) async {
+  // Modo CLI/TUI — intercepta antes de qualquer inicialização Flutter.
+  // Quando invocado como `bestfin add ...` ou `bestfin tui`, o embedder
+  // Linux passa os argumentos via FlDartProject; aqui desviamos para o
+  // bootstrap mínimo (sem WidgetsFlutterBinding/runApp) e encerramos o
+  // processo — a janela GTK nunca é exibida (first_frame_cb nunca dispara).
+  if (args.isNotEmpty) {
+    // O subcomando é o primeiro token que não é flag nem valor de `--db`
+    // (aceita tanto `bestfin tui` quanto `bestfin --db /tmp/x tui`).
+    const cliCommands = {'add', 'tui', 'sync', 'help', '--help', '-h'};
+    var isCli = false;
+    for (var i = 0; i < args.length; i++) {
+      final token = args[i].toLowerCase();
+      if (token == '--db') {
+        i++; // pula o caminho
+        continue;
+      }
+      if (token.startsWith('--db=')) continue;
+      isCli = cliCommands.contains(token);
+      break;
+    }
+    if (isCli) {
+      // runCli faz a filtragem das flags; aqui só garantimos que a árvore de
+      // widgets nunca seja construída — nenhum frame, nenhuma janela GTK.
+      final code = await runCli(args);
+      exit(code);
+    }
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
   MCPToolkitBinding.instance
     ..initialize()

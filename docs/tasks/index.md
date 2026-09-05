@@ -3,7 +3,7 @@ type: Task Index
 title: "BestFin — Índice de Tarefas"
 description: "Status e progresso de todas as tarefas do projeto. Consultar antes de iniciar qualquer implementação (Passo 3 do protocolo OKF)."
 tags: [bestfin, tasks, tracking]
-timestamp: 2026-07-12T12:00:00Z
+timestamp: 2026-08-29T12:00:00Z
 ---
 
 # Índice de Tarefas
@@ -69,6 +69,8 @@ timestamp: 2026-07-12T12:00:00Z
 | 52 | [Padronização dos modais bottom sheet](52-padronizacao-modais-bottom-sheet.md) | ✅ | 10/10 |
 | 53 | [Padronização do SectionHeader](53-padronizacao-section-header.md) | ✅ | 10/10 |
 | 54 | [Priorizar nome da categoria sobre tags de tipo/sistema quando há truncamento](54-category-name-truncation.md) | ✅ | 3/3 |
+| 55 | [Lançamento Rápido via CLI/TUI (linguagem natural, mesmo binário)](55-cli-tui-transaction-entry.md) | 🔄 | 18/19 |
+| 56 | [TUI completa — todas as funcionalidades do app pelo terminal](56-tui-completa.md) | ✅ | 27/27 |
 | 80 | [Pareamento por QR entre Linux e Android](80-sync-qr-pairing-compat.md) | ✅ | 7/7 |
 
 **Observações:**

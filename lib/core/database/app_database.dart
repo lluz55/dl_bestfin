@@ -1,9 +1,10 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+
+import '../utils/app_paths.dart';
 
 import '../constants/default_categories.dart';
 import 'db_encryption.dart';
@@ -637,7 +638,7 @@ class AppDatabase extends _$AppDatabase {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
+    final dbFolder = await getAppDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'bestfin.sqlite'));
     // Cifrado com SQLCipher no mobile; texto claro no desktop (ver DbEncryption).
     return DbEncryption.openExecutor(file);

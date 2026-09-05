@@ -57,3 +57,33 @@ Rode dentro do `nix develop`:
 - **Rodar Linux:** `flutter run -d linux`
 - **Rodar Android:** `flutter run -d emulator-5554` (após iniciar o emulador Android)
 - **Rodar Web:** `flutter run -d chrome`
+
+## Interface de Terminal (TUI)
+
+O mesmo binário `bestfin` também roda inteiro no terminal, sem abrir janela
+gráfica — útil para lançar despesas rápido, consultar relatórios por SSH ou
+gerar backups em script.
+
+```bash
+bestfin tui                 # menu com todas as áreas do app (sync contínuo)
+bestfin tui metas           # abre direto numa área (aceita prefixo e sem acento)
+bestfin add "mercado 50 no cartão"   # lançamento por linguagem natural
+bestfin sync                # sincroniza uma vez e sai (para scripts/cron)
+bestfin --help              # lista as áreas e os atalhos
+```
+
+Todas as áreas da interface gráfica estão disponíveis: painel, transações
+(com sugestões do histórico, lote e split), contas (com reconciliação),
+categorias, cartões, orçamentos, metas, parcelamentos, recorrências,
+financiamentos, investimentos, relatórios, projeção de caixa, conquistas,
+chat com o LLM local, importação de PDF, backup, sincronização (com QR de
+pareamento no terminal), grupos familiares e configurações. Com a TUI
+aberta o sincronismo é contínuo — mudanças dos outros dispositivos chegam
+em segundos e o que você grava é publicado automaticamente.
+
+Navegação: `↑↓`/`j k` movem, `↵` abre, `1`-`9` selecionam direto, `q` volta;
+os atalhos de cada tela aparecem no rodapé. As escritas passam pelos mesmos
+use cases da GUI, então entram normalmente na fila de sincronização.
+
+Opções úteis: `--db <caminho>` aponta para outro `bestfin.sqlite`;
+`BESTFIN_TUI=0` força o modo não interativo em scripts.
