@@ -88,6 +88,155 @@
           paths = [ opensslStatic.out opensslStatic.dev ];
         };
 
+        # ── Pacote consumível como flake input (task 61) ────────────────────
+        # `packages.bestfin` é uma derivação real (sandbox, offline) — diferente
+        # dos apps.* acima, que compilam dentro do checkout local. Consumo:
+        #   inputs.bestfin.url = "github:<user>/bestfin";
+        #   environment.systemPackages = [ inputs.bestfin.packages.${system}.bestfin ];
+
+        bestfinVersion = let
+          yaml = builtins.readFile ./pubspec.yaml;
+          versionLine = pkgs.lib.findFirst
+            (l: pkgs.lib.hasPrefix "version:" l)
+            "version: 0.0.0"
+            (pkgs.lib.splitString "\n" yaml);
+        in builtins.head (pkgs.lib.splitString "+"
+          (pkgs.lib.trim (pkgs.lib.removePrefix "version:" versionLine)));
+
+        bestfinSrc = pkgs.lib.cleanSourceWith {
+          src = pkgs.lib.cleanSource ./.;
+          filter = path: type:
+            !pkgs.lib.hasPrefix "${toString ./.}/build" path
+            && !pkgs.lib.hasInfix "linux/flutter/ephemeral" path;
+        };
+
+        # FOD (fixed-output derivation) do pub cache: `flutter pub get` com
+        # rede, hashado por pubspec.lock. O build principal roda depois com
+        # `--offline` contra este cache — nunca baixa nada no sandbox.
+        bestfinPubCacheDebug = pkgs.stdenv.mkDerivation {
+          pname = "bestfin-pub-cache-debug";
+          version = bestfinVersion;
+          src = bestfinSrc;
+          nativeBuildInputs = [ pkgs.flutter ];
+          buildPhase = ''
+            export HOME=$PWD
+            export PUB_CACHE=$PWD/pub-cache
+            flutter pub get --no-example
+          '';
+          installPhase = ''
+            mkdir -p $out
+            cp -r pub-cache/hosted/pub.dev $out/ 2>/dev/null || true
+            (grep -rl '/nix/store/' pub-cache/hosted/pub.dev || true) > $out/refs.txt
+            echo "---symlinks---" >> $out/refs.txt
+            (find pub-cache -type l -printf '%p -> %l\n' || true) >> $out/refs.txt
+            echo "---newfiles---" >> $out/refs.txt
+            (find pub-cache -newer pubspec.lock -type f 2>/dev/null | head -50 || true) >> $out/refs.txt
+          '';
+        };
+
+        # Diagnóstico: replica o pub get da FOD já sandboxed (cache semeado
+        # pela derivação debug anterior, com rede) e mostra o que muda.
+        bestfinPubCacheDebug2 = pkgs.stdenv.mkDerivation {
+          pname = "bestfin-pub-cache-debug2";
+          version = bestfinVersion;
+          src = bestfinSrc;
+          nativeBuildInputs = [ pkgs.flutter ];
+          buildPhase = ''
+            export HOME=$PWD
+            cp -r ${/tmp/pc-test/pc} ./pub-cache
+            chmod -R u+w pub-cache
+            export PUB_CACHE=$PWD/pub-cache
+            flutter pub get --offline || true
+          '';
+          installPhase = ''
+            mkdir -p $out
+            (grep -rl '/nix/store/' pub-cache/hosted/pub.dev || true) > $out/refs.txt
+            echo "---symlinks---" >> $out/refs.txt
+            (find pub-cache -type l -printf '%p -> %l\n' || true) >> $out/refs.txt
+          '';
+        };
+
+        bestfinPubCache = pkgs.stdenv.mkDerivation {
+          pname = "bestfin-pub-cache";
+          version = bestfinVersion;
+          src = bestfinSrc;
+          nativeBuildInputs = [ pkgs.flutter ];
+          impureEnvVars = pkgs.lib.fetchers.proxyImpureEnvVars;
+          outputHashAlgo = "sha256";
+          outputHashMode = "recursive";
+          # Hash inicial placeholder — o primeiro `nix build` falha com o
+          # mismatch e reporta o hash real; substituir aqui e rebuildar.
+          outputHash = pkgs.lib.fakeSha256;
+          buildPhase = ''
+            export HOME=$PWD
+            export PUB_CACHE=$PWD/pub-cache
+            flutter pub get --no-example
+          '';
+          installPhase = ''
+            mkdir -p $out/hosted
+            # Só os pacotes extraídos — `.cache` guarda locks/índices com
+            # timestamps e quebraria a reprodutibilidade do hash.
+            cp -r pub-cache/hosted/pub.dev $out/hosted/
+            rm -rf $out/hosted/pub.dev/.cache
+            echo "=== DEBUG refs ===" >&2
+            (grep -rl '/nix/store/' $out || echo NO_REFS_IN_OUT) >&2
+            (find $out -type l -printf '%p -> %l\n' || true) >&2
+            echo "=== END DEBUG ===" >&2
+          '';
+        };
+
+        # Build offline do bundle Linux dentro do sandbox do Nix.
+        bestfinPackage = pkgs.stdenv.mkDerivation {
+          pname = "bestfin";
+          version = bestfinVersion;
+          src = bestfinSrc;
+
+          nativeBuildInputs = with pkgs; [
+            flutter
+            cmake
+            ninja
+            clang
+            pkg-config
+            makeWrapper
+          ];
+          buildInputs = linuxDesktopDeps ++ [ pkgs.sqlite ];
+
+          # Necessário para o CMake do plugin sqlcipher_flutter_libs achar o
+          # OpenSSL estático (libcrypto.a) e para o linker achar gtk3/sqlite.
+          preConfigure = ''
+            export OPENSSL_ROOT_DIR="${opensslJoined}"
+            export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" linuxDesktopDeps}"
+          '';
+          preBuild = ''
+            export HOME=$PWD
+            export PUB_CACHE=${bestfinPubCache}
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath ([ pkgs.sqlite ] ++ linuxDesktopDeps)}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          '';
+
+          buildPhase = ''
+            runHook preBuild
+            flutter build linux --release --offline
+            runHook postBuild
+          '';
+
+          installPhase = ''
+            mkdir -p $out/lib/bestfin $out/bin
+            cp -r build/linux/x64/release/bundle/. $out/lib/bestfin/
+            ln -s $out/lib/bestfin/bestfin $out/bin/bestfin
+            wrapProgram $out/lib/bestfin/bestfin \
+              --prefix PATH : "${pkgs.lib.makeBinPath [ pkgs.xdg-utils ]}" \
+              --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath ([ pkgs.sqlite ] ++ linuxDesktopDeps)}:$out/lib/bestfin/lib"
+          '';
+
+          passthru.exePath = "/bin/bestfin";
+          meta = with pkgs.lib; {
+            description = "BestFin — Personal Finance App (GUI, TUI e CLI no mesmo binário)";
+            license = licenses.unfree;
+            platforms = platforms.linux;
+            mainProgram = "bestfin";
+          };
+        };
+
         flutterBuildEnv = pkgs.writeShellScriptBin "flutter-build" ''
           set -euo pipefail
           export ANDROID_HOME="${androidSdk}/share/android-sdk"
@@ -132,6 +281,11 @@
           BIN="$BUNDLE"
         '';
       in {
+        packages.bestfin = bestfinPackage;
+        packages.default = bestfinPackage;
+        packages.debug-pub-cache = bestfinPubCacheDebug;
+        packages.debug-pub-cache2 = bestfinPubCacheDebug2;
+
         packages.flutter-mcp-toolkit = flutterMcpToolkit;
 
         apps.flutter-mcp-toolkit-server = {
