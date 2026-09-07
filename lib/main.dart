@@ -53,7 +53,7 @@ void main(List<String> args) async {
   if (args.isNotEmpty) {
     // O subcomando é o primeiro token que não é flag nem valor de `--db`
     // (aceita tanto `bestfin tui` quanto `bestfin --db /tmp/x tui`).
-    const cliCommands = {'add', 'tui', 'sync', 'help', '--help', '-h'};
+    const cliCommands = {'add', 'tui', 'sync', 'syncd', 'help', '--help', '-h'};
     var isCli = false;
     for (var i = 0; i < args.length; i++) {
       final token = args[i].toLowerCase();

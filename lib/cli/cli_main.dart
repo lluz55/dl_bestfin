@@ -17,6 +17,7 @@ import 'package:bestfin/cli/db_path_resolver.dart';
 import 'package:bestfin/cli/llm_bridge.dart';
 import 'package:bestfin/cli/nl_parser.dart';
 import 'package:bestfin/cli/parse_result.dart';
+import 'package:bestfin/cli/sync_daemon.dart';
 import 'package:bestfin/cli/tui/context.dart';
 import 'package:bestfin/cli/tui/term.dart';
 import 'package:bestfin/cli/tui/tui_app.dart';
@@ -81,6 +82,8 @@ Future<int> runCli(List<String> args) async {
       return _runFullTui(dbOverride: dbOverride, area: phrase);
     case 'sync':
       return _runSyncOnce(dbOverride: dbOverride, extra: phraseParts);
+    case 'syncd':
+      return _runSyncDaemon(dbOverride: dbOverride, extra: phraseParts);
     default:
       stderr.writeln('Comando desconhecido: $sub');
       _printHelp();
@@ -256,6 +259,42 @@ Future<int> _runSyncOnce({
   }
 }
 
+/// `bestfin syncd` — daemon headless de sincronização para systemd/módulo
+/// NixOS (task 61). Identidade via `--key-file <path>` (payload BESTFIN:1:
+/// ou mnemônico), em texto plano ou cifrado com SOPS — a descriptografia é
+/// feita pelo próprio daemon via `sops -d`. Exit codes: 0 ok, 1 erro, 2 uso.
+Future<int> _runSyncDaemon({
+  String? dbOverride,
+  List<String> extra = const [],
+}) async {
+  String? keyFile;
+  final unknown = <String>[];
+  for (var i = 0; i < extra.length; i++) {
+    if (extra[i] == '--key-file' && i + 1 < extra.length) {
+      keyFile = extra[i + 1];
+      i++;
+    } else if (extra[i].startsWith('--key-file=')) {
+      keyFile = extra[i].substring('--key-file='.length);
+    } else {
+      unknown.add(extra[i]);
+    }
+  }
+  if (unknown.isNotEmpty) {
+    stderr.writeln('syncd: argumentos desconhecidos: ${unknown.join(' ')}');
+    return 2;
+  }
+
+  final dbPath = resolveBestfinDbPath(override: dbOverride);
+  if (!File(dbPath).existsSync()) {
+    stderr.writeln(
+      'Banco não encontrado em: $dbPath\n'
+      'Execute o app gráfico uma vez para criá-lo, ou use --db <path>.',
+    );
+    return 1;
+  }
+  return runSyncDaemon(db: _openDb(dbPath), keyFile: keyFile);
+}
+
 void _printHelp() {
   stdout.writeln('''
 BestFin — interface de terminal
@@ -266,6 +305,8 @@ Uso:
   bestfin add "<frase>" [--db <caminho>]   Cria transação por linguagem natural
   bestfin add [--db <caminho>]              Assistente rápido de lançamento
   bestfin sync [--db <caminho>]             Sincroniza uma vez e sai (scripts)
+  bestfin syncd --key-file <path>           Daemon headless de sync (systemd);
+                                            arquivo de chave plano ou SOPS-criptografado
   bestfin --help                            Mostra esta ajuda
 
 Áreas disponíveis em "bestfin tui <área>":

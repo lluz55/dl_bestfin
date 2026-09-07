@@ -24,10 +24,22 @@ Directory _resolveLinuxDocumentsDir() {
     if (candidate.isNotEmpty) return Directory(candidate);
   }
 
-  for (final name in ['Documents', 'Documentos']) {
+  // Verifica ambos os locales — se os dois existirem, prefere o que tem
+  // o arquivo de banco maior (um banco real tem KB; arquivo espúrio tem bytes).
+  Directory? best;
+  int bestSize = 0;
+  for (final name in ['Documentos', 'Documents']) {
     final dir = Directory(p.join(home, name));
-    if (dir.existsSync()) return dir;
+    if (!dir.existsSync()) continue;
+    final db = File(p.join(dir.path, 'bestfin.sqlite'));
+    if (!db.existsSync()) continue;
+    final len = db.lengthSync();
+    if (len > bestSize) {
+      bestSize = len;
+      best = dir;
+    }
   }
+  if (best != null) return best;
 
   final fallback = Directory(
     p.join(home, '.local', 'share', 'bestfin', 'documents'),

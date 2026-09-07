@@ -57,6 +57,7 @@ Não existe servidor próprio. `backend/` (Go + SQLite) foi removido — a sincr
 | `presentation/widgets/relay_manager_section.dart` | UI para adicionar/remover relays e restaurar os padrões (usa `relayListProvider`) |
 | `presentation/providers/sync_provider.dart` | `SyncStateNotifier` (auto-sync); `relayListProvider`/`RelayListNotifier` (lista de relays configurável) |
 | `cli/tui/sync_engine.dart` | `TuiSyncEngine` — o mesmo auto-sync da GUI dentro da TUI, sem Riverpod: live subscription + push com debounce de 3s + poll de 1min; `bestfin sync` one-shot reusa o pipeline (ver [[tui]]) |
+| `cli/sync_daemon.dart` | `bestfin syncd` — daemon headless (systemd/NixOS) rodando o mesmo `TuiSyncEngine`; identidade via `--key-file`/`BESTFIN_SYNC_KEYFILE` em texto plano **ou cifrado com SOPS** (o daemon roda `sops -d`, chave age via `SOPS_AGE_KEY_FILE`/`SOPS_AGE_KEY`), conteúdo descriptografado só em memória |
 
 
 ## Pareamento por QR

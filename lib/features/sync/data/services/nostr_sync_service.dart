@@ -212,6 +212,17 @@ class NostrSyncService implements SyncTransport {
     return _activateIdentity(masterKey);
   }
 
+  /// Ativa uma identidade a partir da masterKey já em memória — SEM tocar no
+  /// armazenamento seguro nem persistir nada. Usado pelo daemon headless
+  /// (`bestfin syncd --key-file`), que recebe a chave por arquivo gerenciado
+  /// externamente (ex: SOPS) e não deve gravá-la em lugar nenhum.
+  ///
+  /// Como `_identity` fica preenchida, o `loadIdentity()` subsequente do
+  /// engine retorna esta identidade (curto-circuito na primeira linha).
+  Future<SyncIdentity> useMasterKey(Uint8List masterKey) {
+    return _restoreIdentity(masterKey);
+  }
+
   @override
   Future<void> signOut() async {
     await _closeNostr();

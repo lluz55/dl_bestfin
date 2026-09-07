@@ -75,6 +75,7 @@ timestamp: 2026-09-05T00:00:00Z
 | 58 | [Paridade de lançamentos na TUI — sugestões, bulk e split](58-tui-paridade-lancamentos.md) | ✅ | 12/12 |
 | 59 | [Reconciliação de contas na TUI](59-tui-reconciliacao.md) | ✅ | 5/5 |
 | 60 | [Chat/insights do LLM on-device na TUI](60-tui-llm-chat.md) | ✅ | 4/4 |
+| 61 | [Daemon syncd headless com key-file via SOPS](61-syncd-sops-keyfile.md) | ✅ | 9/9 |
 | 80 | [Pareamento por QR entre Linux e Android](80-sync-qr-pairing-compat.md) | ✅ | 7/7 |
 
 **Observações:**
@@ -88,6 +89,9 @@ timestamp: 2026-09-05T00:00:00Z
   verificação manual com dois dispositivos reais (que fecha também o último
   checkbox da 55).
 * Tarefa 80 criada em 2026-08-29 (bug: QR de pareamento gerado no Linux não era decodificado pelo scanner Android — payload do QR trocado para formato alfanumérico compacto).
+* Tarefa 61 criada e concluída em 2026-09-06: formaliza o `bestfin syncd`
+  (referenciado nos comentários do código desde a task 57) com suporte a
+  key-file cifrado com SOPS — descriptografia via `sops -d` no próprio daemon.
 * Os números 18, 25 e 26 não existem (tarefas nunca criadas ou absorvidas por outras).
 * Existem dois arquivos com o número 47; o segundo é referenciado como **47b**.
 * Tarefas 29, 30 e 32 estão com todos os checkboxes marcados mas `status: in_progress`
